@@ -1,0 +1,102 @@
+@import "@fontsource/cairo/400.css";
+@import "@fontsource/cairo/700.css";
+@import "@fontsource/poppins/400.css";
+@import "@fontsource/poppins/700.css";
+
+:root {
+  /* Brand Colors */
+  --color-primary: #0F2440;
+  --color-accent: #FF7A29;
+  --color-surface: #FFFFFF;
+  --color-background: #F4F5F7;
+  
+  /* Text Colors */
+  --color-text-primary: #1C1C1E;
+  --color-text-muted: #6B7280;
+  
+  /* Border & States */
+  --color-border: #E3E4E8;
+  --color-success: #10B981; /* Default green */
+  --color-error: #EF4444;   /* Default red */
+  --color-warning: #F59E0B; /* Orange-ish warning */
+  --color-info: #3B82F6;
+  
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-pill: 999px;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Cairo', 'Poppins', sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+input, textarea, select {
+  font-family: inherit;
+}
+
+/* Typography Hierarchy Setup */
+h1, h2, h3, h4, h5, h6 {
+  margin-top: 0;
+  margin-bottom: var(--spacing-sm);
+  color: var(--color-primary);
+}
+
+h1 {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+h3 {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+p {
+  margin-top: 0;
+  margin-bottom: var(--spacing-md);
+  font-size: 15px;
+}
+
+.text-helper {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}

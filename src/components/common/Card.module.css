@@ -1,0 +1,29 @@
+.card {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  padding: var(--spacing-lg);
+}
+
+.shadowSm {
+  box-shadow: var(--shadow-sm);
+}
+
+.shadowMd {
+  box-shadow: var(--shadow-md);
+  border: none;
+}
+
+.dark {
+  background-color: var(--color-primary);
+  color: var(--color-surface);
+  border: none;
+}
+
+.dark h1, .dark h2, .dark h3, .dark h4, .dark p {
+  color: var(--color-surface);
+}
+
+.dark .text-helper {
+  color: rgba(255, 255, 255, 0.7);
+}

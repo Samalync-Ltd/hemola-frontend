@@ -1,0 +1,22 @@
+.container {
+  display: flex;
+  flex-direction: column;
+}
+
+.label {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+
+.price {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-primary);
+  direction: ltr; /* keep number logic LTR usually, but since format is Arabic, maybe auto */
+  display: inline-block;
+}
+
+.lg .price {
+  font-size: 24px;
+}
