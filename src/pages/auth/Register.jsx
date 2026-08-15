@@ -17,7 +17,7 @@ export const Register = () => {
         // Simulate API delay
         setTimeout(() => {
             setIsLoading(false);
-            setStep(5); // Review step
+            setStep(role === 'CARRIER' ? 6 : 5); // Review step
         }, 1000);
     };
     const simulateAdminApproval = () => {
@@ -26,11 +26,11 @@ export const Register = () => {
     return (<div className={styles.container}>
       <div className={styles.card}>
         <div className={styles.logoArea} style={{ marginBottom: 24 }}>
-          <h1 className={styles.logoText}>حمولة</h1>
+          <img src="/logos/1.png" alt="حمولة" style={{ height: 80, objectFit: 'contain' }} />
         </div>
 
         <div style={{ marginBottom: 24, fontSize: 14, color: 'var(--color-text-muted)', display: 'flex', justifyContent: 'center', gap: 8 }}>
-          {[1, 2, 3, 4, 5].map(s => (<div key={s} style={{
+          {Array.from({ length: role === 'CARRIER' ? 6 : 5 }, (_, i) => i + 1).map(s => (<div key={s} style={{
                 width: 24, height: 24, borderRadius: '50%',
                 backgroundColor: step === s ? 'var(--color-accent)' : step > s ? 'var(--color-success)' : 'var(--color-border)',
                 color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12
@@ -39,7 +39,14 @@ export const Register = () => {
             </div>))}
         </div>
 
-        <form className={styles.form} onSubmit={step === 4 ? handleRegister : (e) => { e.preventDefault(); nextStep(); }}>
+        <form className={styles.form} onSubmit={(e) => { 
+            e.preventDefault(); 
+            if ((role === 'SHIPPER' && step === 4) || (role === 'CARRIER' && step === 5)) {
+                handleRegister(e);
+            } else {
+                nextStep(); 
+            }
+        }}>
           
           {step === 1 && (<>
               <h2 style={{ textAlign: 'center', marginBottom: 24 }}>أنت تستخدم حمولة بصفتك؟</h2>
@@ -54,7 +61,7 @@ export const Register = () => {
             </>)}
 
           {step === 2 && (<>
-              <h2 style={{ textAlign: 'center', marginBottom: 24 }}>نوع صاحب الشحنة</h2>
+              <h2 style={{ textAlign: 'center', marginBottom: 24 }}>{role === 'SHIPPER' ? 'نوع صاحب الشحنة' : 'نوع الناقل'}</h2>
               <div className={styles.tabs} style={{ flexDirection: 'column', gap: 8, backgroundColor: 'transparent' }}>
                 <button type="button" className={`${styles.tab} ${accountType === 'INDIVIDUAL' ? styles.tabActive : ''}`} onClick={() => setAccountType('INDIVIDUAL')} style={{ padding: 16, border: '1px solid var(--color-border)' }}>
                   فرد
@@ -74,7 +81,7 @@ export const Register = () => {
               <Input label="كلمة المرور" type="password" required/>
             </>)}
 
-          {step === 4 && (<>
+          {step === 4 && role === 'SHIPPER' && (<>
               <h2 style={{ textAlign: 'center', marginBottom: 24 }}>المستندات</h2>
               {accountType === 'INDIVIDUAL' ? (<Input type="file" label="الهوية" required/>) : (<>
                   <Input type="file" label="السجل التجاري / مستندات المنشأة" required/>
@@ -82,7 +89,25 @@ export const Register = () => {
                 </>)}
             </>)}
 
-          {step === 5 && (<div style={{ textAlign: 'center' }}>
+          {step === 4 && role === 'CARRIER' && (<>
+              <h2 style={{ textAlign: 'center', marginBottom: 24 }}>المستندات الأساسية</h2>
+              {accountType === 'INDIVIDUAL' ? (<Input type="file" label="الهوية الوطنية / الإقامة" required/>) : (<>
+                  <Input type="file" label="السجل التجاري" required/>
+                  <Input type="file" label="هوية المسؤول" required/>
+                  <Input type="file" label="ترخيص هيئة النقل" required/>
+                </>)}
+              <Input type="file" label="رخصة القيادة للمندوب" required/>
+            </>)}
+
+          {step === 5 && role === 'CARRIER' && (<>
+              <h2 style={{ textAlign: 'center', marginBottom: 24 }}>بيانات الشاحنة</h2>
+              <Input label="نوع الشاحنة (تريلا، دينا...)" required/>
+              <Input label="رقم اللوحة" required/>
+              <Input type="file" label="الاستمارة (رخصة السير)" required/>
+              <Input type="file" label="وثيقة التأمين" required/>
+            </>)}
+
+          {( (step === 5 && role === 'SHIPPER') || (step === 6 && role === 'CARRIER') ) && (<div style={{ textAlign: 'center' }}>
               <div style={{ width: 64, height: 64, backgroundColor: 'rgba(255, 122, 41, 0.1)', borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
                 <span style={{ fontSize: 32 }}>⏳</span>
               </div>
@@ -100,13 +125,13 @@ export const Register = () => {
             </div>)}
 
           <div style={{ display: 'flex', gap: 16, marginTop: 32 }}>
-            {step > 1 && step < 5 && (<Button type="button" variant="outline" onClick={prevStep} style={{ flex: 1 }}>
+            {step > 1 && !( (step === 5 && role === 'SHIPPER') || (step === 6 && role === 'CARRIER') ) && (<Button type="button" variant="outline" onClick={prevStep} style={{ flex: 1 }}>
                 السابق
               </Button>)}
-            {step < 4 && (<Button type="submit" style={{ flex: 2 }}>
+            {((role === 'SHIPPER' && step < 4) || (role === 'CARRIER' && step < 5)) && (<Button type="submit" style={{ flex: 2 }}>
                 التالي
               </Button>)}
-            {step === 4 && (<Button type="submit" style={{ flex: 2 }} isLoading={isLoading}>
+            {((role === 'SHIPPER' && step === 4) || (role === 'CARRIER' && step === 5)) && (<Button type="submit" style={{ flex: 2 }} isLoading={isLoading}>
                 إرسال الطلب
               </Button>)}
           </div>

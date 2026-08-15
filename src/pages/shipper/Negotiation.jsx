@@ -60,10 +60,17 @@ export const Negotiation = () => {
                 }]);
         }, 2000);
     };
-    const handleAccept = () => {
+    const handleAccept = async () => {
+        setIsLoading(true);
         const lastOffer = history[history.length - 1];
-        alert(`تم الاتفاق على السعر النهائي — ${lastOffer.amount} ر.س\nتأكيد وإسناد الشحنة للناقل`);
-        navigate(`/app/shipments/${shipment.id}`);
+        try {
+            await offerService.acceptOffer(offer.id, lastOffer.amount);
+            alert(`تم الاتفاق على السعر النهائي — ${lastOffer.amount} ر.س\nتأكيد وإسناد الشحنة للناقل`);
+            navigate(`/app`); // Redirect to dashboard
+        } catch (error) {
+            console.error('Failed to accept offer:', error);
+            setIsLoading(false);
+        }
     };
     if (isLoading)
         return <div>جاري التحميل...</div>;

@@ -4,12 +4,16 @@ import { Button } from '../../components/common/Button';
 import { walletService } from '../../services/api';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { DataTable } from '../../components/common/DataTable';
+import { TopUpModal } from '../../components/wallet/TopUpModal';
+
 export const WalletPage = () => {
     const [wallet, setWallet] = useState(null);
     const [transactions, setTransactions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    useEffect(() => {
-        Promise.all([
+    const [isTopUpOpen, setIsTopUpOpen] = useState(false);
+    const [isToppingUp, setIsToppingUp] = useState(false);
+    const fetchData = () => {
+        return Promise.all([
             walletService.getWallet(),
             walletService.getTransactions()
         ])
@@ -18,7 +22,24 @@ export const WalletPage = () => {
             setTransactions(t);
         })
             .finally(() => setIsLoading(false));
+    };
+
+    useEffect(() => {
+        fetchData();
     }, []);
+
+    const handleTopUp = async (amount) => {
+        setIsToppingUp(true);
+        try {
+            await walletService.topUp(amount);
+            await fetchData();
+            setIsTopUpOpen(false);
+        } catch (error) {
+            console.error('Failed to top up', error);
+        } finally {
+            setIsToppingUp(false);
+        }
+    };
     if (isLoading)
         return <div>جاري التحميل...</div>;
     if (!wallet)
@@ -50,7 +71,7 @@ export const WalletPage = () => {
             </svg>
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
-            <Button variant="secondary" style={{ flex: 1 }} onClick={() => alert('محاكاة شحن الرصيد')}>شحن الرصيد</Button>
+            <Button variant="secondary" style={{ flex: 1 }} onClick={() => setIsTopUpOpen(true)}>شحن الرصيد</Button>
             <Button variant="outline" style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', borderColor: 'transparent' }} onClick={() => alert('محاكاة سحب الرصيد')}>سحب الرصيد</Button>
           </div>
         </Card>
@@ -68,5 +89,12 @@ export const WalletPage = () => {
         <h3 style={{ marginBottom: 16 }}>سجل العمليات</h3>
         <DataTable data={transactions} columns={columns} keyExtractor={t => t.id} emptyMessage="لا توجد عمليات سابقة"/>
       </Card>
+
+      <TopUpModal
+        isOpen={isTopUpOpen}
+        onClose={() => setIsTopUpOpen(false)}
+        onConfirm={handleTopUp}
+        isLoading={isToppingUp}
+      />
     </div>);
 };

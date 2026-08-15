@@ -10,9 +10,8 @@ export const AdminSidebar = () => {
         { label: 'التقارير', path: '/admin/reports', icon: <BarChart size={20}/> },
     ];
     return (<aside className={styles.sidebar} style={{ backgroundColor: '#0A192F' }}>
-      <div className={styles.brand}>
-        <div style={{ width: 32, height: 32, backgroundColor: '#FF7A29', borderRadius: 8 }}></div>
-        <h2 className={styles.logoText}>حمولة - الإدارة</h2>
+      <div className={styles.sidebarHeader}>
+        <img src="/logos/1.png" alt="حمولة" style={{ height: 40, objectFit: 'contain' }} />
       </div>
 
       <nav className={styles.nav} style={{ marginTop: 24 }}>

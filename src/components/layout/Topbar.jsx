@@ -3,6 +3,7 @@ import { Bell } from 'lucide-react';
 import styles from './Layout.module.css';
 import { StatusBadge } from '../common/StatusBadge';
 import { authService } from '../../services/api';
+import { NotificationCenter } from '../common/NotificationCenter';
 export const Topbar = () => {
     const [user, setUser] = useState(null);
     useEffect(() => {
@@ -32,9 +33,7 @@ export const Topbar = () => {
             
             <div style={{ width: 1, height: 24, backgroundColor: 'var(--color-border)', margin: '0 8px' }}></div>
             
-            <button style={{ color: 'var(--color-text-muted)', cursor: 'pointer' }}>
-              <Bell size={24}/>
-            </button>
+            <NotificationCenter />
           </>)}
       </div>
     </header>);

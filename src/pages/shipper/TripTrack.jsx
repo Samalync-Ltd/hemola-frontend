@@ -3,14 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { tripService } from '../../services/api';
-import { TripStage as TripStageEnum } from '../../constants/enums';
+import { TripStage as TripStageEnum, TripStageAr } from '../../constants/enums';
+
 const stageOrder = [
-    TripStageEnum.PENDING,
-    TripStageEnum.AT_PICKUP,
-    TripStageEnum.LOADING,
-    TripStageEnum.EN_ROUTE,
-    TripStageEnum.AT_DELIVERY,
-    TripStageEnum.UNLOADING,
+    TripStageEnum.ASSIGNED,
+    TripStageEnum.PICKUP_ROUTE_EN,
+    TripStageEnum.PICKUP_ARRIVED,
+    TripStageEnum.LOADED,
+    TripStageEnum.DELIVERY_ROUTE_EN,
     TripStageEnum.DELIVERED
 ];
 export const TripTrack = () => {
@@ -31,10 +31,17 @@ export const TripTrack = () => {
         return <div>الرحلة غير موجودة</div>;
     const currentStageIndex = stageOrder.indexOf(trip.currentStage);
     const isDelivered = trip.currentStage === TripStageEnum.DELIVERED;
+    
+    // Safely generate stages if they don't exist in mock data
+    const stagesList = trip.stages || stageOrder.map((stage) => ({
+        stage,
+        timestamp: stageOrder.indexOf(stage) <= currentStageIndex ? trip.startedAt : null
+    }));
+
     return (<div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h2 style={{ margin: 0 }}>متابعة الرحلة {trip.id}</h2>
+          <h2 style={{ margin: 0 }}>متابعة الرحلة {trip.shipmentId}</h2>
           <span className="text-helper">المسار: {trip.route}</span>
         </div>
         <Button variant="outline" onClick={() => navigate('/app/trips')}>عودة للرحلات</Button>
@@ -50,7 +57,7 @@ export const TripTrack = () => {
 
           <h3 style={{ marginBottom: 16 }}>مراحل الرحلة</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {trip.stages.map((stage, idx) => {
+            {stagesList.map((stage, idx) => {
             const stageIdx = stageOrder.indexOf(stage.stage);
             const isCompleted = stageIdx <= currentStageIndex;
             const isCurrent = stageIdx === currentStageIndex;
@@ -62,10 +69,10 @@ export const TripTrack = () => {
                     border: isCurrent ? '4px solid rgba(255,122,41,0.2)' : 'none',
                     marginTop: 4
                 }}></div>
-                    {idx < trip.stages.length - 1 && (<div style={{ width: 2, flex: 1, backgroundColor: isCompleted ? 'var(--color-success)' : 'var(--color-border)', margin: '4px 0' }}></div>)}
+                    {idx < stagesList.length - 1 && (<div style={{ width: 2, flex: 1, backgroundColor: isCompleted ? 'var(--color-success)' : 'var(--color-border)', margin: '4px 0' }}></div>)}
                   </div>
                   <div style={{ paddingBottom: 24 }}>
-                    <div style={{ fontWeight: 'bold' }}>{getStageLabel(stage.stage)}</div>
+                    <div style={{ fontWeight: 'bold' }}>{TripStageAr[stage.stage] || stage.stage}</div>
                     <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 4 }}>
                       {stage.timestamp ? new Date(stage.timestamp).toLocaleString('ar-SA') : 'لم تتم بعد'}
                     </div>
@@ -102,15 +109,3 @@ export const TripTrack = () => {
       </div>
     </div>);
 };
-function getStageLabel(stage) {
-    const labels = {
-        PENDING: 'في انتظار بدء الرحلة',
-        AT_PICKUP: 'الشاحنة في موقع التحميل',
-        LOADING: 'جاري التحميل',
-        EN_ROUTE: 'في الطريق إلى الوجهة',
-        AT_DELIVERY: 'الشاحنة في موقع التسليم',
-        UNLOADING: 'جاري التنزيل',
-        DELIVERED: 'تم التسليم بنجاح'
-    };
-    return labels[stage] || stage;
-}

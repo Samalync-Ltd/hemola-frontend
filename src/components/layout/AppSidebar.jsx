@@ -13,10 +13,8 @@ export const AppSidebar = () => {
         { label: 'الحساب', path: '/app/account', icon: <UserIcon size={20}/> },
     ];
     return (<aside className={styles.sidebar}>
-      <div className={styles.brand}>
-        {/* Mock Logo */}
-        <div style={{ width: 32, height: 32, backgroundColor: '#FF7A29', borderRadius: 8 }}></div>
-        <h2 className={styles.logoText}>حمولة</h2>
+      <div className={styles.sidebarHeader}>
+        <img src="/logos/1.png" alt="حمولة" style={{ height: 40, objectFit: 'contain' }} />
       </div>
 
       <div className={styles.ctaContainer}>

@@ -49,6 +49,15 @@ export const Profile = () => {
             <div>
               <h3 style={{ margin: '0 0 4px' }}>{user.companyName || user.name}</h3>
               <StatusBadge status={user.accountStatus}/>
+              {user.role === 'CARRIER' && (
+                  <div style={{ marginTop: 8, fontSize: 14 }}>
+                      <span className="text-helper">التقييم: </span>
+                      <strong style={{ color: 'var(--color-accent)' }}>⭐ {user.rating}</strong>
+                      <span className="text-helper" style={{ margin: '0 8px' }}>|</span>
+                      <span className="text-helper">رحلات مكتملة: </span>
+                      <strong>{user.completedTrips}</strong>
+                  </div>
+              )}
             </div>
           </div>
           <Button variant={isEditing ? "outline" : "primary"} onClick={() => isEditing ? setIsEditing(false) : setIsEditing(true)}>
@@ -67,6 +76,24 @@ export const Profile = () => {
             <Button onClick={handleSave}>حفظ التغييرات</Button>
           </div>)}
       </Card>
+
+      {user.role === 'CARRIER' && (
+          <Card>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <h3 style={{ margin: 0 }}>مركباتي</h3>
+                  <Button variant="outline" size="sm" onClick={() => alert('إضافة مركبة جديدة')}>إضافة مركبة</Button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={{ padding: 16, border: '1px solid var(--color-border)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                          <strong style={{ display: 'block', marginBottom: 4 }}>شاحنة نقل ثقيل (تريلا)</strong>
+                          <span className="text-helper">اللوحة: أ ب ج 1234</span>
+                      </div>
+                      <StatusBadge status="ACTIVE" />
+                  </div>
+              </div>
+          </Card>
+      )}
 
       <Card>
         <h3 style={{ marginBottom: 16 }}>الأمان</h3>

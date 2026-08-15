@@ -23,24 +23,70 @@ export const CreateShipment = () => {
         deliveryCity: '',
         deliveryLocation: '',
         cargoType: '',
+        customCargoType: '',
         weight: '',
         volume: '',
         description: '',
         requiredTruckType: '',
+        customTruckType: '',
         loadingDate: '',
         loadingTime: '',
         proposedPrice: ''
     });
+    const [errors, setErrors] = useState({});
+
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+        // Clear error for this field
+        if (errors[e.target.name]) {
+            setErrors({ ...errors, [e.target.name]: null });
+        }
     };
-    const nextStep = () => setCurrentStep(s => Math.min(s + 1, steps.length - 1));
+
+    const validateStep = (step) => {
+        const newErrors = {};
+        if (step === 0) {
+            if (!formData.pickupCity) newErrors.pickupCity = 'هذا الحقل مطلوب';
+            if (!formData.pickupLocation) newErrors.pickupLocation = 'هذا الحقل مطلوب';
+            if (!formData.deliveryCity) newErrors.deliveryCity = 'هذا الحقل مطلوب';
+            if (!formData.deliveryLocation) newErrors.deliveryLocation = 'هذا الحقل مطلوب';
+        } else if (step === 1) {
+            if (!formData.cargoType) newErrors.cargoType = 'يرجى اختيار نوع البضاعة';
+            if (formData.cargoType === 'أخرى' && !formData.customCargoType) newErrors.customCargoType = 'هذا الحقل مطلوب';
+            if (!formData.weight || Number(formData.weight) <= 0) newErrors.weight = 'يجب إدخال وزن صحيح أكبر من 0';
+            if (!formData.volume || Number(formData.volume) <= 0) newErrors.volume = 'يجب إدخال حجم صحيح أكبر من 0';
+        } else if (step === 2) {
+            if (!formData.requiredTruckType) newErrors.requiredTruckType = 'يرجى اختيار نوع الشاحنة';
+            if (formData.requiredTruckType === 'أخرى' && !formData.customTruckType) newErrors.customTruckType = 'هذا الحقل مطلوب';
+        } else if (step === 3) {
+            if (!formData.loadingDate) newErrors.loadingDate = 'هذا الحقل مطلوب';
+            if (!formData.loadingTime) newErrors.loadingTime = 'هذا الحقل مطلوب';
+        } else if (step === 4) {
+            if (!formData.proposedPrice || Number(formData.proposedPrice) <= 0) newErrors.proposedPrice = 'يجب إدخال سعر صحيح أكبر من 0';
+        }
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const nextStep = () => {
+        if (validateStep(currentStep)) {
+            setCurrentStep(s => Math.min(s + 1, steps.length - 1));
+        }
+    };
+
     const prevStep = () => setCurrentStep(s => Math.max(s - 1, 0));
+
     const handlePublish = async () => {
+        if (!validateStep(4)) return; // Final sanity check
         setIsLoading(true);
         try {
-            const newShipment = await shipmentService.createShipment({
+            const finalCargoType = formData.cargoType === 'أخرى' ? formData.customCargoType : formData.cargoType;
+            const finalTruckType = formData.requiredTruckType === 'أخرى' ? formData.customTruckType : formData.requiredTruckType;
+            
+            await shipmentService.createShipment({
                 ...formData,
+                cargoType: finalCargoType,
+                requiredTruckType: finalTruckType,
                 weight: Number(formData.weight),
                 volume: Number(formData.volume),
                 proposedPrice: Number(formData.proposedPrice),
@@ -55,6 +101,9 @@ export const CreateShipment = () => {
             setIsLoading(false);
         }
     };
+
+    const ErrorMsg = ({ error }) => error ? <div style={{ color: 'var(--color-error)', fontSize: 12, marginTop: -8, marginBottom: 8 }}>{error}</div> : null;
+
     return (<div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0 }}>إنشاء شحنة جديدة</h2>
@@ -89,10 +138,16 @@ export const CreateShipment = () => {
           {currentStep === 0 && (<div>
               <h3 style={{ marginBottom: 16 }}>مواقع التحميل والتسليم</h3>
               <Input name="pickupCity" label="مدينة التحميل" value={formData.pickupCity} onChange={handleChange}/>
+              <ErrorMsg error={errors.pickupCity} />
               <Input name="pickupLocation" label="تفاصيل موقع التحميل" value={formData.pickupLocation} onChange={handleChange}/>
+              <ErrorMsg error={errors.pickupLocation} />
+              
               <div style={{ margin: '24px 0', borderTop: '1px solid var(--color-border)' }}></div>
+              
               <Input name="deliveryCity" label="مدينة التسليم" value={formData.deliveryCity} onChange={handleChange}/>
+              <ErrorMsg error={errors.deliveryCity} />
               <Input name="deliveryLocation" label="تفاصيل موقع التسليم" value={formData.deliveryLocation} onChange={handleChange}/>
+              <ErrorMsg error={errors.deliveryLocation} />
             </div>)}
 
           {currentStep === 1 && (<div>
@@ -102,11 +157,25 @@ export const CreateShipment = () => {
                 { value: 'مواد غذائية', label: 'مواد غذائية' },
                 { value: 'أجهزة كهربائية', label: 'أجهزة كهربائية' },
                 { value: 'مواد بناء', label: 'مواد بناء' },
-                { value: 'بضائع عامة', label: 'بضائع عامة' }
-            ]}/>
+                { value: 'بضائع عامة', label: 'بضائع عامة' },
+                { value: 'أخرى', label: 'أخرى' }
+              ]}/>
+              <ErrorMsg error={errors.cargoType} />
+              {formData.cargoType === 'أخرى' && (
+                  <>
+                  <Input name="customCargoType" label="اكتب نوع البضاعة" value={formData.customCargoType} onChange={handleChange}/>
+                  <ErrorMsg error={errors.customCargoType} />
+                  </>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <Input name="weight" type="number" label="الوزن (طن)" value={formData.weight} onChange={handleChange}/>
-                <Input name="volume" type="number" label="الحجم (متر مكعب)" value={formData.volume} onChange={handleChange}/>
+                <div>
+                  <Input name="weight" type="number" label="الوزن (طن)" value={formData.weight} onChange={handleChange}/>
+                  <ErrorMsg error={errors.weight} />
+                </div>
+                <div>
+                  <Input name="volume" type="number" label="الحجم (متر مكعب)" value={formData.volume} onChange={handleChange}/>
+                  <ErrorMsg error={errors.volume} />
+                </div>
               </div>
               <Input name="description" label="وصف إضافي (اختياري)" value={formData.description} onChange={handleChange}/>
             </div>)}
@@ -118,19 +187,30 @@ export const CreateShipment = () => {
                 { value: 'دينا', label: 'دينا (حتى 4 طن)' },
                 { value: 'دينا مغلقة', label: 'دينا مغلقة' },
                 { value: 'شاحنة نقل ثقيل (تريلا)', label: 'شاحنة نقل ثقيل (تريلا)' },
-                { value: 'تريلا جوانب', label: 'تريلا جوانب' }
-            ]}/>
+                { value: 'تريلا جوانب', label: 'تريلا جوانب' },
+                { value: 'أخرى', label: 'أخرى' }
+              ]}/>
+              <ErrorMsg error={errors.requiredTruckType} />
+              {formData.requiredTruckType === 'أخرى' && (
+                  <>
+                  <Input name="customTruckType" label="اكتب نوع الشاحنة" value={formData.customTruckType} onChange={handleChange}/>
+                  <ErrorMsg error={errors.customTruckType} />
+                  </>
+              )}
             </div>)}
 
           {currentStep === 3 && (<div>
               <h3 style={{ marginBottom: 16 }}>جدولة الشحنة</h3>
               <Input name="loadingDate" type="date" label="تاريخ التحميل" value={formData.loadingDate} onChange={handleChange}/>
+              <ErrorMsg error={errors.loadingDate} />
               <Input name="loadingTime" type="time" label="وقت التحميل" value={formData.loadingTime} onChange={handleChange}/>
+              <ErrorMsg error={errors.loadingTime} />
             </div>)}
 
           {currentStep === 4 && (<div>
               <h3 style={{ marginBottom: 16 }}>التسعير</h3>
               <Input name="proposedPrice" type="number" label="السعر المقترح (ر.س)" value={formData.proposedPrice} onChange={handleChange}/>
+              <ErrorMsg error={errors.proposedPrice} />
               <p className="text-helper" style={{ marginTop: 8 }}>
                 هذا هو السعر الذي سيظهر للناقلين كعرض مبدئي. يمكن للناقلين قبوله أو تقديم عروض مضادة.
               </p>
@@ -140,8 +220,8 @@ export const CreateShipment = () => {
               <h3 style={{ marginBottom: 16 }}>مراجعة الشحنة</h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div><strong>المسار:</strong> {formData.pickupCity} إلى {formData.deliveryCity}</div>
-                <div><strong>البضاعة:</strong> {formData.cargoType} ({formData.weight} طن)</div>
-                <div><strong>الشاحنة:</strong> {formData.requiredTruckType}</div>
+                <div><strong>البضاعة:</strong> {formData.cargoType === 'أخرى' ? formData.customCargoType : formData.cargoType} ({formData.weight} طن)</div>
+                <div><strong>الشاحنة:</strong> {formData.requiredTruckType === 'أخرى' ? formData.customTruckType : formData.requiredTruckType}</div>
                 <div><strong>الجدولة:</strong> {formData.loadingDate} - {formData.loadingTime}</div>
                 <div><strong>السعر المقترح:</strong> {formData.proposedPrice} ر.س</div>
               </div>
