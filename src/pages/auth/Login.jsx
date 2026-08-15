@@ -37,7 +37,7 @@ export const Login = () => {
     return (<div className={styles.container}>
       <div className={styles.card}>
         <div className={styles.logoArea}>
-          <img src="/logos/1.png" alt="حمولة" style={{ height: 80, objectFit: 'contain' }} />
+          <img src="/logos/2.png" alt="حمولة" style={{ height: 80, objectFit: 'contain' }} />
           <p className={styles.subtitle}>منصة الشحن اللوجستية المتكاملة</p>
         </div>
 
