@@ -3,19 +3,24 @@ import { ShipmentStatus, OfferStatus, TripStage, TransactionType } from '../cons
 // Helper to simulate network delay
 const delay = (ms = 800) => new Promise(resolve => setTimeout(resolve, ms));
 export const authService = {
-    login: async (email, password, role = 'SHIPPER') => {
+    login: async (identifier, password, role = 'SHIPPER') => {
         await delay();
-        let user = mockUsers.find(u => u.email === email && u.role === role);
+        let user = mockUsers.find(u => (u.email === identifier || u.phone === identifier) && u.role === role);
         if (!user) {
-            user = mockUsers.find(u => u.role === role) || mockUsers[0]; 
+            throw new Error('بيانات تسجيل الدخول غير صحيحة');
         }
         localStorage.setItem('demo_role', role);
         return user;
     },
     getCurrentUser: async () => {
         await delay(300);
-        const role = localStorage.getItem('demo_role') || 'SHIPPER';
+        const role = localStorage.getItem('demo_role');
+        if (!role) return null;
         return role === 'CARRIER' ? mockUsers[1] : mockUsers[0];
+    },
+    logout: async () => {
+        await delay(300);
+        localStorage.removeItem('demo_role');
     }
 };
 export const shipmentService = {

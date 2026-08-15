@@ -109,7 +109,10 @@ export const Profile = () => {
             <strong style={{ color: 'var(--color-error)' }}>تسجيل الخروج</strong>
             <div className="text-helper">تسجيل الخروج من هذا الجهاز</div>
           </div>
-          <Button variant="danger" onClick={() => window.location.href = '/login'}>خروج</Button>
+          <Button variant="danger" onClick={async () => {
+              await authService.logout();
+              window.location.href = '/login';
+          }}>خروج</Button>
         </div>
       </Card>
     </div>);

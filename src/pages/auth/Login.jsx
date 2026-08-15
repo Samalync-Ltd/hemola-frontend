@@ -13,22 +13,41 @@ export const Login = () => {
     const [isLoading, setIsLoading] = useState(false);
     const handleLogin = async (e) => {
         e.preventDefault();
-        if (!email || !password) {
+        
+        let identifier = email.trim();
+        let pass = password.trim();
+
+        if (!identifier || !pass) {
             setError('الرجاء إدخال جميع البيانات المطلوبة');
             return;
         }
+
+        if (identifier.includes('@')) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(identifier)) {
+                setError('يرجى إدخال بريد إلكتروني صحيح');
+                return;
+            }
+        } else {
+            const phoneStr = identifier.replace(/\s+/g, '');
+            if (!/^\d+$/.test(phoneStr) || phoneStr.length < 9) {
+                setError('يرجى إدخال رقم جوال صحيح');
+                return;
+            }
+            identifier = phoneStr;
+        }
+
         setError('');
         setIsLoading(true);
         try {
-            const user = await authService.login(email, password, role);
-            // Demo logic: navigate based on role
+            const user = await authService.login(identifier, pass, role);
             if (user.role === 'ADMIN')
                 navigate('/admin');
             else
-                navigate('/app'); // shipper or carrier goes to app
+                navigate('/app'); 
         }
         catch (err) {
-            setError(err.message || 'حدث خطأ أثناء تسجيل الدخول');
+            setError(err.message || 'بيانات تسجيل الدخول غير صحيحة');
         }
         finally {
             setIsLoading(false);
@@ -37,7 +56,7 @@ export const Login = () => {
     return (<div className={styles.container}>
       <div className={styles.card}>
         <div className={styles.logoArea}>
-          <img src="/logos/1.png" alt="حمولة" style={{ height: 80, objectFit: 'contain' }} />
+          <img src="/logos/2.png" alt="حمولة" style={{ height: 80, objectFit: 'contain' }} />
           <p className={styles.subtitle}>منصة الشحن اللوجستية المتكاملة</p>
         </div>
 

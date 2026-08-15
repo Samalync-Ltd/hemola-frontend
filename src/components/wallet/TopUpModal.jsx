@@ -1,10 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 
 export const TopUpModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
     const [amount, setAmount] = useState('');
+
+    useEffect(() => {
+        if (isOpen) {
+            setAmount('');
+        }
+    }, [isOpen]);
 
     if (!isOpen) return null;
 
@@ -16,7 +23,7 @@ export const TopUpModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
         }
     };
 
-    return (
+    const modalContent = (
         <div style={{
             position: 'fixed',
             top: 0, left: 0, right: 0, bottom: 0,
@@ -24,7 +31,7 @@ export const TopUpModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 1000
+            zIndex: 9999
         }}>
             <div style={{ width: 400, maxWidth: '90%' }}>
                 <Card>
@@ -42,8 +49,8 @@ export const TopUpModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
                             />
                         </div>
                         <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-                            <Button type="submit" disabled={isLoading || !amount || Number(amount) <= 0} style={{ flex: 1 }}>
-                                {isLoading ? 'جاري الشحن...' : 'تأكيد شحن الرصيد'}
+                            <Button type="submit" disabled={isLoading || !amount || Number(amount) <= 0} style={{ flex: 1 }} isLoading={isLoading}>
+                                تأكيد شحن الرصيد
                             </Button>
                             <Button type="button" variant="outline" onClick={onClose} disabled={isLoading} style={{ flex: 1 }}>
                                 إلغاء
@@ -54,4 +61,6 @@ export const TopUpModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
             </div>
         </div>
     );
+
+    return createPortal(modalContent, document.body);
 };

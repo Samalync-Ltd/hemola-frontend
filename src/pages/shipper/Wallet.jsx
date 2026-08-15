@@ -46,9 +46,9 @@ export const WalletPage = () => {
         return <div>لا توجد بيانات للمحفظة</div>;
     const columns = [
         { key: 'id', header: 'رقم العملية', render: (t) => <strong>{t.id}</strong> },
-        { key: 'type', header: 'النوع', render: (t) => t.type === 'DEPOSIT' ? 'شحن رصيد' : t.type === 'WITHDRAWAL' ? 'سحب' : 'دفعة شحنة' },
-        { key: 'amount', header: 'المبلغ', render: (t) => (<span style={{ color: t.type === 'DEPOSIT' ? 'var(--color-success)' : 'var(--color-error)' }} dir="ltr">
-        {t.type === 'DEPOSIT' ? '+' : '-'}{t.amount} ر.س
+        { key: 'type', header: 'النوع', render: (t) => t.type === 'TOP_UP' ? 'شحن رصيد' : t.type === 'WITHDRAWAL' ? 'سحب' : 'دفعة شحنة' },
+        { key: 'amount', header: 'المبلغ', render: (t) => (<span style={{ color: t.type === 'TOP_UP' ? 'var(--color-success)' : 'var(--color-error)' }} dir="ltr">
+        {t.type === 'TOP_UP' ? '+' : '-'}{t.amount} ر.س
       </span>) },
         { key: 'date', header: 'التاريخ', render: (t) => <span dir="ltr">{new Date(t.timestamp).toLocaleString('ar-SA')}</span> },
         { key: 'ref', header: 'المرجع', render: (t) => t.referenceId || '-' }
