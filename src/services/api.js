@@ -1,4 +1,4 @@
-import { mockShipments, mockOffers, mockTrips, mockWallet, mockTransactions, mockNotifications, mockUsers } from '../mocks/data';
+import { mockShipments, mockOffers, mockTrips, mockWallets, mockTransactions, mockNotifications, mockUsers } from '../mocks/data';
 import { ShipmentStatus, OfferStatus, TripStage, TransactionType } from '../constants/enums';
 // Helper to simulate network delay
 const delay = (ms = 800) => new Promise(resolve => setTimeout(resolve, ms));
@@ -138,23 +138,65 @@ export const tripService = {
 export const walletService = {
     getWallet: async () => {
         await delay();
-        return { ...mockWallet };
+        const user = await authService.getCurrentUser();
+        if (!user) throw new Error('Unauthorized');
+        let wallet = mockWallets.find(w => w.userId === user.id);
+        if (!wallet) {
+            wallet = { userId: user.id, balance: 0, reservedBalance: 0 };
+            mockWallets.push(wallet);
+        }
+        return { ...wallet };
     },
     getTransactions: async () => {
         await delay();
-        return [...mockTransactions];
+        const user = await authService.getCurrentUser();
+        if (!user) throw new Error('Unauthorized');
+        const userWallet = mockWallets.find(w => w.userId === user.id);
+        if (!userWallet) return [];
+        return mockTransactions.filter(t => t.walletId === userWallet.userId);
     },
     topUp: async (amount) => {
         await delay();
-        mockWallet.balance += Number(amount);
+        const user = await authService.getCurrentUser();
+        if (!user) throw new Error('Unauthorized');
+        let wallet = mockWallets.find(w => w.userId === user.id);
+        if (!wallet) {
+            wallet = { userId: user.id, balance: 0, reservedBalance: 0 };
+            mockWallets.push(wallet);
+        }
+        wallet.balance += Number(amount);
         const newTransaction = {
             id: `txn-${Math.floor(Math.random() * 10000)}`,
-            walletId: mockWallet.userId,
+            walletId: wallet.userId,
             type: TransactionType.TOP_UP,
             amount: Number(amount),
             description: 'شحن رصيد إضافي',
             timestamp: new Date().toISOString(),
-            balanceAfter: mockWallet.balance
+            balanceAfter: wallet.balance
+        };
+        mockTransactions.unshift(newTransaction);
+        return newTransaction;
+    },
+    withdraw: async (amount) => {
+        await delay();
+        const user = await authService.getCurrentUser();
+        if (!user) throw new Error('Unauthorized');
+        let wallet = mockWallets.find(w => w.userId === user.id);
+        if (!wallet) throw new Error('المحفظة غير موجودة');
+        
+        const withdrawAmount = Number(amount);
+        if (withdrawAmount <= 0) throw new Error('مبلغ السحب غير صحيح');
+        if (withdrawAmount > wallet.balance) throw new Error('الرصيد غير كافٍ لإتمام عملية السحب');
+
+        wallet.balance -= withdrawAmount;
+        const newTransaction = {
+            id: `txn-${Math.floor(Math.random() * 10000)}`,
+            walletId: wallet.userId,
+            type: 'WITHDRAWAL',
+            amount: -withdrawAmount,
+            description: 'سحب رصيد',
+            timestamp: new Date().toISOString(),
+            balanceAfter: wallet.balance
         };
         mockTransactions.unshift(newTransaction);
         return newTransaction;

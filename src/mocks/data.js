@@ -177,11 +177,18 @@ export const mockTrips = [
         }
     }
 ];
-export const mockWallet = {
-    userId: 'user-shipper-1',
-    balance: 12450,
-    reservedBalance: 3750
-};
+export const mockWallets = [
+    {
+        userId: 'user-shipper-1',
+        balance: 12450,
+        reservedBalance: 3750
+    },
+    {
+        userId: 'user-carrier-1',
+        balance: 8500,
+        reservedBalance: 0
+    }
+];
 export const mockTransactions = [
     {
         id: 'txn-1',

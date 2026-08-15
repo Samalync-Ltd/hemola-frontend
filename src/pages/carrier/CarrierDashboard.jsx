@@ -8,6 +8,7 @@ import { PriceBlock } from '../../components/common/PriceBlock';
 import { DataTable } from '../../components/common/DataTable';
 import { shipmentService, tripService, walletService, authService, offerService } from '../../services/api';
 import { ShipmentStatus, OfferStatus } from '../../constants/enums';
+import { WithdrawModal } from '../../components/wallet/WithdrawModal';
 
 export const CarrierDashboard = () => {
     const navigate = useNavigate();
@@ -17,37 +18,52 @@ export const CarrierDashboard = () => {
     const [offers, setOffers] = useState([]);
     const [wallet, setWallet] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
+    const [isWithdrawing, setIsWithdrawing] = useState(false);
 
+    const fetchData = async () => {
+        try {
+            const currentUser = await authService.getCurrentUser();
+            setUser(currentUser);
+            
+            const [sh, tr, wa, off] = await Promise.all([
+                shipmentService.getShipments(),
+                tripService.getTrips(),
+                walletService.getWallet(),
+                offerService.getOffersByCarrier(currentUser.id)
+            ]);
+            
+            // For a carrier, available shipments are those pending offers or negotiating 
+            // and NOT assigned to them or anyone else
+            setAvailableShipments(sh.filter(s => 
+                s.status === ShipmentStatus.OFFERS_PENDING || 
+                s.status === ShipmentStatus.NEGOTIATING
+            ));
+            
+            setTrips(tr.filter(t => t.carrierId === currentUser.id));
+            setWallet(wa);
+            setOffers(off);
+        }
+        finally {
+            setIsLoading(false);
+        }
+    };
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const currentUser = await authService.getCurrentUser();
-                setUser(currentUser);
-                
-                const [sh, tr, wa, off] = await Promise.all([
-                    shipmentService.getShipments(),
-                    tripService.getTrips(),
-                    walletService.getWallet(),
-                    offerService.getOffersByCarrier(currentUser.id)
-                ]);
-                
-                // For a carrier, available shipments are those pending offers or negotiating 
-                // and NOT assigned to them or anyone else
-                setAvailableShipments(sh.filter(s => 
-                    s.status === ShipmentStatus.OFFERS_PENDING || 
-                    s.status === ShipmentStatus.NEGOTIATING
-                ));
-                
-                setTrips(tr.filter(t => t.carrierId === currentUser.id));
-                setWallet(wa);
-                setOffers(off);
-            }
-            finally {
-                setIsLoading(false);
-            }
-        };
         fetchData();
     }, []);
+
+    const handleWithdraw = async (amount) => {
+        setIsWithdrawing(true);
+        try {
+            await walletService.withdraw(amount);
+            await fetchData();
+            setIsWithdrawOpen(false);
+        } catch (error) {
+            console.error('Failed to withdraw', error);
+        } finally {
+            setIsWithdrawing(false);
+        }
+    };
 
     if (isLoading) {
         return <div>جاري التحميل...</div>;
@@ -126,12 +142,22 @@ export const CarrierDashboard = () => {
               <WalletIcon />
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
-              <Button variant="secondary" style={{ flex: 1 }} onClick={() => alert('محاكاة سحب الرصيد')}>سحب الرصيد</Button>
+              <Button variant="secondary" style={{ flex: 1 }} onClick={() => setIsWithdrawOpen(true)}>سحب الرصيد</Button>
               <Button variant="outline" style={{ flex: 1 }} onClick={() => navigate('/app/wallet')}>سجل العمليات</Button>
             </div>
           </Card>
         </div>
       </div>
+
+      {wallet && (
+        <WithdrawModal
+            isOpen={isWithdrawOpen}
+            onClose={() => setIsWithdrawOpen(false)}
+            onConfirm={handleWithdraw}
+            isLoading={isWithdrawing}
+            currentBalance={wallet.balance}
+        />
+      )}
     </div>);
 };
 
