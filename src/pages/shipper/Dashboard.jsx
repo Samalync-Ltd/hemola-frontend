@@ -8,30 +8,49 @@ import { PriceBlock } from '../../components/common/PriceBlock';
 import { DataTable } from '../../components/common/DataTable';
 import { shipmentService, tripService, walletService } from '../../services/api';
 import { ShipmentStatus } from '../../constants/enums';
+import { TopUpModal } from '../../components/wallet/TopUpModal';
 export const Dashboard = () => {
     const navigate = useNavigate();
     const [shipments, setShipments] = useState([]);
     const [trips, setTrips] = useState([]);
     const [wallet, setWallet] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isTopUpOpen, setIsTopUpOpen] = useState(false);
+    const [isToppingUp, setIsToppingUp] = useState(false);
+
+    const fetchData = async () => {
+        try {
+            const [sh, tr, wa] = await Promise.all([
+                shipmentService.getShipments(),
+                tripService.getTrips(),
+                walletService.getWallet()
+            ]);
+            setShipments(sh);
+            setTrips(tr);
+            setWallet(wa);
+        }
+        finally {
+            setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [sh, tr, wa] = await Promise.all([
-                    shipmentService.getShipments(),
-                    tripService.getTrips(),
-                    walletService.getWallet()
-                ]);
-                setShipments(sh);
-                setTrips(tr);
-                setWallet(wa);
-            }
-            finally {
-                setIsLoading(false);
-            }
-        };
         fetchData();
     }, []);
+
+    const handleTopUp = async (amount) => {
+        setIsToppingUp(true);
+        try {
+            await walletService.topUp(amount);
+            await fetchData();
+            setIsTopUpOpen(false);
+        } catch (error) {
+            console.error('Failed to top up', error);
+        } finally {
+            setIsToppingUp(false);
+        }
+    };
+
     if (isLoading) {
         return <div>جاري التحميل...</div>;
     }
@@ -112,12 +131,19 @@ export const Dashboard = () => {
                 <span className="text-helper" style={{ display: 'block' }}>مبالغ محجوزة: {wallet.reservedBalance} ر.س</span>
               </div>) : null}
             <div style={{ display: 'flex', gap: 12 }}>
-              <Button variant="secondary" style={{ flex: 1 }} onClick={() => alert('محاكاة شحن المحفظة')}>شحن المحفظة</Button>
+              <Button variant="secondary" style={{ flex: 1 }} onClick={() => setIsTopUpOpen(true)}>شحن المحفظة</Button>
               <Button variant="outline" style={{ flex: 1 }} onClick={() => navigate('/app/wallet')}>كشف حساب</Button>
             </div>
           </Card>
         </div>
       </div>
+      
+      <TopUpModal
+        isOpen={isTopUpOpen}
+        onClose={() => setIsTopUpOpen(false)}
+        onConfirm={handleTopUp}
+        isLoading={isToppingUp}
+      />
     </div>);
 };
 const WalletIcon = () => (<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>

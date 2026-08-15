@@ -20,7 +20,7 @@ export const Login = () => {
         setError('');
         setIsLoading(true);
         try {
-            const user = await authService.login(email, password);
+            const user = await authService.login(email, password, role);
             // Demo logic: navigate based on role
             if (user.role === 'ADMIN')
                 navigate('/admin');
@@ -53,9 +53,9 @@ export const Login = () => {
         <form className={styles.form} onSubmit={handleLogin}>
           {error && <div style={{ color: 'var(--color-error)', marginBottom: 16, fontSize: 14, textAlign: 'center' }}>{error}</div>}
           
-          <Input label="رقم الجوال أو البريد الإلكتروني" placeholder="أدخل البريد الإلكتروني (مثال: info@alnokhba.sa)" value={email} onChange={(e) => setEmail(e.target.value)}/>
+          <Input label="رقم الجوال أو البريد الإلكتروني" placeholder="أدخل البريد الإلكتروني (مثال: info@alnokhba.sa)" value={email} onChange={(e) => setEmail(e.target.value)} required/>
           
-          <Input type="password" label="كلمة المرور" placeholder="أدخل كلمة المرور" value={password} onChange={(e) => setPassword(e.target.value)}/>
+          <Input type="password" label="كلمة المرور" placeholder="أدخل كلمة المرور" value={password} onChange={(e) => setPassword(e.target.value)} required/>
           
           <Link to="#" className={styles.forgotPassword}>نسيت كلمة المرور؟</Link>
           

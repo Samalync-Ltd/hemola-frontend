@@ -1,16 +1,15 @@
 import { mockShipments, mockOffers, mockTrips, mockWallet, mockTransactions, mockNotifications, mockUsers } from '../mocks/data';
-import { ShipmentStatus, OfferStatus, TripStage } from '../constants/enums';
+import { ShipmentStatus, OfferStatus, TripStage, TransactionType } from '../constants/enums';
 // Helper to simulate network delay
 const delay = (ms = 800) => new Promise(resolve => setTimeout(resolve, ms));
 export const authService = {
-    login: async (email, password) => {
+    login: async (email, password, role = 'SHIPPER') => {
         await delay();
-        let user = mockUsers.find(u => u.email === email);
+        let user = mockUsers.find(u => u.email === email && u.role === role);
         if (!user) {
-            // Mock behavior: Just return the first shipper user if email is not found
-            user = mockUsers[0]; 
+            user = mockUsers.find(u => u.role === role) || mockUsers[0]; 
         }
-        localStorage.setItem('demo_role', user.role);
+        localStorage.setItem('demo_role', role);
         return user;
     },
     getCurrentUser: async () => {

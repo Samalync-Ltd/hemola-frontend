@@ -11,10 +11,10 @@ export const AdminSidebar = () => {
     ];
     return (<aside className={styles.sidebar} style={{ backgroundColor: '#0A192F' }}>
       <div className={styles.brand}>
-        <img src="/logos/1-transparent.png" alt="Hemola Logo" style={{ width: 40, height: 40, objectFit: 'contain' }} />
+        <img src="/logos/2.png" alt="Hemola Logo" style={{ width: 48, height: 48, objectFit: 'contain', background: 'transparent' }} />
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span style={{ fontSize: 20, fontWeight: 700, color: 'white', lineHeight: 1, marginBottom: 4 }}>حمولة</span>
-          <span style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.7)' }}>منصة نقل البضائع</span>
+          <span style={{ fontSize: 24, fontWeight: 700, color: 'white', lineHeight: 1, marginBottom: 4 }}>حمولة</span>
+          <span style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.7)' }}>منصة نقل البضائع</span>
         </div>
       </div>
 

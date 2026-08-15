@@ -21,6 +21,7 @@ export const Register = () => {
         }, 1000);
     };
     const simulateAdminApproval = () => {
+        localStorage.setItem('demo_role', role);
         navigate('/app');
     };
     return (<div className={styles.container}>
