@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Star, Building2, MapPin, Flag, Truck } from 'lucide-react';
+import { MapPin, Flag, Truck } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { tripService, shipmentService } from '../../services/api';
@@ -101,21 +101,23 @@ export const CarrierTripTrack = () => {
       </div>
 
       <Card style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-            <span style={{ fontSize: 18, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 4 }}>
-              4.5 <Star fill="var(--color-accent)" color="var(--color-accent)" size={16} />
-            </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div className="text-helper" style={{ fontSize: 12 }}>نوع البضاعة</div>
+          <div style={{ fontWeight: 'bold', fontSize: 16 }}>
+            {shipment?.cargoType || 'غير محدد'}
           </div>
+          {shipment?.weight && (
+            <div className="text-helper" style={{ fontSize: 12 }}>{shipment.weight} طن</div>
+          )}
         </div>
-        <div style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div>
-            <div className="text-helper" style={{ fontSize: 12 }}>الناقل المكلّف</div>
-            <div style={{ fontWeight: 'bold', fontSize: 16 }}>{trip.carrierName || 'غير محدد'}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+          <div className="text-helper" style={{ fontSize: 12 }}>تاريخ التحميل</div>
+          <div style={{ fontWeight: 'bold', fontSize: 14 }}>
+            {shipment?.loadingDate || new Date().toLocaleDateString('ar-SA')}
           </div>
-          <div style={{ width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text)' }}>
-            <Building2 size={20} />
-          </div>
+          {shipment?.loadingTime && (
+            <div className="text-helper" style={{ fontSize: 12 }}>{shipment.loadingTime}</div>
+          )}
         </div>
       </Card>
 

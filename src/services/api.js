@@ -235,3 +235,10 @@ export const notificationService = {
         mockNotifications.forEach(n => n.isRead = true);
     }
 };
+export const userService = {
+    getUserById: async (id) => {
+        await delay(200);
+        const user = mockUsers.find(u => u.id === id);
+        return user ? { ...user } : null;
+    }
+};
