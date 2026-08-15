@@ -5,22 +5,40 @@ const delay = (ms = 800) => new Promise(resolve => setTimeout(resolve, ms));
 export const authService = {
     login: async (identifier, password, role = 'SHIPPER') => {
         await delay();
-        let user = mockUsers.find(u => (u.email === identifier || u.phone === identifier) && u.role === role);
+        
+        const normalizedId = identifier.toLowerCase();
+        let user = mockUsers.find(u => 
+            (u.email.toLowerCase() === normalizedId || u.phone === identifier) && 
+            u.role === role
+        );
+
         if (!user) {
             throw new Error('بيانات تسجيل الدخول غير صحيحة');
         }
+
         localStorage.setItem('demo_role', role);
+        localStorage.setItem('demo_user_id', user.id); // Persist actual user ID
         return user;
     },
     getCurrentUser: async () => {
         await delay(300);
         const role = localStorage.getItem('demo_role');
+        const userId = localStorage.getItem('demo_user_id');
+        
         if (!role) return null;
+
+        if (userId) {
+            const user = mockUsers.find(u => u.id === userId);
+            if (user) return user;
+        }
+
+        // Fallback for older sessions
         return role === 'CARRIER' ? mockUsers[1] : mockUsers[0];
     },
     logout: async () => {
         await delay(300);
         localStorage.removeItem('demo_role');
+        localStorage.removeItem('demo_user_id');
     }
 };
 export const shipmentService = {
