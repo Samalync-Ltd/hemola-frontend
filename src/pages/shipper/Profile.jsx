@@ -4,10 +4,16 @@ import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { authService } from '../../services/api';
 import { StatusBadge } from '../../components/common/StatusBadge';
+import { ChangePasswordModal } from '../../components/profile/ChangePasswordModal';
+import { NotificationSettingsModal } from '../../components/profile/NotificationSettingsModal';
+import { TruckDetailsModal } from '../../components/profile/TruckDetailsModal';
 export const Profile = () => {
     const [user, setUser] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [isPasswordOpen, setIsPasswordOpen] = useState(false);
+    const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+    const [isTruckOpen, setIsTruckOpen] = useState(false);
     // Form state
     const [formData, setFormData] = useState({
         name: '',
@@ -81,28 +87,37 @@ export const Profile = () => {
           <Card>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <h3 style={{ margin: 0 }}>مركباتي</h3>
-                  <Button variant="outline" size="sm" onClick={() => alert('إضافة مركبة جديدة')}>إضافة مركبة</Button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div style={{ padding: 16, border: '1px solid var(--color-border)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <button
+                      type="button"
+                      onClick={() => setIsTruckOpen(true)}
+                      style={{ padding: 16, border: '1px solid var(--color-border)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', cursor: 'pointer', width: '100%', textAlign: 'right', font: 'inherit', color: 'inherit' }}
+                  >
                       <div>
-                          <strong style={{ display: 'block', marginBottom: 4 }}>شاحنة نقل ثقيل (تريلا)</strong>
-                          <span className="text-helper">اللوحة: أ ب ج 1234</span>
+                          <strong style={{ display: 'block', marginBottom: 4 }}>{user.truckType || 'لم يتم تحديد نوع الشاحنة'}</strong>
+                          <span className="text-helper">اللوحة: {user.plateNumber || '—'}</span>
                       </div>
-                      <StatusBadge status="ACTIVE" />
-                  </div>
+                      <StatusBadge status={user.accountStatus} />
+                  </button>
               </div>
           </Card>
       )}
 
       <Card>
-        <h3 style={{ marginBottom: 16 }}>الأمان</h3>
+        <h3 style={{ marginBottom: 16 }}>الأمان والإشعارات</h3>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid var(--color-border)' }}>
           <div>
             <strong>تغيير كلمة المرور</strong>
-            <div className="text-helper">تم آخر تغيير منذ ٣ أشهر</div>
           </div>
-          <Button variant="outline">تغيير</Button>
+          <Button variant="outline" onClick={() => setIsPasswordOpen(true)}>تغيير</Button>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid var(--color-border)' }}>
+          <div>
+            <strong>إعدادات الإشعارات</strong>
+            <div className="text-helper">{(user.notificationsEnabled ?? true) ? 'مُفعّلة' : 'مُعطّلة'}</div>
+          </div>
+          <Button variant="outline" onClick={() => setIsNotificationsOpen(true)}>إدارة</Button>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0' }}>
           <div>
@@ -115,5 +130,21 @@ export const Profile = () => {
           }}>خروج</Button>
         </div>
       </Card>
+
+      <ChangePasswordModal isOpen={isPasswordOpen} onClose={() => setIsPasswordOpen(false)} />
+      <NotificationSettingsModal
+          isOpen={isNotificationsOpen}
+          onClose={() => setIsNotificationsOpen(false)}
+          user={user}
+          onUpdated={(enabled) => setUser(u => ({ ...u, notificationsEnabled: enabled }))}
+      />
+      {user.role === 'CARRIER' && (
+          <TruckDetailsModal
+              isOpen={isTruckOpen}
+              onClose={() => setIsTruckOpen(false)}
+              user={user}
+              onUpdated={(updated) => setUser(u => ({ ...u, ...updated }))}
+          />
+      )}
     </div>);
 };

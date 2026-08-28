@@ -4,13 +4,19 @@ import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
+import { Input } from '../../components/common/Input';
 import { shipmentService } from '../../services/api';
+import { ShipmentStatus } from '../../constants/enums';
 export const ShipmentDetail = () => {
     const { shipmentId } = useParams();
     const navigate = useNavigate();
     const [shipment, setShipment] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
+    const [isCancelling, setIsCancelling] = useState(false);
+    const [isEditingSite, setIsEditingSite] = useState(false);
+    const [isSavingSite, setIsSavingSite] = useState(false);
+    const [siteForm, setSiteForm] = useState({ pickupDirections: '', pickupContact: '', deliveryDirections: '', deliveryContact: '' });
     useEffect(() => {
         if (shipmentId) {
             shipmentService.getShipmentById(shipmentId)
@@ -23,6 +29,48 @@ export const ShipmentDetail = () => {
         return <div>جاري التحميل...</div>;
     if (error || !shipment)
         return <div>{error || 'الشحنة غير موجودة'}</div>;
+
+    // Free before assignment — no trip/reservation exists yet, so there's
+    // nothing to charge. Once a carrier is assigned, cancellation moves to
+    // the trip-track screen where commission rules apply.
+    const canCancelFree = shipment.status !== ShipmentStatus.ACTIVE && shipment.status !== ShipmentStatus.COMPLETED && shipment.status !== ShipmentStatus.CANCELLED;
+
+    const openSiteEdit = () => {
+        setSiteForm({
+            pickupDirections: shipment.pickupDirections || '',
+            pickupContact: shipment.pickupContact || '',
+            deliveryDirections: shipment.deliveryDirections || '',
+            deliveryContact: shipment.deliveryContact || '',
+        });
+        setIsEditingSite(true);
+    };
+
+    const handleSaveSiteDetails = async () => {
+        setIsSavingSite(true);
+        try {
+            const updated = await shipmentService.updateSiteDetails(shipment.id, siteForm);
+            setShipment(updated);
+            setIsEditingSite(false);
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            setIsSavingSite(false);
+        }
+    };
+
+    const handleCancel = async () => {
+        if (!window.confirm('هل تريد إلغاء هذه الشحنة؟ لم يتم إسنادها لناقل بعد، فلن يتم خصم أي مبلغ.')) return;
+        setIsCancelling(true);
+        try {
+            const updated = await shipmentService.cancelShipment(shipment.id);
+            setShipment(updated);
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            setIsCancelling(false);
+        }
+    };
+
     return (<div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
@@ -32,6 +80,9 @@ export const ShipmentDetail = () => {
         <div style={{ display: 'flex', gap: 12 }}>
           <Button variant="outline" onClick={() => navigate('/app/shipments')}>عودة للقائمة</Button>
           {shipment.offerCount > 0 && (<Button onClick={() => navigate(`/app/shipments/${shipment.id}/offers`)}>فتح التفاوض / العروض</Button>)}
+          {canCancelFree && (
+            <Button variant="danger" onClick={handleCancel} isLoading={isCancelling}>إلغاء الشحنة</Button>
+          )}
         </div>
       </div>
 
@@ -69,6 +120,51 @@ export const ShipmentDetail = () => {
                 <div className="text-helper">ملاحظات إضافية</div>
                 <div>{shipment.description}</div>
               </div>)}
+          </Card>
+
+          <Card>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0 }}>بيانات الموقع (تظهر للناقل بعد الإسناد فقط)</h3>
+              {canCancelFree && !isEditingSite && (
+                <Button variant="outline" size="sm" onClick={openSiteEdit}>تعديل</Button>
+              )}
+            </div>
+            {!canCancelFree && (
+              <p className="text-helper" style={{ fontSize: 12, marginBottom: 12 }}>
+                تم إسناد الشحنة لناقل — لم يعد بالإمكان تعديل بيانات الموقع.
+              </p>
+            )}
+            {isEditingSite ? (
+              <div>
+                <Input label="إرشادات الوصول لموقع التحميل" value={siteForm.pickupDirections} onChange={e => setSiteForm(f => ({ ...f, pickupDirections: e.target.value }))}/>
+                <Input label="جوال المسؤول في موقع التحميل" value={siteForm.pickupContact} onChange={e => setSiteForm(f => ({ ...f, pickupContact: e.target.value }))}/>
+                <Input label="إرشادات الوصول لموقع التسليم" value={siteForm.deliveryDirections} onChange={e => setSiteForm(f => ({ ...f, deliveryDirections: e.target.value }))}/>
+                <Input label="جوال المسؤول في موقع التسليم" value={siteForm.deliveryContact} onChange={e => setSiteForm(f => ({ ...f, deliveryContact: e.target.value }))}/>
+                <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                    <Button size="sm" onClick={handleSaveSiteDetails} isLoading={isSavingSite}>حفظ</Button>
+                    <Button size="sm" variant="outline" onClick={() => setIsEditingSite(false)}>إلغاء</Button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div>
+                  <div className="text-helper">إرشادات موقع التحميل</div>
+                  <div>{shipment.pickupDirections || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-helper">جوال المسؤول (تحميل)</div>
+                  <div dir="ltr">{shipment.pickupContact || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-helper">إرشادات موقع التسليم</div>
+                  <div>{shipment.deliveryDirections || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-helper">جوال المسؤول (تسليم)</div>
+                  <div dir="ltr">{shipment.deliveryContact || '—'}</div>
+                </div>
+              </div>
+            )}
           </Card>
         </div>
 

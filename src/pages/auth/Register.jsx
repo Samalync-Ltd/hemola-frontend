@@ -3,6 +3,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import styles from './Auth.module.css';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
+import { isValidSaudiPhone, normalizeSaudiPhone } from '../../utils/validators';
+import { markFreshAccount } from '../../utils/freshAccount';
+import { authService } from '../../services/api';
 
 export const Register = () => {
     const navigate = useNavigate();
@@ -47,9 +50,8 @@ export const Register = () => {
                 if (!formData.individualName.trim()) { newErrors.individualName = 'هذا الحقل مطلوب'; isValid = false; }
             }
             
-            const phoneStr = formData.phone.replace(/\s+/g, '');
             if (!formData.phone.trim()) { newErrors.phone = 'هذا الحقل مطلوب'; isValid = false; }
-            else if (!/^\d+$/.test(phoneStr) || phoneStr.length < 9) { newErrors.phone = 'يرجى إدخال رقم جوال صحيح'; isValid = false; }
+            else if (!isValidSaudiPhone(formData.phone)) { newErrors.phone = 'صيغة رقم الجوال غير صحيحة (05XXXXXXXX أو +9665XXXXXXXX)'; isValid = false; }
             
             if (!formData.email.trim()) { newErrors.email = 'هذا الحقل مطلوب'; isValid = false; }
             else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) { newErrors.email = 'يرجى إدخال بريد إلكتروني صحيح'; isValid = false; }
@@ -79,6 +81,16 @@ export const Register = () => {
         }
 
         setErrors(newErrors);
+
+        // Normalize to E.164 as soon as the field passes validation, so
+        // whatever consumes formData.phone downstream (submission, review
+        // screen, etc.) always sees the stored format regardless of which
+        // accepted form the user typed.
+        if (step === 3 && isValid) {
+            const normalized = normalizeSaudiPhone(formData.phone);
+            if (normalized !== formData.phone) setFormData(f => ({ ...f, phone: normalized }));
+        }
+
         return isValid;
     };
 
@@ -106,8 +118,17 @@ export const Register = () => {
     };
 
     const simulateAdminApproval = () => {
-        localStorage.setItem('demo_role', role);
-        window.location.href = '/app';
+        // Mints a real new user (see authService.registerNewUser) instead of
+        // silently reusing a seeded demo identity, so this account actually
+        // starts with no shipments/offers/trips/wallet history anywhere.
+        authService.registerNewUser({ role, accountType, ...formData });
+        markFreshAccount();
+        // A client-side transition, not a hard reload: mockUsers/mockShipments
+        // etc. are plain in-memory module state (see src/mocks/data.js) with
+        // no persistence layer under them — a full page load (window.location)
+        // would re-execute those modules from scratch and silently discard
+        // the user record just created above.
+        navigate('/app');
     };
 
     return (<div className={styles.container}>

@@ -6,7 +6,7 @@ import { Button } from '../../components/common/Button';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { DataTable } from '../../components/common/DataTable';
-import { shipmentService, tripService, walletService } from '../../services/api';
+import { shipmentService, tripService, walletService, authService } from '../../services/api';
 import { ShipmentStatus } from '../../constants/enums';
 import { TopUpModal } from '../../components/wallet/TopUpModal';
 export const Dashboard = () => {
@@ -20,13 +20,16 @@ export const Dashboard = () => {
 
     const fetchData = async () => {
         try {
-            const [sh, tr, wa] = await Promise.all([
+            const [user, sh, tr, wa] = await Promise.all([
+                authService.getCurrentUser(),
                 shipmentService.getShipments(),
                 tripService.getTrips(),
                 walletService.getWallet()
             ]);
-            setShipments(sh);
-            setTrips(tr);
+            // Only this shipper's own shipments/trips — never another
+            // shipper's, and never a brand-new account's seeded sample data.
+            setShipments(user ? sh.filter(s => s.shipperId === user.id) : sh);
+            setTrips(user ? tr.filter(t => t.shipperId === user.id) : tr);
             setWallet(wa);
         }
         finally {

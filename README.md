@@ -1,5 +1,16 @@
 # React + Vite
 
+## ⚠️ DEMO_MODE
+
+`src/constants/config.js` exports `DEMO_MODE`, currently `true`. While on, a freshly registered
+account's empty shipment/offer lists get simulated "other users'" activity trickled in over time
+(see the demo-trickle effects in `src/pages/carrier/CarrierShipments.jsx` and
+`src/pages/shipper/ReceivedOffers.jsx`) so a demo/tester isn't stuck looking at a blank screen.
+It never touches the user's own data.
+
+**Set `DEMO_MODE = false` before wiring this app to a real backend.** That one flag disables
+every simulated-activity code path with no other changes needed.
+
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
 Currently, two official plugins are available:

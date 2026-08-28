@@ -4,14 +4,16 @@ import { Star, Building2, Clock, MapPin, Flag, Truck } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { tripService, shipmentService, userService } from '../../services/api';
-import { TripStage as TripStageEnum, TripStageAr } from '../../constants/enums';
+import { TripStage as TripStageEnum, TripStageAr, UserRole } from '../../constants/enums';
+import { ProofPhotoCapture } from '../../components/trip/ProofPhotoCapture';
+import { QuickMessagePanel } from '../../components/trip/QuickMessagePanel';
 
 const stageOrder = [
     TripStageEnum.ASSIGNED,
-    TripStageEnum.PICKUP_ROUTE_EN,
-    TripStageEnum.PICKUP_ARRIVED,
+    TripStageEnum.EN_ROUTE_PICKUP,
+    TripStageEnum.ARRIVED_PICKUP,
     TripStageEnum.LOADED,
-    TripStageEnum.DELIVERY_ROUTE_EN,
+    TripStageEnum.EN_ROUTE_DELIVERY,
     TripStageEnum.DELIVERED
 ];
 
@@ -22,8 +24,10 @@ export const TripTrack = () => {
     const [shipment, setShipment] = useState(null);
     const [carrier, setCarrier] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isCancelling, setIsCancelling] = useState(false);
+    const [isSendingMessage, setIsSendingMessage] = useState(false);
 
-    useEffect(() => {
+    const fetchTrip = () => {
         if (tripId) {
             tripService.getTripById(tripId)
                 .then(t => {
@@ -39,16 +43,45 @@ export const TripTrack = () => {
                 })
                 .finally(() => setIsLoading(false));
         }
-    }, [tripId]);
+    };
+
+    useEffect(() => { fetchTrip(); }, [tripId]);
 
     if (isLoading)
         return <div>جاري التحميل...</div>;
     if (!trip)
         return <div>الرحلة غير موجودة</div>;
 
+    const isCancelled = trip.overallStatus === 'CANCELLED';
     const currentStageIndex = stageOrder.indexOf(trip.currentStage);
     const isDelivered = trip.currentStage === TripStageEnum.DELIVERED;
-    
+
+    const handleCancel = async () => {
+        const confirmMsg = tripService.cancellableStages.includes(trip.currentStage)
+            ? 'سيتم خصم عمولة إلغاء من محفظتك ولن يحصل الناقل على أي مبلغ. هل تريد المتابعة؟'
+            : null;
+        if (confirmMsg && !window.confirm(confirmMsg)) return;
+        setIsCancelling(true);
+        try {
+            await tripService.cancelTrip(trip.id, 'SHIPPER');
+            fetchTrip();
+        } catch (error) {
+            alert(error.message);
+        } finally {
+            setIsCancelling(false);
+        }
+    };
+
+    const handleSendMessage = async (key, label) => {
+        setIsSendingMessage(true);
+        try {
+            await tripService.sendQuickMessage(trip.id, UserRole.SHIPPER, key, label);
+            fetchTrip();
+        } finally {
+            setIsSendingMessage(false);
+        }
+    };
+
     // Safely generate stages if they don't exist in mock data
     const stagesList = trip.stages || stageOrder.map((stage) => ({
         stage,
@@ -61,10 +94,10 @@ export const TripTrack = () => {
     const getTruckPos = (stage) => {
         switch (stage) {
             case TripStageEnum.ASSIGNED: return { right: '15%', top: '20%' };
-            case TripStageEnum.PICKUP_ROUTE_EN: return { right: '25%', top: '28%' };
-            case TripStageEnum.PICKUP_ARRIVED: return { right: '35%', top: '37%' };
+            case TripStageEnum.EN_ROUTE_PICKUP: return { right: '25%', top: '28%' };
+            case TripStageEnum.ARRIVED_PICKUP: return { right: '35%', top: '37%' };
             case TripStageEnum.LOADED: return { right: '35%', top: '37%' };
-            case TripStageEnum.DELIVERY_ROUTE_EN: return { right: '60%', top: '60%' };
+            case TripStageEnum.EN_ROUTE_DELIVERY: return { right: '60%', top: '60%' };
             case TripStageEnum.DELIVERED: return { right: '85%', top: '80%' };
             default: return { right: '15%', top: '20%' };
         }
@@ -174,26 +207,54 @@ export const TripTrack = () => {
       </div>
 
       <h3 style={{ marginTop: 16, marginBottom: 8 }}>مستندات الإثبات</h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 32 }}>
-        <Card style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontWeight: 'bold', fontSize: 16 }}>إثبات التحميل</div>
-            <div className="text-helper" style={{ fontSize: 12, marginTop: 4 }}>بانتظار رفع الناقل</div>
-          </div>
-          <div style={{ width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Clock size={20} color="var(--color-text-muted)" />
-          </div>
-        </Card>
-        <Card style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontWeight: 'bold', fontSize: 16 }}>إثبات التسليم</div>
-            <div className="text-helper" style={{ fontSize: 12, marginTop: 4 }}>بانتظار رفع الناقل</div>
-          </div>
-          <div style={{ width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Clock size={20} color="var(--color-text-muted)" />
-          </div>
-        </Card>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 8 }}>
+        {(() => {
+          const stagesList2 = trip.stages || [];
+          const loadProof = stagesList2.find(s => s.stage === TripStageEnum.LOADED)?.proof;
+          const deliveryProof = stagesList2.find(s => s.stage === TripStageEnum.DELIVERED)?.proof;
+          return (<>
+            <Card>
+              <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>إثبات التحميل</div>
+              {loadProof ? <ProofPhotoCapture label="إثبات التحميل" existingPhoto={loadProof} /> : (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="text-helper" style={{ fontSize: 12 }}>بانتظار رفع الناقل</div>
+                  <Clock size={20} color="var(--color-text-muted)" />
+                </div>
+              )}
+            </Card>
+            <Card>
+              <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>إثبات التسليم</div>
+              {deliveryProof ? <ProofPhotoCapture label="إثبات التسليم" existingPhoto={deliveryProof} /> : (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="text-helper" style={{ fontSize: 12 }}>بانتظار رفع الناقل</div>
+                  <Clock size={20} color="var(--color-text-muted)" />
+                </div>
+              )}
+            </Card>
+          </>);
+        })()}
       </div>
+
+      <h3 style={{ marginTop: 8, marginBottom: 8 }}>رسائل سريعة</h3>
+      <Card>
+        <QuickMessagePanel role={UserRole.SHIPPER} messages={trip.messages} onSend={handleSendMessage} isSending={isSendingMessage} />
+      </Card>
+
+      {isCancelled ? (
+        <div style={{ padding: 16, backgroundColor: 'rgba(229,62,62,0.1)', color: 'var(--color-error)', borderRadius: 8, fontWeight: 'bold', textAlign: 'center' }}>
+          تم إلغاء هذه الرحلة — تم خصم عمولة إلغاء قدرها {trip.cancellation?.commission} ر.س
+        </div>
+      ) : !isDelivered && (
+        tripService.cancellableStages.includes(trip.currentStage) ? (
+          <Button variant="danger" style={{ width: '100%' }} onClick={handleCancel} isLoading={isCancelling}>
+            إلغاء الرحلة
+          </Button>
+        ) : (
+          <p className="text-helper" style={{ fontSize: 12, textAlign: 'center' }}>
+            لا يمكن إلغاء الرحلة بعد بدء التحميل — يرجى التواصل مع دعم المنصة عند وجود مشكلة.
+          </p>
+        )
+      )}
 
       {isDelivered && !trip.isRated && (<Card variant="dark">
         <h3 style={{ marginBottom: 16, color: 'white' }}>الرحلة مكتملة</h3>

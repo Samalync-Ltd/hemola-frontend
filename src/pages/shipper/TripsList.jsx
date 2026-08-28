@@ -5,14 +5,20 @@ import { Card } from '../../components/common/Card';
 import { DataTable } from '../../components/common/DataTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
-import { tripService } from '../../services/api';
+import { tripService, authService } from '../../services/api';
 export const TripsList = () => {
     const navigate = useNavigate();
     const [trips, setTrips] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     useEffect(() => {
-        tripService.getTrips().then(data => {
-            setTrips(data);
+        Promise.all([authService.getCurrentUser(), tripService.getTrips()]).then(([user, data]) => {
+            // Each side only sees their own trips — a shipper never sees
+            // another shipper's trips, a carrier never sees another
+            // carrier's.
+            const mine = user
+                ? data.filter(t => user.role === 'CARRIER' ? t.carrierId === user.id : t.shipperId === user.id)
+                : data;
+            setTrips(mine);
             setIsLoading(false);
         });
     }, []);

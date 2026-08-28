@@ -4,17 +4,21 @@ import { MapPin, Flag, Truck } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { tripService, shipmentService } from '../../services/api';
-import { TripStage as TripStageEnum, TripStageAr } from '../../constants/enums';
+import { TripStage as TripStageEnum, TripStageAr, UserRole } from '../../constants/enums';
+import { ProofPhotoCapture } from '../../components/trip/ProofPhotoCapture';
+import { QuickMessagePanel } from '../../components/trip/QuickMessagePanel';
 
 const stageOrder = [
     TripStageEnum.ASSIGNED,
-    TripStageEnum.PICKUP_ROUTE_EN,
-    TripStageEnum.PICKUP_ARRIVED,
+    TripStageEnum.EN_ROUTE_PICKUP,
+    TripStageEnum.ARRIVED_PICKUP,
     TripStageEnum.LOADED,
-    TripStageEnum.DELIVERY_ROUTE_EN,
-    TripStageEnum.DELIVERY_ARRIVED,
+    TripStageEnum.EN_ROUTE_DELIVERY,
     TripStageEnum.DELIVERED
 ];
+
+// Stages requiring a captured proof photo before they can be marked complete.
+const PROOF_REQUIRED_STAGES = [TripStageEnum.LOADED, TripStageEnum.DELIVERED];
 
 export const CarrierTripTrack = () => {
     const { tripId } = useParams();
@@ -23,6 +27,8 @@ export const CarrierTripTrack = () => {
     const [shipment, setShipment] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
+    const [isCancelling, setIsCancelling] = useState(false);
+    const [isSendingMessage, setIsSendingMessage] = useState(false);
 
     const fetchTrip = () => {
         if (tripId) {
@@ -43,9 +49,11 @@ export const CarrierTripTrack = () => {
     if (isLoading) return <div>جاري التحميل...</div>;
     if (!trip) return <div>الرحلة غير موجودة</div>;
 
+    const isCancelled = trip.overallStatus === 'CANCELLED';
     const currentStageIndex = stageOrder.indexOf(trip.currentStage);
     const isDelivered = trip.currentStage === TripStageEnum.DELIVERED;
-    const nextStage = !isDelivered && currentStageIndex + 1 < stageOrder.length ? stageOrder[currentStageIndex + 1] : null;
+    const nextStage = !isDelivered && !isCancelled && currentStageIndex + 1 < stageOrder.length ? stageOrder[currentStageIndex + 1] : null;
+    const nextStageNeedsProof = nextStage && PROOF_REQUIRED_STAGES.includes(nextStage);
 
     // Safely generate stages if they don't exist in mock data
     const stagesList = trip.stages || stageOrder.map((stage) => ({
@@ -53,11 +61,10 @@ export const CarrierTripTrack = () => {
         timestamp: stageOrder.indexOf(stage) <= currentStageIndex ? trip.startedAt : null
     }));
 
-    const handleUpdateStatus = async () => {
-        if (!nextStage) return;
+    const advanceStage = async (stage, proof) => {
         setIsUpdating(true);
         try {
-            await tripService.updateTripStage(trip.id, nextStage);
+            await tripService.updateTripStage(trip.id, stage, proof);
             fetchTrip();
         } catch (error) {
             console.error('Failed to update trip stage', error);
@@ -66,22 +73,52 @@ export const CarrierTripTrack = () => {
         }
     };
 
+    const handleUpdateStatus = () => {
+        if (!nextStage || nextStageNeedsProof) return; // Proof-required stages advance via ProofPhotoCapture instead.
+        advanceStage(nextStage);
+    };
+
+    const handleCancel = async () => {
+        if (!window.confirm('سيتم خصم عمولة الإلغاء من محفظتك وتسجيل تحذير على حسابك. هل تريد المتابعة؟')) return;
+        setIsCancelling(true);
+        try {
+            await tripService.cancelTrip(trip.id, 'CARRIER');
+            fetchTrip();
+        } catch (error) {
+            alert(error.message);
+        } finally {
+            setIsCancelling(false);
+        }
+    };
+
+    const handleSendMessage = async (key, label) => {
+        setIsSendingMessage(true);
+        try {
+            await tripService.sendQuickMessage(trip.id, UserRole.CARRIER, key, label);
+            fetchTrip();
+        } finally {
+            setIsSendingMessage(false);
+        }
+    };
+
     const [pickupCity, deliveryCity] = trip.route.split(' -> ');
+    const canCancel = !isCancelled && !isDelivered && tripService.cancellableStages.includes(trip.currentStage);
 
     // Mock Map Position logic
     const getTruckPos = (stage) => {
         switch (stage) {
             case TripStageEnum.ASSIGNED: return { right: '15%', top: '20%' };
-            case TripStageEnum.PICKUP_ROUTE_EN: return { right: '25%', top: '28%' };
-            case TripStageEnum.PICKUP_ARRIVED: return { right: '35%', top: '37%' };
+            case TripStageEnum.EN_ROUTE_PICKUP: return { right: '25%', top: '28%' };
+            case TripStageEnum.ARRIVED_PICKUP: return { right: '35%', top: '37%' };
             case TripStageEnum.LOADED: return { right: '35%', top: '37%' };
-            case TripStageEnum.DELIVERY_ROUTE_EN: return { right: '60%', top: '60%' };
-            case TripStageEnum.DELIVERY_ARRIVED: return { right: '80%', top: '75%' };
+            case TripStageEnum.EN_ROUTE_DELIVERY: return { right: '60%', top: '60%' };
             case TripStageEnum.DELIVERED: return { right: '85%', top: '80%' };
             default: return { right: '15%', top: '20%' };
         }
     };
     const truckPos = getTruckPos(trip.currentStage);
+    const loadProof = stagesList.find(s => s.stage === TripStageEnum.LOADED)?.proof;
+    const deliveryProof = stagesList.find(s => s.stage === TripStageEnum.DELIVERED)?.proof;
 
     return (<div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 600, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -126,10 +163,15 @@ export const CarrierTripTrack = () => {
         <div style={{ fontWeight: 'bold', fontSize: 16 }}>السعر النهائي المتفق عليه</div>
       </div>
 
+      {isCancelled ? (
+        <div style={{ padding: 16, backgroundColor: 'rgba(229,62,62,0.1)', color: 'var(--color-error)', borderRadius: 8, fontWeight: 'bold', textAlign: 'center' }}>
+          تم إلغاء هذه الرحلة — تم خصم عمولة إلغاء قدرها {trip.cancellation?.commission} ر.س
+        </div>
+      ) : (<>
       <h3 style={{ margin: '8px 0 0' }}>الموقع الحالي</h3>
       <div style={{ height: 250, backgroundColor: 'var(--color-primary)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--color-border)', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, opacity: 0.1, backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-        
+
         {/* SVG Route Line (RTL approximation) */}
         <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', transform: 'scaleX(-1)' }}>
           <line x1="15%" y1="20%" x2="85%" y2="80%" stroke="var(--color-border)" strokeWidth="3" strokeDasharray="6,6" />
@@ -164,14 +206,14 @@ export const CarrierTripTrack = () => {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
         <h3 style={{ margin: 0 }}>حالة الرحلة</h3>
-        {!isDelivered && nextStage && (
+        {!isDelivered && nextStage && !nextStageNeedsProof && (
           <Button size="sm" onClick={handleUpdateStatus} isLoading={isUpdating}>
             تحديث إلى: {TripStageAr[nextStage]}
           </Button>
         )}
       </div>
       <p className="text-helper" style={{ margin: '8px 0 16px', fontSize: 12 }}>يرجى التأكد من تحديث الحالة فور وصولك لكل مرحلة</p>
-      
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0, paddingRight: 16 }}>
         {stagesList.map((stage, idx) => {
           const stageIdx = stageOrder.indexOf(stage.stage);
@@ -194,23 +236,77 @@ export const CarrierTripTrack = () => {
         })}
       </div>
 
+      {shipment && (shipment.pickupDirections || shipment.pickupContact || shipment.deliveryDirections || shipment.deliveryContact) && (
+        <>
+          <h3 style={{ marginTop: 8, marginBottom: 8 }}>بيانات الموقع</h3>
+          <Card>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              {(shipment.pickupDirections || shipment.pickupContact) && (
+                <div>
+                  <div className="text-helper">موقع التحميل</div>
+                  {shipment.pickupDirections && <div>{shipment.pickupDirections}</div>}
+                  {shipment.pickupContact && <div dir="ltr">☎ {shipment.pickupContact}</div>}
+                </div>
+              )}
+              {(shipment.deliveryDirections || shipment.deliveryContact) && (
+                <div>
+                  <div className="text-helper">موقع التسليم</div>
+                  {shipment.deliveryDirections && <div>{shipment.deliveryDirections}</div>}
+                  {shipment.deliveryContact && <div dir="ltr">☎ {shipment.deliveryContact}</div>}
+                </div>
+              )}
+            </div>
+          </Card>
+        </>
+      )}
+
       <h3 style={{ marginTop: 16, marginBottom: 8 }}>مستندات الإثبات</h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 32 }}>
-        <Card style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontWeight: 'bold', fontSize: 16 }}>إثبات التحميل</div>
-            <div className="text-helper" style={{ fontSize: 12, marginTop: 4 }}>الرجاء رفع صورة إثبات التحميل</div>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => alert('محاكاة رفع ملف')}>رفع مستند</Button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 8 }}>
+        <Card>
+          <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>إثبات التحميل</div>
+          {loadProof ? (
+            <ProofPhotoCapture label="إثبات التحميل" existingPhoto={loadProof} />
+          ) : nextStage === TripStageEnum.LOADED ? (
+            <ProofPhotoCapture
+              label="التقط صورة إثبات التحميل لتأكيد هذه المرحلة"
+              onCaptured={(proof) => advanceStage(TripStageEnum.LOADED, proof)}
+            />
+          ) : (
+            <div className="text-helper" style={{ fontSize: 12 }}>سيُطلب منك التقاط الصورة عند الوصول لهذه المرحلة</div>
+          )}
         </Card>
-        <Card style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontWeight: 'bold', fontSize: 16 }}>إثبات التسليم</div>
-            <div className="text-helper" style={{ fontSize: 12, marginTop: 4 }}>الرجاء رفع صورة إثبات التسليم</div>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => alert('محاكاة رفع ملف')}>رفع مستند</Button>
+        <Card>
+          <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>إثبات التسليم</div>
+          {deliveryProof ? (
+            <ProofPhotoCapture label="إثبات التسليم" existingPhoto={deliveryProof} />
+          ) : nextStage === TripStageEnum.DELIVERED ? (
+            <ProofPhotoCapture
+              label="التقط صورة إثبات التسليم لتأكيد هذه المرحلة"
+              onCaptured={(proof) => advanceStage(TripStageEnum.DELIVERED, proof)}
+            />
+          ) : (
+            <div className="text-helper" style={{ fontSize: 12 }}>سيُطلب منك التقاط الصورة عند الوصول لهذه المرحلة</div>
+          )}
         </Card>
       </div>
+
+      <h3 style={{ marginTop: 8, marginBottom: 8 }}>رسائل سريعة</h3>
+      <Card>
+        <QuickMessagePanel role={UserRole.CARRIER} messages={trip.messages} onSend={handleSendMessage} isSending={isSendingMessage} />
+      </Card>
+
+      <div style={{ marginTop: 8 }}>
+        {canCancel ? (
+          <Button variant="danger" style={{ width: '100%' }} onClick={handleCancel} isLoading={isCancelling}>
+            إلغاء الرحلة
+          </Button>
+        ) : !isDelivered && (
+          <p className="text-helper" style={{ fontSize: 12, textAlign: 'center' }}>
+            لا يمكن إلغاء الرحلة بعد بدء التحميل — يرجى التواصل مع دعم المنصة عند وجود مشكلة.
+          </p>
+        )}
+      </div>
+      </>)}
 
       {isDelivered && (
         <div style={{ padding: 16, backgroundColor: 'rgba(39, 174, 96, 0.1)', color: 'var(--color-success)', borderRadius: 8, fontWeight: 'bold', textAlign: 'center' }}>

@@ -49,10 +49,10 @@ export const StatusBadge = ({ status, label, className = '' }) => {
         text = label || TripStageAr[status];
         switch (status) {
             case TripStage.ASSIGNED:
-            case TripStage.PICKUP_ROUTE_EN:
-            case TripStage.PICKUP_ARRIVED:
+            case TripStage.EN_ROUTE_PICKUP:
+            case TripStage.ARRIVED_PICKUP:
             case TripStage.LOADED:
-            case TripStage.DELIVERY_ROUTE_EN:
+            case TripStage.EN_ROUTE_DELIVERY:
                 variant = styles.warning;
                 break;
             case TripStage.DELIVERED:

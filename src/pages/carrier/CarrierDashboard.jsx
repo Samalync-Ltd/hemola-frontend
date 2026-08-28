@@ -9,6 +9,8 @@ import { DataTable } from '../../components/common/DataTable';
 import { shipmentService, tripService, walletService, authService, offerService } from '../../services/api';
 import { ShipmentStatus, OfferStatus } from '../../constants/enums';
 import { WithdrawModal } from '../../components/wallet/WithdrawModal';
+import { DEMO_MODE } from '../../constants/config';
+import { useDemoShipmentTrickle } from '../../hooks/useDemoShipmentTrickle';
 
 export const CarrierDashboard = () => {
     const navigate = useNavigate();
@@ -20,26 +22,29 @@ export const CarrierDashboard = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
     const [isWithdrawing, setIsWithdrawing] = useState(false);
+    const [shouldTrickle, setShouldTrickle] = useState(false);
 
     const fetchData = async () => {
         try {
             const currentUser = await authService.getCurrentUser();
             setUser(currentUser);
-            
+
             const [sh, tr, wa, off] = await Promise.all([
                 shipmentService.getShipments(),
                 tripService.getTrips(),
                 walletService.getWallet(),
                 offerService.getOffersByCarrier(currentUser.id)
             ]);
-            
-            // For a carrier, available shipments are those pending offers or negotiating 
-            // and NOT assigned to them or anyone else
-            setAvailableShipments(sh.filter(s => 
-                s.status === ShipmentStatus.OFFERS_PENDING || 
-                s.status === ShipmentStatus.NEGOTIATING
-            ));
-            
+
+            // For a carrier, available shipments are those pending offers or
+            // negotiating, matching the truck type on their account.
+            const available = sh.filter(s =>
+                (s.status === ShipmentStatus.OFFERS_PENDING || s.status === ShipmentStatus.NEGOTIATING) &&
+                (!currentUser?.truckType || !s.requiredTruckType || s.requiredTruckType === currentUser.truckType)
+            );
+            setAvailableShipments(available);
+            if (DEMO_MODE && available.length === 0) setShouldTrickle(true);
+
             setTrips(tr.filter(t => t.carrierId === currentUser.id));
             setWallet(wa);
             setOffers(off);
@@ -51,6 +56,14 @@ export const CarrierDashboard = () => {
     useEffect(() => {
         fetchData();
     }, []);
+
+    // Same simulated marketplace trickle as CarrierShipments.jsx — this
+    // dashboard's own "شحنات متاحة حديثاً" preview reads the same store, so
+    // it needs the same empty-then-trickle behavior regardless of which of
+    // the two screens the carrier happens to be looking at.
+    useDemoShipmentTrickle(shouldTrickle, user?.truckType, (injected) => {
+        setAvailableShipments(prev => [injected, ...prev]);
+    });
 
     const handleWithdraw = async (amount) => {
         setIsWithdrawing(true);
@@ -155,7 +168,7 @@ export const CarrierDashboard = () => {
             onClose={() => setIsWithdrawOpen(false)}
             onConfirm={handleWithdraw}
             isLoading={isWithdrawing}
-            currentBalance={wallet.balance}
+            currentBalance={wallet.available}
         />
       )}
     </div>);

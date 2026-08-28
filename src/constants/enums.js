@@ -31,18 +31,18 @@ export const OfferStatusAr = {
 export var TripStage;
 (function (TripStage) {
     TripStage["ASSIGNED"] = "ASSIGNED";
-    TripStage["PICKUP_ROUTE_EN"] = "PICKUP_ROUTE_EN";
-    TripStage["PICKUP_ARRIVED"] = "PICKUP_ARRIVED";
+    TripStage["EN_ROUTE_PICKUP"] = "EN_ROUTE_PICKUP";
+    TripStage["ARRIVED_PICKUP"] = "ARRIVED_PICKUP";
     TripStage["LOADED"] = "LOADED";
-    TripStage["DELIVERY_ROUTE_EN"] = "DELIVERY_ROUTE_EN";
+    TripStage["EN_ROUTE_DELIVERY"] = "EN_ROUTE_DELIVERY";
     TripStage["DELIVERED"] = "DELIVERED";
 })(TripStage || (TripStage = {}));
 export const TripStageAr = {
     [TripStage.ASSIGNED]: 'تم إسناد الشحنة',
-    [TripStage.PICKUP_ROUTE_EN]: 'في الطريق لموقع التحميل',
-    [TripStage.PICKUP_ARRIVED]: 'تم الوصول للتحميل',
+    [TripStage.EN_ROUTE_PICKUP]: 'في الطريق لموقع التحميل',
+    [TripStage.ARRIVED_PICKUP]: 'تم الوصول للتحميل',
     [TripStage.LOADED]: 'تم التحميل',
-    [TripStage.DELIVERY_ROUTE_EN]: 'في الطريق للتسليم',
+    [TripStage.EN_ROUTE_DELIVERY]: 'في الطريق للتسليم',
     [TripStage.DELIVERED]: 'تم التسليم'
 };
 export var UserRole;
@@ -74,4 +74,8 @@ export var TransactionType;
     TransactionType["TOP_UP"] = "TOP_UP";
     TransactionType["FEE_DEDUCTION"] = "FEE_DEDUCTION";
     TransactionType["TRIP_SETTLEMENT"] = "TRIP_SETTLEMENT";
+    // Matches mobile's WalletTransactionType.withdrawal — previously a raw
+    // 'WITHDRAWAL' string literal in services/api.js instead of a real enum
+    // member; kept as one canonical value here now.
+    TransactionType["WITHDRAWAL"] = "WITHDRAWAL";
 })(TransactionType || (TransactionType = {}));

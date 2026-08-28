@@ -6,7 +6,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { Input } from '../../components/common/Input';
 import { shipmentService, offerService } from '../../services/api';
-import { OfferStatus } from '../../constants/enums';
+import { OfferStatus, ShipmentStatus } from '../../constants/enums';
 
 export const CarrierShipmentDetail = ({ user }) => {
     const { shipmentId } = useParams();
@@ -121,22 +121,31 @@ export const CarrierShipmentDetail = ({ user }) => {
                             <div style={{ padding: 16, backgroundColor: 'rgba(255, 122, 41, 0.05)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
                                 <h4 style={{ margin: '0 0 12px 0' }}>عرضك الحالي</h4>
                                 <PriceBlock amount={myOffer.offeredPrice} />
-                                <div style={{ marginTop: 12 }}>
-                                    <span style={{ 
-                                        padding: '4px 8px', 
-                                        borderRadius: 4, 
-                                        fontSize: 12, 
+                                <div style={{ marginTop: 12, marginBottom: 16 }}>
+                                    <span style={{
+                                        padding: '4px 8px',
+                                        borderRadius: 4,
+                                        fontSize: 12,
                                         backgroundColor: myOffer.status === OfferStatus.ACCEPTED ? 'var(--color-success)' : myOffer.status === OfferStatus.REJECTED ? 'var(--color-error)' : 'var(--color-background)',
                                         color: myOffer.status === OfferStatus.ACCEPTED || myOffer.status === OfferStatus.REJECTED ? 'white' : 'var(--color-text-primary)'
                                     }}>
                                         حالة العرض: {
                                             myOffer.status === OfferStatus.PENDING ? 'قيد الانتظار' :
-                                            myOffer.status === OfferStatus.ACCEPTED ? 'مقبول' :
+                                            myOffer.status === OfferStatus.ACCEPTED ? 'مقبول — بانتظار تأكيد صاحب الشحنة' :
                                             myOffer.status === OfferStatus.REJECTED ? 'مرفوض' :
                                             myOffer.status === OfferStatus.COUNTERED ? 'تم الرد بعرض مضاد' : myOffer.status
                                         }
                                     </span>
                                 </div>
+                                {shipment.status === ShipmentStatus.ACTIVE && shipment.assignedCarrierId === user.id ? (
+                                    <div style={{ padding: 12, backgroundColor: 'rgba(39, 174, 96, 0.1)', color: 'var(--color-success)', borderRadius: 8, fontWeight: 'bold', textAlign: 'center' }}>
+                                        ✓ تم إسناد الشحنة إليك — راجع صفحة الرحلات لمتابعتها
+                                    </div>
+                                ) : myOffer.status !== OfferStatus.REJECTED && (
+                                    <Button style={{ width: '100%' }} onClick={() => navigate(`/app/shipments/${shipment.id}/negotiation/${myOffer.id}`)}>
+                                        فتح التفاوض
+                                    </Button>
+                                )}
                             </div>
                         ) : (
                             <form onSubmit={handleSubmitOffer}>

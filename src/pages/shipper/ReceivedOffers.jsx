@@ -7,6 +7,10 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { shipmentService, offerService } from '../../services/api';
 import { OfferStatus } from '../../constants/enums';
+import { DEMO_MODE } from '../../constants/config';
+import { hasSeededDemoOffer, markDemoOfferSeeded } from '../../utils/freshAccount';
+import { pickRandomDemoCarrier } from '../../mocks/demoPool';
+
 export const ReceivedOffers = () => {
     const { shipmentId } = useParams();
     const navigate = useNavigate();
@@ -26,6 +30,37 @@ export const ReceivedOffers = () => {
                 .finally(() => setIsLoading(false));
         }
     }, [shipmentId]);
+
+    // Simulates a carrier discovering and bidding on a shipper's shipment,
+    // so this screen isn't just empty forever. Fires at most once per
+    // account (see markDemoOfferSeeded) and only while there are genuinely
+    // no real offers yet — gated purely on that emptiness (not on how the
+    // account got here) so it works whether the account just registered or
+    // is a stale/partial session. Gated behind DEMO_MODE; never touches the
+    // shipper's own data.
+    useEffect(() => {
+        if (!DEMO_MODE || hasSeededDemoOffer()) return;
+        if (isLoading || !shipment || offers.length > 0) return;
+
+        const timer = setTimeout(async () => {
+            const carrier = pickRandomDemoCarrier();
+            const variance = 0.92 + Math.random() * 0.16; // ±8% of the suggested price
+            const amount = Math.round((shipment.proposedPrice ?? 0) * variance);
+            // A real offer record in the mock store (not just local state) —
+            // so opening its negotiation thread, or reloading this page,
+            // still finds it. See offerService.injectDemoOffer.
+            const newOffer = await offerService.injectDemoOffer(shipment.id, {
+                carrierName: carrier.name,
+                carrierRating: carrier.rating,
+                carrierTruckType: carrier.truckType,
+                offeredPrice: amount,
+            });
+            setOffers(prev => prev.length > 0 ? prev : [newOffer]);
+            markDemoOfferSeeded();
+        }, 8000 + Math.random() * 4000); // 8-12s
+
+        return () => clearTimeout(timer);
+    }, [isLoading, shipment, offers.length]);
     if (isLoading)
         return <div>جاري التحميل...</div>;
     if (!shipment)

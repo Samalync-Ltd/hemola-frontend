@@ -5,7 +5,7 @@ import { Card } from '../../components/common/Card';
 import { DataTable } from '../../components/common/DataTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
-import { shipmentService } from '../../services/api';
+import { shipmentService, authService } from '../../services/api';
 import { ShipmentStatus, ShipmentStatusAr } from '../../constants/enums';
 export const MyShipments = () => {
     const navigate = useNavigate();
@@ -13,8 +13,10 @@ export const MyShipments = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('ALL');
     useEffect(() => {
-        shipmentService.getShipments().then(data => {
-            setShipments(data);
+        Promise.all([authService.getCurrentUser(), shipmentService.getShipments()]).then(([user, data]) => {
+            // Each shipper only sees their own shipments — never another
+            // shipper's, and never a brand-new account's seeded "sample" data.
+            setShipments(user ? data.filter(s => s.shipperId === user.id) : data);
             setIsLoading(false);
         });
     }, []);

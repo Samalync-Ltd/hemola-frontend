@@ -4,7 +4,7 @@ import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
-import { shipmentService } from '../../services/api';
+import { shipmentService, authService } from '../../services/api';
 const steps = [
     'المواقع',
     'البضاعة',
@@ -22,6 +22,10 @@ export const CreateShipment = () => {
         pickupLocation: '',
         deliveryCity: '',
         deliveryLocation: '',
+        pickupDirections: '',
+        pickupContact: '',
+        deliveryDirections: '',
+        deliveryContact: '',
         cargoType: '',
         customCargoType: '',
         weight: '',
@@ -82,7 +86,8 @@ export const CreateShipment = () => {
         try {
             const finalCargoType = formData.cargoType === 'أخرى' ? formData.customCargoType : formData.cargoType;
             const finalTruckType = formData.requiredTruckType === 'أخرى' ? formData.customTruckType : formData.requiredTruckType;
-            
+            const currentUser = await authService.getCurrentUser();
+
             await shipmentService.createShipment({
                 ...formData,
                 cargoType: finalCargoType,
@@ -90,7 +95,7 @@ export const CreateShipment = () => {
                 weight: Number(formData.weight),
                 volume: Number(formData.volume),
                 proposedPrice: Number(formData.proposedPrice),
-                shipperId: 'user-shipper-1' // mock
+                shipperId: currentUser?.id ?? 'user-shipper-1'
             });
             navigate(`/app/shipments`);
         }
@@ -148,6 +153,15 @@ export const CreateShipment = () => {
               <ErrorMsg error={errors.deliveryCity} />
               <Input name="deliveryLocation" label="تفاصيل موقع التسليم" value={formData.deliveryLocation} onChange={handleChange}/>
               <ErrorMsg error={errors.deliveryLocation} />
+
+              <div style={{ margin: '24px 0', borderTop: '1px solid var(--color-border)' }}></div>
+              <p className="text-helper" style={{ marginBottom: 8 }}>
+                بيانات إضافية (اختياري) — لا تظهر إلا للناقل بعد إسناد الشحنة إليه فقط.
+              </p>
+              <Input name="pickupDirections" label="إرشادات الوصول لموقع التحميل" value={formData.pickupDirections} onChange={handleChange}/>
+              <Input name="pickupContact" label="جوال المسؤول في موقع التحميل" value={formData.pickupContact} onChange={handleChange}/>
+              <Input name="deliveryDirections" label="إرشادات الوصول لموقع التسليم" value={formData.deliveryDirections} onChange={handleChange}/>
+              <Input name="deliveryContact" label="جوال المسؤول في موقع التسليم" value={formData.deliveryContact} onChange={handleChange}/>
             </div>)}
 
           {currentStep === 1 && (<div>

@@ -1,4 +1,5 @@
 import { ShipmentStatus, OfferStatus, TripStage, UserRole, AccountType, AccountStatus, TransactionType } from '../constants/enums';
+import { hydrateMockStore } from './persistence';
 
 export const mockUsers = [
     {
@@ -313,13 +314,13 @@ export const mockOffers = [
 ];
 
 export const mockTrips = [
-    // Active trip — carrier-1, in DELIVERY_ROUTE_EN (good for demo testing)
+    // Active trip — carrier-1, in EN_ROUTE_DELIVERY (good for demo testing)
     {
         id: 'TR-2001',
         shipmentId: 'HM-2001',
         carrierId: 'user-carrier-1',
         shipperId: 'user-shipper-1',
-        currentStage: TripStage.DELIVERY_ROUTE_EN,
+        currentStage: TripStage.EN_ROUTE_DELIVERY,
         finalPrice: 3750,
         startedAt: '2024-03-12T07:00:00Z',
         route: 'جدة -> المدينة المنورة',
@@ -433,3 +434,19 @@ export const mockNotifications = [
         linkTo: '/app/shipments/HM-3003'
     }
 ];
+
+/** Bundle used to hydrate/persist the whole mock store as one unit — see persistence.js. */
+export const MOCK_ARRAYS = {
+    mockUsers,
+    mockShipments,
+    mockOffers,
+    mockTrips,
+    mockWallets,
+    mockTransactions,
+    mockNotifications,
+};
+
+// Restores anything created in a previous session (new registrations,
+// posted shipments, offers, wallet activity) before the app reads any of
+// the arrays above — a refresh should never quietly reset the demo.
+hydrateMockStore(MOCK_ARRAYS);
