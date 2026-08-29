@@ -4,7 +4,7 @@ import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { DataTable } from '../../components/common/DataTable';
 import { PriceBlock } from '../../components/common/PriceBlock';
-import { shipmentService, authService, walletService } from '../../services/api';
+import { shipmentService, authService, walletService, offerService, isCarrierBusy } from '../../services/api';
 import { ShipmentStatus } from '../../constants/enums';
 import { getCurrentPositionSafe, haversineKm, lookupCityCoordinates } from '../../utils/geo';
 import { DEMO_MODE } from '../../constants/config';
@@ -24,6 +24,10 @@ export const CarrierShipments = () => {
     const [position, setPosition] = useState(null);
     const [carrier, setCarrier] = useState(null);
     const [wallet, setWallet] = useState(null);
+    // Which of these shipments the carrier already has an offer thread on
+    // (shipmentId -> offer), so the list can send them straight back into
+    // that negotiation instead of only ever offering "submit a new offer".
+    const [myOffersByShipment, setMyOffersByShipment] = useState({});
     // Gates the demo-trickle effect below — only known once the real fetch
     // resolves, so it's state rather than derived inline.
     const [shouldTrickle, setShouldTrickle] = useState(false);
@@ -45,6 +49,12 @@ export const CarrierShipments = () => {
             );
             setShipments(available);
             setIsLoading(false);
+
+            offerService.getOffersByCarrier(user.id).then(offers => {
+                const map = {};
+                offers.forEach(o => { map[o.shipmentId] = o; });
+                setMyOffersByShipment(map);
+            });
 
             // The demo trickle only ever matters when the real list is
             // genuinely empty — whether that's a brand-new account or just
@@ -114,6 +124,12 @@ export const CarrierShipments = () => {
             </Card>
         );
     }
+    // The busy rule itself is enforced hard, server-side, in isCarrierBusy /
+    // offerService.submitOffer / offerService.acceptOffer regardless of what
+    // this screen shows — so here it only changes what the carrier can DO
+    // with each row, never what they can see. The full marketplace stays
+    // visible; only the action is disabled with an explanatory notice.
+    const busy = !!(carrier && isCarrierBusy(carrier.id));
 
     const columns = [
         { key: 'route', header: 'المسار', render: (s) => `${s.pickupCity} -> ${s.deliveryCity}` },
@@ -124,11 +140,31 @@ export const CarrierShipments = () => {
         {
             key: 'actions',
             header: 'الإجراء',
-            render: (s) => (
-                <Button size="sm" onClick={() => navigate(`/app/shipments/${s.id}`)}>
-                    تقديم عرض
-                </Button>
-            )
+            render: (s) => {
+                const existingOffer = myOffersByShipment[s.id];
+                if (existingOffer && existingOffer.status !== 'REJECTED') {
+                    return (
+                        <Button size="sm" variant="outline" onClick={() => navigate(`/app/shipments/${s.id}/negotiation/${existingOffer.id}`)}>
+                            متابعة عرضي
+                        </Button>
+                    );
+                }
+                if (busy) {
+                    return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
+                            <Button size="sm" disabled>تقديم عرض</Button>
+                            <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textAlign: 'end' }}>
+                                لديك رحلة نشطة — أكملها أولاً
+                            </span>
+                        </div>
+                    );
+                }
+                return (
+                    <Button size="sm" onClick={() => navigate(`/app/shipments/${s.id}`)}>
+                        تقديم عرض
+                    </Button>
+                );
+            }
         },
     ];
 

@@ -360,6 +360,18 @@ export const mockWallets = [
         userId: 'user-carrier-1',
         balance: 8500,
         reservedBalance: 0
+    },
+    // The synthetic poster behind every DEMO_MODE carrier-side trickled
+    // shipment (see shipmentService.injectDemoShipment) — without a funded
+    // wallet here, offerService.acceptOffer's balance check would refuse
+    // every single demo shipment forever, since it always reserves funds
+    // from the shipment's shipperId. Pre-funded generously so a carrier can
+    // actually complete the full browse -> offer -> accept -> trip flow
+    // against demo listings, not just view them.
+    {
+        userId: 'demo-shipper',
+        balance: 1000000,
+        reservedBalance: 0
     }
 ];
 

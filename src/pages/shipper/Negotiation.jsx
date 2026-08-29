@@ -5,7 +5,7 @@ import { Card } from '../../components/common/Card';
 import { Input } from '../../components/common/Input';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { shipmentService, offerService } from '../../services/api';
-import { UserRole, OfferStatus } from '../../constants/enums';
+import { UserRole, OfferStatus, ShipmentStatus } from '../../constants/enums';
 import { formatTime, formatDate } from '../../utils/format';
 
 /**
@@ -72,13 +72,11 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
         setError('');
         setIsSubmitting(true);
         try {
-            if (role === UserRole.CARRIER) {
-                // Only agrees to the price — the shipper still finalizes.
-                const updated = await offerService.agreeToPrice(offer.id);
-                setOffer(updated);
-                setIsSubmitting(false);
-                return;
-            }
+            // Whichever side currently holds the latest offer/counter-offer
+            // (i.e. it's their turn) can accept it, and accepting always
+            // finalizes the price and triggers assignment immediately — the
+            // same action either party takes, no role-specific behavior and
+            // no second "confirm" step waiting on the other side.
             await offerService.acceptOffer(offer.id, offer.offeredPrice);
             alert(`تم الاتفاق على السعر النهائي — ${offer.offeredPrice} ر.س\nتم تأكيد وإسناد الشحنة`);
             navigate('/app');
@@ -113,11 +111,16 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
     // last move came from the other side and nothing has been decided yet.
     const lastMoveBy = history[history.length - 1].senderRole;
     const canRespond = offer.status === OfferStatus.PENDING && lastMoveBy !== role;
-    // Rejected is terminal for everyone. Accepted is only terminal for the
-    // carrier — the shipper still has one action left (finalize & assign),
-    // so their decision card stays visible until they take it.
-    const isClosed = offer.status === OfferStatus.REJECTED ||
-        (offer.status === OfferStatus.ACCEPTED && role === UserRole.CARRIER);
+    // The simulated counterpart (see offerService.counterOffer) can mark an
+    // offer ACCEPTED on its own without actually finalizing anything — that
+    // represents "the other side agreed to your price," and a real user
+    // still has to press Accept themselves to reserve funds and create the
+    // trip. So ACCEPTED is only really "done" once the shipment has actually
+    // moved to ACTIVE (see offerService.acceptOffer) — until then, whoever's
+    // turn it is can still finalize with one click.
+    const isFinalized = shipment.status === ShipmentStatus.ACTIVE;
+    const canFinalize = canRespond || (offer.status === OfferStatus.ACCEPTED && !isFinalized);
+    const isClosed = offer.status === OfferStatus.REJECTED || isFinalized;
 
     return (<div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -128,7 +131,7 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
         <Button variant="outline" onClick={() => navigate(backPath)}>عودة</Button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
+      <div className="responsive-two-col">
         <Card style={{ display: 'flex', flexDirection: 'column', height: '600px' }}>
           <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
             {history.map((entry, idx) => {
@@ -205,16 +208,10 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
               <h3 style={{ marginBottom: 16 }}>اتخاذ قرار</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <PriceBlock label="السعر الحالي المطروح" amount={currentPrice} size="lg"/>
-                {role === UserRole.SHIPPER ? (
-                  <Button style={{ marginTop: 16 }} onClick={handleAccept} isLoading={isSubmitting} disabled={!canRespond && offer.status !== OfferStatus.ACCEPTED}>
-                    قبول العرض وإسناد الشحنة
-                  </Button>
-                ) : (
-                  <Button style={{ marginTop: 16 }} onClick={handleAccept} isLoading={isSubmitting} disabled={!canRespond}>
-                    قبول سعر صاحب الشحنة
-                  </Button>
-                )}
-                <Button variant="danger" onClick={handleReject} isLoading={isSubmitting}>رفض وإنهاء التفاوض</Button>
+                <Button style={{ marginTop: 16 }} onClick={handleAccept} isLoading={isSubmitting} disabled={!canFinalize}>
+                  {role === UserRole.SHIPPER ? 'قبول العرض وإسناد الشحنة' : 'قبول سعر صاحب الشحنة'}
+                </Button>
+                <Button variant="danger" onClick={handleReject} isLoading={isSubmitting} disabled={!canFinalize}>رفض وإنهاء التفاوض</Button>
               </div>
             </Card>
           )}

@@ -7,6 +7,7 @@ import { tripService, shipmentService } from '../../services/api';
 import { TripStage as TripStageEnum, TripStageAr, UserRole } from '../../constants/enums';
 import { ProofPhotoCapture } from '../../components/trip/ProofPhotoCapture';
 import { QuickMessagePanel } from '../../components/trip/QuickMessagePanel';
+import { TripMap, openInMaps } from '../../components/map/TripMap';
 
 const stageOrder = [
     TripStageEnum.ASSIGNED,
@@ -236,23 +237,39 @@ export const CarrierTripTrack = () => {
         })}
       </div>
 
-      {shipment && (shipment.pickupDirections || shipment.pickupContact || shipment.deliveryDirections || shipment.deliveryContact) && (
+      {shipment && (shipment.pickupDirections || shipment.pickupContact || shipment.deliveryDirections || shipment.deliveryContact || shipment.pickupLat || shipment.deliveryLat) && (
         <>
           <h3 style={{ marginTop: 8, marginBottom: 8 }}>بيانات الموقع</h3>
+          {(shipment.pickupLat || shipment.deliveryLat) && (
+            <TripMap
+              pickup={shipment.pickupLat ? [shipment.pickupLat, shipment.pickupLng] : null}
+              delivery={shipment.deliveryLat ? [shipment.deliveryLat, shipment.deliveryLng] : null}
+            />
+          )}
           <Card>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              {(shipment.pickupDirections || shipment.pickupContact) && (
+            <div className="responsive-two-col-even">
+              {(shipment.pickupDirections || shipment.pickupContact || shipment.pickupLat) && (
                 <div>
-                  <div className="text-helper">موقع التحميل</div>
+                  <div className="text-helper">📦 موقع التحميل</div>
                   {shipment.pickupDirections && <div>{shipment.pickupDirections}</div>}
                   {shipment.pickupContact && <div dir="ltr">☎ {shipment.pickupContact}</div>}
+                  {shipment.pickupLat && (
+                    <Button variant="outline" size="sm" style={{ marginTop: 8 }} onClick={() => openInMaps(shipment.pickupLat, shipment.pickupLng)}>
+                      فتح في خرائط جوجل
+                    </Button>
+                  )}
                 </div>
               )}
-              {(shipment.deliveryDirections || shipment.deliveryContact) && (
+              {(shipment.deliveryDirections || shipment.deliveryContact || shipment.deliveryLat) && (
                 <div>
-                  <div className="text-helper">موقع التسليم</div>
+                  <div className="text-helper">🏁 موقع التسليم</div>
                   {shipment.deliveryDirections && <div>{shipment.deliveryDirections}</div>}
                   {shipment.deliveryContact && <div dir="ltr">☎ {shipment.deliveryContact}</div>}
+                  {shipment.deliveryLat && (
+                    <Button variant="outline" size="sm" style={{ marginTop: 8 }} onClick={() => openInMaps(shipment.deliveryLat, shipment.deliveryLng)}>
+                      فتح في خرائط جوجل
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

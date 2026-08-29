@@ -5,6 +5,7 @@ import { Card } from '../../components/common/Card';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
 import { shipmentService, authService } from '../../services/api';
+import { MapPickerModal } from '../../components/map/MapPickerModal';
 const steps = [
     'المواقع',
     'البضاعة',
@@ -24,8 +25,12 @@ export const CreateShipment = () => {
         deliveryLocation: '',
         pickupDirections: '',
         pickupContact: '',
+        pickupLat: null,
+        pickupLng: null,
         deliveryDirections: '',
         deliveryContact: '',
+        deliveryLat: null,
+        deliveryLng: null,
         cargoType: '',
         customCargoType: '',
         weight: '',
@@ -38,6 +43,7 @@ export const CreateShipment = () => {
         proposedPrice: ''
     });
     const [errors, setErrors] = useState({});
+    const [pickerOpen, setPickerOpen] = useState(null); // 'pickup' | 'delivery' | null
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -138,7 +144,7 @@ export const CreateShipment = () => {
         })}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
+      <div className="responsive-two-col">
         <Card>
           {currentStep === 0 && (<div>
               <h3 style={{ marginBottom: 16 }}>مواقع التحميل والتسليم</h3>
@@ -160,8 +166,42 @@ export const CreateShipment = () => {
               </p>
               <Input name="pickupDirections" label="إرشادات الوصول لموقع التحميل" value={formData.pickupDirections} onChange={handleChange}/>
               <Input name="pickupContact" label="جوال المسؤول في موقع التحميل" value={formData.pickupContact} onChange={handleChange}/>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                style={{ marginBottom: 16 }}
+                onClick={() => setPickerOpen('pickup')}
+              >
+                {formData.pickupLat ? '📍 تم تحديد الموقع على الخريطة — تعديل' : '📍 تحديد موقع التحميل على الخريطة (اختياري)'}
+              </Button>
               <Input name="deliveryDirections" label="إرشادات الوصول لموقع التسليم" value={formData.deliveryDirections} onChange={handleChange}/>
               <Input name="deliveryContact" label="جوال المسؤول في موقع التسليم" value={formData.deliveryContact} onChange={handleChange}/>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPickerOpen('delivery')}
+              >
+                {formData.deliveryLat ? '📍 تم تحديد الموقع على الخريطة — تعديل' : '📍 تحديد موقع التسليم على الخريطة (اختياري)'}
+              </Button>
+
+              <MapPickerModal
+                isOpen={pickerOpen === 'pickup'}
+                onClose={() => setPickerOpen(null)}
+                title="تحديد موقع التحميل"
+                cityName={formData.pickupCity}
+                initialPoint={formData.pickupLat ? [formData.pickupLat, formData.pickupLng] : null}
+                onConfirm={([lat, lng]) => setFormData(f => ({ ...f, pickupLat: lat, pickupLng: lng }))}
+              />
+              <MapPickerModal
+                isOpen={pickerOpen === 'delivery'}
+                onClose={() => setPickerOpen(null)}
+                title="تحديد موقع التسليم"
+                cityName={formData.deliveryCity}
+                initialPoint={formData.deliveryLat ? [formData.deliveryLat, formData.deliveryLng] : null}
+                onConfirm={([lat, lng]) => setFormData(f => ({ ...f, deliveryLat: lat, deliveryLng: lng }))}
+              />
             </div>)}
 
           {currentStep === 1 && (<div>
@@ -181,7 +221,7 @@ export const CreateShipment = () => {
                   <ErrorMsg error={errors.customCargoType} />
                   </>
               )}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="responsive-two-col-even">
                 <div>
                   <Input name="weight" type="number" label="الوزن (طن)" value={formData.weight} onChange={handleChange}/>
                   <ErrorMsg error={errors.weight} />
@@ -232,7 +272,7 @@ export const CreateShipment = () => {
 
           {currentStep === 5 && (<div>
               <h3 style={{ marginBottom: 16 }}>مراجعة الشحنة</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="responsive-two-col-even">
                 <div><strong>المسار:</strong> {formData.pickupCity} إلى {formData.deliveryCity}</div>
                 <div><strong>البضاعة:</strong> {formData.cargoType === 'أخرى' ? formData.customCargoType : formData.cargoType} ({formData.weight} طن)</div>
                 <div><strong>الشاحنة:</strong> {formData.requiredTruckType === 'أخرى' ? formData.customTruckType : formData.requiredTruckType}</div>

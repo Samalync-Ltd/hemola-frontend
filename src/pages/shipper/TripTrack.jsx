@@ -7,6 +7,7 @@ import { tripService, shipmentService, userService } from '../../services/api';
 import { TripStage as TripStageEnum, TripStageAr, UserRole } from '../../constants/enums';
 import { ProofPhotoCapture } from '../../components/trip/ProofPhotoCapture';
 import { QuickMessagePanel } from '../../components/trip/QuickMessagePanel';
+import { TripMap, openInMaps } from '../../components/map/TripMap';
 
 const stageOrder = [
     TripStageEnum.ASSIGNED,
@@ -205,6 +206,36 @@ export const TripTrack = () => {
           </div>);
         })}
       </div>
+
+      {shipment && (shipment.pickupLat || shipment.deliveryLat) && (
+        <>
+          <h3 style={{ marginTop: 8, marginBottom: 8 }}>بيانات الموقع</h3>
+          <TripMap
+            pickup={shipment.pickupLat ? [shipment.pickupLat, shipment.pickupLng] : null}
+            delivery={shipment.deliveryLat ? [shipment.deliveryLat, shipment.deliveryLng] : null}
+          />
+          <Card>
+            <div className="responsive-two-col-even">
+              {shipment.pickupLat && (
+                <div>
+                  <div className="text-helper">📦 موقع التحميل</div>
+                  <Button variant="outline" size="sm" style={{ marginTop: 8 }} onClick={() => openInMaps(shipment.pickupLat, shipment.pickupLng)}>
+                    فتح في خرائط جوجل
+                  </Button>
+                </div>
+              )}
+              {shipment.deliveryLat && (
+                <div>
+                  <div className="text-helper">🏁 موقع التسليم</div>
+                  <Button variant="outline" size="sm" style={{ marginTop: 8 }} onClick={() => openInMaps(shipment.deliveryLat, shipment.deliveryLng)}>
+                    فتح في خرائط جوجل
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Card>
+        </>
+      )}
 
       <h3 style={{ marginTop: 16, marginBottom: 8 }}>مستندات الإثبات</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 8 }}>

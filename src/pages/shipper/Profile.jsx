@@ -71,7 +71,7 @@ export const Profile = () => {
           </Button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div className="responsive-two-col-even">
           {user.accountType === 'COMPANY' && (<Input label="اسم المنشأة" value={formData.companyName} onChange={e => setFormData({ ...formData, companyName: e.target.value })} disabled={!isEditing}/>)}
           <Input label="اسم المسؤول" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} disabled={!isEditing}/>
           <Input label="رقم الجوال" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} disabled={!isEditing} dir="ltr" style={{ textAlign: 'right' }}/>

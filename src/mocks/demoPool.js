@@ -39,6 +39,22 @@ export const demoCarrierFeedShipments = [
         proposedPrice: 3900,
         requiredTruckType: 'شاحنة نقل ثقيل (تريلا)',
         status: 'OFFERS_PENDING',
+        // A real precise pin (not just the city center) on at least one demo
+        // shipment, so the map-picker/"open in maps" feature is reachable
+        // end-to-end from the demo marketplace, not only on a shipment a
+        // shipper manually creates through the picker themselves. Hidden
+        // pre-assignment like any real SiteDetails pin — see CarrierShipments
+        // /CarrierShipmentDetail, which never read these fields.
+        pickupLocation: 'مستودعات المنطقة الصناعية الثانية',
+        pickupDirections: 'البوابة الشمالية، بجانب مستودع الشحن السريع',
+        pickupContact: '0551234567',
+        pickupLat: 24.7255,
+        pickupLng: 46.6474,
+        deliveryLocation: 'ميناء الملك عبدالعزيز - منطقة التخزين',
+        deliveryDirections: 'مدخل الشاحنات رقم 3',
+        deliveryContact: '0559876543',
+        deliveryLat: 26.2790,
+        deliveryLng: 50.2075,
     },
     {
         id: 'demo-shp-4',

@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Bell } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import styles from './Layout.module.css';
 import { StatusBadge } from '../common/StatusBadge';
 import { authService } from '../../services/api';
 import { NotificationCenter } from '../common/NotificationCenter';
-export const Topbar = () => {
+export const Topbar = ({ onMenuClick }) => {
     const [user, setUser] = useState(null);
     useEffect(() => {
         // Demo: fetch current user
@@ -12,9 +12,11 @@ export const Topbar = () => {
     }, []);
     return (<header className={styles.topbar}>
       <div className={styles.topbarLeft}>
-        <h2 style={{ margin: 0 }}>{/* Dynamic Page Title could go here */}</h2>
+        <button type="button" className={styles.menuButton} onClick={onMenuClick} aria-label="فتح القائمة">
+          <Menu size={22} />
+        </button>
       </div>
-      
+
       <div className={styles.topbarRight}>
         {user && (<>
             <div className={styles.userInfo}>

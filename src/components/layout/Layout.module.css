@@ -8,12 +8,13 @@
 
 .sidebar {
   width: 260px;
+  flex-shrink: 0;
   background-color: var(--color-primary);
   color: var(--color-surface);
   display: flex;
   flex-direction: column;
-  transition: width 0.3s ease;
-  z-index: 10;
+  transition: transform 0.25s ease;
+  z-index: 30;
 }
 
 .main {
@@ -21,6 +22,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0; /* let flex children shrink below their content size instead of overflowing */
 }
 
 .topbar {
@@ -32,12 +34,78 @@
   justify-content: space-between;
   padding: 0 var(--spacing-lg);
   z-index: 5;
+  gap: var(--spacing-sm);
 }
 
 .content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: var(--spacing-xl);
+}
+
+.menuButton {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-primary);
+  padding: 8px;
+}
+
+.sidebarBackdrop {
+  display: none;
+}
+
+/* Mobile: the sidebar becomes an off-canvas drawer instead of squeezing the
+   content column down to nothing. */
+@media (max-width: 900px) {
+  .sidebar {
+    position: fixed;
+    inset-inline-start: 0;
+    top: 0;
+    bottom: 0;
+    transform: translateX(100%); /* RTL: off-screen to the right */
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.2);
+  }
+
+  .sidebarOpen {
+    transform: translateX(0);
+  }
+
+  .sidebarBackdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 20;
+  }
+
+  .menuButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .content {
+    padding: var(--spacing-md);
+  }
+
+  .topbar {
+    padding: 0 var(--spacing-md);
+  }
+}
+
+@media (max-width: 480px) {
+  .content {
+    padding: var(--spacing-sm);
+  }
+
+  /* Keep the topbar from overflowing on very narrow phones — the avatar and
+     bell stay, the name/role text gives way. */
+  .userText {
+    display: none;
+  }
 }
 
 /* Sidebar inner styles */

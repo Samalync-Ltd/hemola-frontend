@@ -42,6 +42,13 @@
   box-sizing: border-box;
 }
 
+html, body {
+  /* Safety net: a stray fixed-width element shouldn't be able to add a
+     page-level horizontal scrollbar on a narrow viewport. */
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 body {
   margin: 0;
   font-family: 'Cairo', 'Poppins', sans-serif;
@@ -50,6 +57,35 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Shared "main content + sidebar" two-column layout used across shipment
+   details, negotiation, trip tracking, and profile screens — collapses to a
+   single column on narrow viewports instead of squeezing both columns down
+   to nothing. */
+.responsive-two-col {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--spacing-lg);
+}
+
+@media (max-width: 768px) {
+  .responsive-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Even split variant (form + live summary, e.g. CreateShipment). */
+.responsive-two-col-even {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+}
+
+@media (max-width: 640px) {
+  .responsive-two-col-even {
+    grid-template-columns: 1fr;
+  }
 }
 
 a {

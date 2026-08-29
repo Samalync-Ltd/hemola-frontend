@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, Package, Truck, Wallet, User as UserIcon, Plus } from 'lucide-react';
+import { Home, Package, Truck, Wallet, User as UserIcon, Plus, X } from 'lucide-react';
 import styles from './Layout.module.css';
 import { Button } from '../common/Button';
 import { authService } from '../../services/api';
 
-export const AppSidebar = () => {
+export const AppSidebar = ({ isOpen = false, onClose }) => {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
 
@@ -29,13 +29,22 @@ export const AppSidebar = () => {
           { label: 'الحساب', path: '/app/account', icon: <UserIcon size={20}/> },
         ];
 
-    return (<aside className={styles.sidebar}>
+    return (<aside className={`${styles.sidebar} ${isOpen ? styles.sidebarOpen : ''}`}>
       <div className={styles.brand}>
         <img src="/logos/1.png" alt="Hemola Logo" style={{ width: 48, height: 48, borderRadius: '5px', objectFit: 'contain', background: 'transparent' }} />
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
           <span style={{ fontSize: 24, fontWeight: 700, color: 'white', lineHeight: 1, marginBottom: 4 }}>حمولة</span>
           <span style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.7)' }}>منصة نقل البضائع</span>
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className={styles.menuButton}
+          aria-label="إغلاق القائمة"
+          style={{ color: 'white' }}
+        >
+          <X size={22} />
+        </button>
       </div>
 
       {user?.role !== 'CARRIER' && (

@@ -86,11 +86,11 @@ export const ShipmentDetail = () => {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
+      <div className="responsive-two-col">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           <Card>
             <h3 style={{ marginBottom: 16 }}>تفاصيل المسار والبضاعة</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div className="responsive-two-col-even">
               <div>
                 <div className="text-helper">موقع التحميل</div>
                 <div style={{ fontWeight: 700 }}>{shipment.pickupCity} - {shipment.pickupLocation}</div>
@@ -146,7 +146,7 @@ export const ShipmentDetail = () => {
                 </div>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="responsive-two-col-even">
                 <div>
                   <div className="text-helper">إرشادات موقع التحميل</div>
                   <div>{shipment.pickupDirections || '—'}</div>

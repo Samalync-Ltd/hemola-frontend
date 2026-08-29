@@ -14,7 +14,7 @@ export function DataTable({ data, columns, keyExtractor, emptyMessage = 'لا ت
                 {emptyMessage}
               </td>
             </tr>) : (data.map(item => (<tr key={keyExtractor(item)} className={styles.tr}>
-                {columns.map(col => (<td key={col.key} className={styles.td}>
+                {columns.map(col => (<td key={col.key} className={styles.td} data-label={col.header}>
                     {col.render(item)}
                   </td>))}
               </tr>)))}

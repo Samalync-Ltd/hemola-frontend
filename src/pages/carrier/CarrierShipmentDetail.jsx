@@ -5,8 +5,10 @@ import { Card } from '../../components/common/Card';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { Input } from '../../components/common/Input';
-import { shipmentService, offerService } from '../../services/api';
+import { shipmentService, offerService, isCarrierBusy } from '../../services/api';
 import { OfferStatus, ShipmentStatus } from '../../constants/enums';
+import { lookupCityCoordinates } from '../../utils/geo';
+import { TripMap } from '../../components/map/TripMap';
 
 export const CarrierShipmentDetail = ({ user }) => {
     const { shipmentId } = useParams();
@@ -15,10 +17,12 @@ export const CarrierShipmentDetail = ({ user }) => {
     const [myOffer, setMyOffer] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
-    
+    const [submitError, setSubmitError] = useState('');
+
     // Offer form state
     const [offerPrice, setOfferPrice] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isAccepting, setIsAccepting] = useState(false);
 
     useEffect(() => {
         if (shipmentId && user) {
@@ -40,6 +44,7 @@ export const CarrierShipmentDetail = ({ user }) => {
 
     const handleSubmitOffer = async (e) => {
         e.preventDefault();
+        setSubmitError('');
         setIsSubmitting(true);
         try {
             const newOffer = await offerService.submitOffer({
@@ -51,14 +56,42 @@ export const CarrierShipmentDetail = ({ user }) => {
             });
             setMyOffer(newOffer);
         } catch (err) {
-            console.error(err);
+            setSubmitError(err.message);
         } finally {
             setIsSubmitting(false);
         }
     };
 
+    // Directly accepts the shipper's currently-posted price without the
+    // detour of typing a matching counter-value: creates the initial offer
+    // at that exact price and finalizes it in one step, same end state as
+    // "submit a matching offer, then accept it in the negotiation thread"
+    // but as the single click a real Accept action should be.
+    const handleAcceptPostedPrice = async () => {
+        setSubmitError('');
+        setIsAccepting(true);
+        try {
+            const newOffer = await offerService.submitOffer({
+                shipmentId,
+                carrierId: user.id,
+                offeredPrice: shipment.proposedPrice,
+                carrierName: user.name || user.companyName,
+                truckType: 'شاحنة نقل' // demo default
+            });
+            await offerService.acceptOffer(newOffer.id, shipment.proposedPrice);
+            alert(`تم قبول السعر المطروح — ${shipment.proposedPrice} ر.س\nتم تأكيد وإسناد الشحنة إليك`);
+            navigate('/app');
+        } catch (err) {
+            setSubmitError(err.message);
+        } finally {
+            setIsAccepting(false);
+        }
+    };
+
     if (isLoading) return <div>جاري التحميل...</div>;
     if (error || !shipment) return <div>{error || 'الشحنة غير موجودة'}</div>;
+
+    const busy = user && isCarrierBusy(user.id);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -70,11 +103,25 @@ export const CarrierShipmentDetail = ({ user }) => {
                 <Button variant="outline" onClick={() => navigate('/app/shipments')}>عودة للقائمة</Button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
+            <div className="responsive-two-col">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                     <Card>
                         <h3 style={{ marginBottom: 16 }}>تفاصيل المسار والبضاعة</h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                        {(() => {
+                            // City-level route preview only — built from the public
+                            // origin/destination city names, never the shipment's
+                            // precise SiteDetails pin, which stays hidden until this
+                            // carrier is actually assigned.
+                            const pickup = lookupCityCoordinates(shipment.pickupCity);
+                            const delivery = lookupCityCoordinates(shipment.deliveryCity);
+                            if (!pickup || !delivery) return null;
+                            return (
+                                <div style={{ marginBottom: 16 }}>
+                                    <TripMap pickup={pickup} delivery={delivery} height={160} />
+                                </div>
+                            );
+                        })()}
+                        <div className="responsive-two-col-even">
                             <div>
                                 <div className="text-helper">موقع التحميل</div>
                                 <div style={{ fontWeight: 700 }}>{shipment.pickupCity} - {shipment.pickupLocation}</div>
@@ -148,24 +195,53 @@ export const CarrierShipmentDetail = ({ user }) => {
                                 )}
                             </div>
                         ) : (
-                            <form onSubmit={handleSubmitOffer}>
-                                <div style={{ marginBottom: 16 }}>
-                                    <Input 
-                                        type="number" 
-                                        label="سعر عرضك (ر.س)" 
-                                        value={offerPrice} 
-                                        onChange={(e) => setOfferPrice(e.target.value)} 
-                                        required 
-                                        min="1"
-                                    />
-                                    <p className="text-helper" style={{ fontSize: 12, marginTop: 8 }}>
-                                        بتقديمك لهذا العرض، أنت توافق على شروط النقل في حال القبول.
-                                    </p>
-                                </div>
-                                <Button type="submit" isLoading={isSubmitting} style={{ width: '100%' }}>
-                                    تقديم العرض
+                            <>
+                                {submitError && (
+                                    <div style={{ padding: 12, marginBottom: 16, borderRadius: 8, backgroundColor: 'rgba(229,62,62,0.08)', color: 'var(--color-error)', fontSize: 13 }}>
+                                        {submitError}
+                                    </div>
+                                )}
+                                {busy && (
+                                    <div style={{ padding: 12, marginBottom: 16, borderRadius: 8, backgroundColor: 'rgba(245,158,11,0.08)', color: 'var(--color-warning)', fontSize: 13 }}>
+                                        لديك شحنة نشطة حالياً — أكملها أو ألغِها قبل تقديم عروض على شحنات أخرى.
+                                    </div>
+                                )}
+                                <Button
+                                    variant="secondary"
+                                    onClick={handleAcceptPostedPrice}
+                                    isLoading={isAccepting}
+                                    disabled={busy || isSubmitting}
+                                    style={{ width: '100%', marginBottom: 16 }}
+                                >
+                                    قبول السعر المطروح ({shipment.proposedPrice} ر.س)
                                 </Button>
-                            </form>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0', color: 'var(--color-text-muted)', fontSize: 13 }}>
+                                    <div style={{ flex: 1, height: 1, backgroundColor: 'var(--color-border)' }} />
+                                    أو قدّم سعراً مختلفاً
+                                    <div style={{ flex: 1, height: 1, backgroundColor: 'var(--color-border)' }} />
+                                </div>
+
+                                <form onSubmit={handleSubmitOffer}>
+                                    <div style={{ marginBottom: 16 }}>
+                                        <Input
+                                            type="number"
+                                            label="سعر عرضك (ر.س)"
+                                            value={offerPrice}
+                                            onChange={(e) => setOfferPrice(e.target.value)}
+                                            required
+                                            min="1"
+                                            disabled={busy}
+                                        />
+                                        <p className="text-helper" style={{ fontSize: 12, marginTop: 8 }}>
+                                            بتقديمك لهذا العرض، أنت توافق على شروط النقل في حال القبول.
+                                        </p>
+                                    </div>
+                                    <Button type="submit" isLoading={isSubmitting} disabled={busy || isAccepting} style={{ width: '100%' }}>
+                                        تقديم العرض
+                                    </Button>
+                                </form>
+                            </>
                         )}
                     </Card>
                 </div>

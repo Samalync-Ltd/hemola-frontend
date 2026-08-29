@@ -23,7 +23,7 @@ export const AdminDashboard = () => {
         </Card>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 24 }}>
+      <div className="responsive-two-col">
         <Card>
           <h3 style={{ marginBottom: 16 }}>النشاط الأخير</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

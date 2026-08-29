@@ -94,7 +94,7 @@ export const CarrierDashboard = () => {
             key: 'actions',
             header: 'الإجراء',
             render: (s) => (<Button size="sm" variant="outline" onClick={() => navigate(`/app/shipments/${s.id}`)}>
-          تقديم عرض
+         عرض التفاصيل
         </Button>)
         },
     ];
@@ -105,7 +105,7 @@ export const CarrierDashboard = () => {
           <span className={styles.kpiLabel}>شحنات متاحة</span>
           <span className={styles.kpiValue}>{availableShipments.length}</span>
         </Card>
-        <Card className={styles.kpiCard}>
+        <Card className={styles.kpiCard} style={{ cursor: 'pointer' }} onClick={() => navigate('/app/shipments')}>
           <span className={styles.kpiLabel}>عروض بانتظار الرد</span>
           <span className={styles.kpiValue}>{pendingOffers.length}</span>
         </Card>

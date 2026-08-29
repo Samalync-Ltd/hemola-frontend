@@ -9,6 +9,16 @@ const delay = (ms = 800) => new Promise(resolve => setTimeout(resolve, ms));
 const persist = () => persistMockStore(MOCK_ARRAYS);
 
 /**
+ * One carrier, one active shipment at a time — from ASSIGNED until
+ * DELIVERED (or cancelled). This is the hard backend check: every
+ * assignment/offer path below calls this before proceeding, so a carrier
+ * can't end up on two active shipments even if a UI-level restriction were
+ * bypassed or stale.
+ */
+export const isCarrierBusy = (carrierId) =>
+    mockTrips.some(t => t.carrierId === carrierId && t.currentStage !== TripStage.DELIVERED && t.overallStatus !== 'CANCELLED');
+
+/**
  * Every exported service below mutates the shared mock store at some point
  * (or reads it, harmlessly re-persisting the same data) — wrapping them all
  * here means a new service method persists correctly by default instead of
@@ -236,6 +246,9 @@ export const offerService = withAutoPersist({
     },
     submitOffer: async (data) => {
         await delay();
+        if (isCarrierBusy(data.carrierId)) {
+            throw new Error('لديك شحنة نشطة حالياً — لا يمكنك تقديم عروض على شحنات أخرى حتى تسليمها أو إلغاؤها.');
+        }
         const newOffer = {
             id: `offer-${Math.floor(Math.random() * 10000)}`,
             shipmentId: data.shipmentId,
@@ -284,6 +297,9 @@ export const offerService = withAutoPersist({
         await delay(400);
         const offer = mockOffers.find(o => o.id === offerId);
         if (!offer) throw new Error('العرض غير موجود');
+        if (senderRole === 'CARRIER' && isCarrierBusy(offer.carrierId)) {
+            throw new Error('لديك شحنة نشطة حالياً — لا يمكنك التفاوض على شحنات أخرى حتى تسليمها أو إلغاؤها.');
+        }
         offer.offeredPrice = amount;
         offer.status = OfferStatus.PENDING;
         offer.history = [...(offer.history || []), { amount, senderRole, timestamp: new Date().toISOString() }];
@@ -337,20 +353,6 @@ export const offerService = withAutoPersist({
         return { ...offer };
     },
     /**
-     * The carrier's side of "accepting" a price the shipper countered with —
-     * only settles the negotiation (no money moves yet). The shipper still
-     * has to press their own "accept & assign" (acceptOffer below), which is
-     * what actually reserves funds and creates the trip. Money only ever
-     * moves through an explicit shipper action, same as mobile.
-     */
-    agreeToPrice: async (offerId) => {
-        await delay(300);
-        const offer = mockOffers.find(o => o.id === offerId);
-        if (!offer) throw new Error('العرض غير موجود');
-        offer.status = OfferStatus.ACCEPTED;
-        return { ...offer };
-    },
-    /**
      * Accepts an offer, finalizes the price, and assigns the carrier — the
      * agreed price is reserved (held, not spent) on the shipper's wallet
      * first. Throws if the shipper's available balance can't cover it, same
@@ -361,6 +363,14 @@ export const offerService = withAutoPersist({
         await delay();
         const offer = mockOffers.find(o => o.id === offerId);
         if (!offer) throw new Error('العرض غير موجود');
+
+        // Hard safety check, not just a UI-level restriction: refuses
+        // outright, changing nothing, if this carrier already has another
+        // shipment anywhere between assigned and delivered — regardless of
+        // whether the shipper or the carrier is the one clicking accept.
+        if (isCarrierBusy(offer.carrierId)) {
+            throw new Error('هذا الناقل لديه شحنة نشطة حالياً ولا يمكن إسناد شحنة أخرى إليه حتى يسلّمها أو تُلغى.');
+        }
 
         const shipment = mockShipments.find(s => s.id === offer.shipmentId);
         const shipperId = shipment ? shipment.shipperId : 'user-shipper-1';
