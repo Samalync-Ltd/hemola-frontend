@@ -1,0 +1,2030 @@
+From 3e1ab18b7d1b577055e8e9290e3879a84c1e6922 Mon Sep 17 00:00:00 2001
+From: mustafa-khamis <safsafrwanda2006@gmail.com>
+Date: Tue, 1 Sep 2026 12:01:17 +0200
+Subject: [PATCH] document improvements before Firebase Integration
+
+---
+ package-lock.json                           | 1100 ++++++++++++++++++-
+ package.json                                |    1 +
+ src/components/common/MapPreview.jsx        |   88 ++
+ src/components/wallet/TopUpModal.jsx        |   68 +-
+ src/components/wallet/WithdrawModal.jsx     |   86 +-
+ src/firebase/config.js                      |   19 +
+ src/mocks/data.js                           |   32 +
+ src/pages/auth/Register.jsx                 |   23 +-
+ src/pages/carrier/CarrierShipmentDetail.jsx |    9 +
+ src/pages/carrier/CarrierTripTrack.jsx      |   40 +-
+ src/pages/shipper/ShipmentDetail.jsx        |   10 +
+ src/pages/shipper/TripTrack.jsx             |    6 +-
+ src/services/api.js                         |   46 +-
+ src/services/firebase-services.js           |   57 +
+ 14 files changed, 1488 insertions(+), 97 deletions(-)
+ create mode 100644 src/components/common/MapPreview.jsx
+ create mode 100644 src/firebase/config.js
+ create mode 100644 src/services/firebase-services.js
+
+diff --git a/package-lock.json b/package-lock.json
+index 82eb80f..aa9bf8a 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -11,6 +11,7 @@
+         "@fontsource/cairo": "^5.3.0",
+         "@fontsource/poppins": "^5.3.0",
+         "clsx": "^2.1.1",
++        "firebase": "^12.18.0",
+         "lucide-react": "^1.31.0",
+         "react": "^19.2.8",
+         "react-dom": "^19.2.8",
+@@ -18,13 +19,649 @@
+         "tailwind-merge": "^3.6.0"
+       },
+       "devDependencies": {
+-        "@types/react": "^19.2.17",
+-        "@types/react-dom": "^19.2.3",
+         "@vitejs/plugin-react": "^6.0.4",
+         "oxlint": "^1.75.0",
+         "vite": "^8.2.0"
+       }
+     },
++    "node_modules/@firebase/ai": {
++      "version": "2.15.0",
++      "resolved": "https://registry.npmjs.org/@firebase/ai/-/ai-2.15.0.tgz",
++      "integrity": "sha512-Aj7TbFdAIWZdkX8JfdDStERpR35g6WNs+7XhNPtFLFOizUotj6k4N/D8HJkR45165HhnMJBe4hjOeeaxnnn56Q==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/app-check-interop-types": "0.3.5",
++        "@firebase/component": "0.7.5",
++        "@firebase/logger": "0.5.2",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x",
++        "@firebase/app-types": "0.x"
++      }
++    },
++    "node_modules/@firebase/analytics": {
++      "version": "0.10.24",
++      "resolved": "https://registry.npmjs.org/@firebase/analytics/-/analytics-0.10.24.tgz",
++      "integrity": "sha512-OfIAcIIwoqXjBzS+DnUQpOZ7i3ePaNFg83KPpDWjBZUKJmqMwzzAtLJqmKZOkQnW8im6vFR6f2I3M/9hxVd+QA==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/component": "0.7.5",
++        "@firebase/installations": "0.6.24",
++        "@firebase/logger": "0.5.2",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x"
++      }
++    },
++    "node_modules/@firebase/analytics-compat": {
++      "version": "0.2.30",
++      "resolved": "https://registry.npmjs.org/@firebase/analytics-compat/-/analytics-compat-0.2.30.tgz",
++      "integrity": "sha512-uVZEKlLaW4AHAhv8zoN9cTmveX6v86AVqcJ4LCaRCMTChTH8/NsjbisTq1lpBfWCLWS1spqwSHB4vol/YSCdMA==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/analytics": "0.10.24",
++        "@firebase/analytics-types": "0.8.5",
++        "@firebase/component": "0.7.5",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x",
++        "@firebase/app-compat": "0.x"
++      }
++    },
++    "node_modules/@firebase/analytics-types": {
++      "version": "0.8.5",
++      "resolved": "https://registry.npmjs.org/@firebase/analytics-types/-/analytics-types-0.8.5.tgz",
++      "integrity": "sha512-kdnooE7Bis2jEnsqcerRwn/UQpH5D3uvHpku7OdUM9TJN3omlu6iYtbyAQ6XkAJRgJtO0aNf9OOkW8J6D59oCA==",
++      "license": "Apache-2.0"
++    },
++    "node_modules/@firebase/app": {
++      "version": "0.16.1",
++      "resolved": "https://registry.npmjs.org/@firebase/app/-/app-0.16.1.tgz",
++      "integrity": "sha512-tjUEorFyKrurH7PbLWv9zDHRuU4mLefgD/yY38D584ziorIRlQz/PVjx4c/SCGyCuUlmyzt72mK+Lh+COAywNQ==",
++      "license": "Apache-2.0",
++      "peer": true,
++      "dependencies": {
++        "@firebase/component": "0.7.5",
++        "@firebase/logger": "0.5.2",
++        "@firebase/util": "1.15.3",
++        "idb": "7.1.1",
++        "tslib": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      }
++    },
++    "node_modules/@firebase/app-check": {
++      "version": "0.13.1",
++      "resolved": "https://registry.npmjs.org/@firebase/app-check/-/app-check-0.13.1.tgz",
++      "integrity": "sha512-l8y3dmnhodXks/APAwx4tWqRl3tk8b9874KF1FJyKg1DIU+kMD0l52iz7S9/MW+eK8k6cjJg0G0iJ5KQAsQpow==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/component": "0.7.5",
++        "@firebase/logger": "0.5.2",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x"
++      }
++    },
++    "node_modules/@firebase/app-check-compat": {
++      "version": "0.4.7",
++      "resolved": "https://registry.npmjs.org/@firebase/app-check-compat/-/app-check-compat-0.4.7.tgz",
++      "integrity": "sha512-fBb/xSMyIKv1nDmccfzz3IAGBzx/cQOxmZai66rJzifb1hMMkztf824Xx7LhpTUe7HNUbXwY90IvJ66fi8q6yg==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/app-check": "0.13.1",
++        "@firebase/app-check-types": "0.5.5",
++        "@firebase/component": "0.7.5",
++        "@firebase/logger": "0.5.2",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x",
++        "@firebase/app-compat": "0.x"
++      }
++    },
++    "node_modules/@firebase/app-check-interop-types": {
++      "version": "0.3.5",
++      "resolved": "https://registry.npmjs.org/@firebase/app-check-interop-types/-/app-check-interop-types-0.3.5.tgz",
++      "integrity": "sha512-qId34pVZ2CXTmtu4ofW5leiI93DvnOvIcr/5GT7MZPw5WXAi6nZoU+g9cNRgl7K90UJSbK0cXxten4meYMPyZg==",
++      "license": "Apache-2.0"
++    },
++    "node_modules/@firebase/app-check-types": {
++      "version": "0.5.5",
++      "resolved": "https://registry.npmjs.org/@firebase/app-check-types/-/app-check-types-0.5.5.tgz",
++      "integrity": "sha512-+DF4gzFrlwGFyky38o4T/YN/r51l70yCtJ2HTkwmRj8FCMwPjm4hLH4fQbj6BUvzkiFqliBkitFsRpf1/YZkWA==",
++      "license": "Apache-2.0"
++    },
++    "node_modules/@firebase/app-compat": {
++      "version": "0.5.17",
++      "resolved": "https://registry.npmjs.org/@firebase/app-compat/-/app-compat-0.5.17.tgz",
++      "integrity": "sha512-5GdJWobqs6jbNYOnaQiSa4Ng8gnFerhqr7nY+v5jlnT7o9QbEeIZRLPQpnLe0TxYSWfRV2lAMbyR0kbXeIos9Q==",
++      "license": "Apache-2.0",
++      "peer": true,
++      "dependencies": {
++        "@firebase/app": "0.16.1",
++        "@firebase/component": "0.7.5",
++        "@firebase/logger": "0.5.2",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      }
++    },
++    "node_modules/@firebase/app-types": {
++      "version": "0.9.6",
++      "resolved": "https://registry.npmjs.org/@firebase/app-types/-/app-types-0.9.6.tgz",
++      "integrity": "sha512-yPLahy7Esfu2w/yme3msVK4xTkDXQqq6szfQn8yVOQpCKiT5GVFjqNpLbuz6NkX0WuTwUidkmPewW3r4xkvpeg==",
++      "license": "Apache-2.0",
++      "peer": true,
++      "dependencies": {
++        "@firebase/logger": "0.5.2"
++      }
++    },
++    "node_modules/@firebase/auth": {
++      "version": "1.13.5",
++      "resolved": "https://registry.npmjs.org/@firebase/auth/-/auth-1.13.5.tgz",
++      "integrity": "sha512-1AXoBJqBVD8WL8FZYo3S2GmJF9YUoom6Y6ngMxOSkzzhW5sT83pLchb6TGFgxes91dfXx8s/VYc5VrLDNqpLog==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/component": "0.7.5",
++        "@firebase/logger": "0.5.2",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x",
++        "@react-native-async-storage/async-storage": "^2.2.0 || ^3.0.0"
++      },
++      "peerDependenciesMeta": {
++        "@react-native-async-storage/async-storage": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/@firebase/auth-compat": {
++      "version": "0.6.10",
++      "resolved": "https://registry.npmjs.org/@firebase/auth-compat/-/auth-compat-0.6.10.tgz",
++      "integrity": "sha512-Bvklg2nL7BrBFCAqdsleW8fse9Jh0fARqJPlJmA40uermfWx1bJiO7dnKyZN3J39d2TFVd4VJXtg3i6Wg92/YQ==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/auth": "1.13.5",
++        "@firebase/auth-types": "0.13.2",
++        "@firebase/component": "0.7.5",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x",
++        "@firebase/app-compat": "0.x"
++      }
++    },
++    "node_modules/@firebase/auth-interop-types": {
++      "version": "0.2.6",
++      "resolved": "https://registry.npmjs.org/@firebase/auth-interop-types/-/auth-interop-types-0.2.6.tgz",
++      "integrity": "sha512-FgwZqDrBqgK0BHI70QTv1v/5wmuDF9f8fsJFvKSxoRlK2PPfSQtZAk2jhXu4pe9BZzFi/e4UYusU/bEQHdf6Qg==",
++      "license": "Apache-2.0"
++    },
++    "node_modules/@firebase/auth-types": {
++      "version": "0.13.2",
++      "resolved": "https://registry.npmjs.org/@firebase/auth-types/-/auth-types-0.13.2.tgz",
++      "integrity": "sha512-OU+miuoSxIWYN7GT291d2ylVJBL3k/OePo7/JDSoQtkFQoEiGBc4AHuMjj/seqFIsHrqnjrAfRCk4pfufoJolQ==",
++      "license": "Apache-2.0",
++      "peerDependencies": {
++        "@firebase/app-types": "0.x",
++        "@firebase/util": "1.x"
++      }
++    },
++    "node_modules/@firebase/component": {
++      "version": "0.7.5",
++      "resolved": "https://registry.npmjs.org/@firebase/component/-/component-0.7.5.tgz",
++      "integrity": "sha512-vuFDcL91Q+2ZuBJkyOh86T4q0B4ffNTDjc/A38tybO56odQABxRTFLTIowCWqAKeIcgo37GowWMVgFF73gD8Qw==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      }
++    },
++    "node_modules/@firebase/data-connect": {
++      "version": "0.7.4",
++      "resolved": "https://registry.npmjs.org/@firebase/data-connect/-/data-connect-0.7.4.tgz",
++      "integrity": "sha512-su1aGWlzhxb+xtggCUSsufJn1FDa06SBDK71y+fpQ+g2zMhMExik6FUv/odkKzOF/xfWVjabCbWBcjJY3MceDA==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/auth-interop-types": "0.2.6",
++        "@firebase/component": "0.7.5",
++        "@firebase/logger": "0.5.2",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x"
++      }
++    },
++    "node_modules/@firebase/database": {
++      "version": "1.1.5",
++      "resolved": "https://registry.npmjs.org/@firebase/database/-/database-1.1.5.tgz",
++      "integrity": "sha512-/JGpvszLoNXNgzilRXocigGfFF4hbcPA9wN1i1kjJx6oKkXgkHteZYl3lQs1lJX3ETDf6bv7zI15lPMVUp4sAQ==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/app-check-interop-types": "0.3.5",
++        "@firebase/auth-interop-types": "0.2.6",
++        "@firebase/component": "0.7.5",
++        "@firebase/logger": "0.5.2",
++        "@firebase/util": "1.15.3",
++        "faye-websocket": "0.11.4",
++        "tslib": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      }
++    },
++    "node_modules/@firebase/database-compat": {
++      "version": "2.1.7",
++      "resolved": "https://registry.npmjs.org/@firebase/database-compat/-/database-compat-2.1.7.tgz",
++      "integrity": "sha512-lBq9sJm8MnJINKJnkAKSOj2MbC66xGoSVCcGkPtstl+lkoKEBtD46qHLbuDgW/WbLPoKVm17RIN8BxHj+Z2F2w==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/component": "0.7.5",
++        "@firebase/database": "1.1.5",
++        "@firebase/database-types": "1.0.22",
++        "@firebase/logger": "0.5.2",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x",
++        "@firebase/app-compat": "0.x"
++      },
++      "peerDependenciesMeta": {
++        "@firebase/app": {
++          "optional": true
++        },
++        "@firebase/app-compat": {
++          "optional": true
++        }
++      }
++    },
++    "node_modules/@firebase/database-types": {
++      "version": "1.0.22",
++      "resolved": "https://registry.npmjs.org/@firebase/database-types/-/database-types-1.0.22.tgz",
++      "integrity": "sha512-YAZNXsjY9EQQ+pKw/3ax8n5FgolHC7Qew7EY5RceYdl0R2ZP+kCv1O0DkKlcceue8uQCOreHCNN7PWVFpY1Nug==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/app-types": "0.9.6",
++        "@firebase/util": "1.15.3"
++      }
++    },
++    "node_modules/@firebase/firestore": {
++      "version": "4.17.1",
++      "resolved": "https://registry.npmjs.org/@firebase/firestore/-/firestore-4.17.1.tgz",
++      "integrity": "sha512-8lqPNf2w10CtYG+tayVjZO1pSyQpnhztQRudeD109VtXDzNbASTaYdO43sj5PMsDcWq0aOYY3RmJOUlXu9++jw==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/component": "0.7.5",
++        "@firebase/logger": "0.5.2",
++        "@firebase/util": "1.15.3",
++        "@firebase/webchannel-wrapper": "1.0.7",
++        "@grpc/grpc-js": "~1.9.0",
++        "@grpc/proto-loader": "^0.7.8",
++        "re2js": "^2.8.3",
++        "tslib": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x"
++      }
++    },
++    "node_modules/@firebase/firestore-compat": {
++      "version": "0.4.13",
++      "resolved": "https://registry.npmjs.org/@firebase/firestore-compat/-/firestore-compat-0.4.13.tgz",
++      "integrity": "sha512-l9dCewxMzzLOIhcwTjERCKxrWOn1kZ9JvwOQq9zZNq4I/Nbvb/B9njT230V61uvQ9qZ3/qpUG758D8DDTEFXnw==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/component": "0.7.5",
++        "@firebase/firestore": "4.17.1",
++        "@firebase/firestore-types": "3.0.5",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x",
++        "@firebase/app-compat": "0.x"
++      }
++    },
++    "node_modules/@firebase/firestore-types": {
++      "version": "3.0.5",
++      "resolved": "https://registry.npmjs.org/@firebase/firestore-types/-/firestore-types-3.0.5.tgz",
++      "integrity": "sha512-dbdMAQkMd5dwWc48eupz/Y6/E9ruat3+gY5lhVKscvvT/HnDBEEMzJW38zdKhgdnglZHGk2vUsJMOHAphMHGMA==",
++      "license": "Apache-2.0",
++      "peerDependencies": {
++        "@firebase/app-types": "0.x",
++        "@firebase/util": "1.x"
++      }
++    },
++    "node_modules/@firebase/functions": {
++      "version": "0.14.0",
++      "resolved": "https://registry.npmjs.org/@firebase/functions/-/functions-0.14.0.tgz",
++      "integrity": "sha512-DhuYFr0eMhp+s/PNEk6SiMsYkc00+XVOUeKbrl8MOzQNZI3SKQpqoDR1d+keNDAutwmHRWTUAdXBoVPD+xxVUw==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/app-check-interop-types": "0.3.5",
++        "@firebase/auth-interop-types": "0.2.6",
++        "@firebase/component": "0.7.5",
++        "@firebase/messaging-interop-types": "0.2.6",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x"
++      }
++    },
++    "node_modules/@firebase/functions-compat": {
++      "version": "0.5.0",
++      "resolved": "https://registry.npmjs.org/@firebase/functions-compat/-/functions-compat-0.5.0.tgz",
++      "integrity": "sha512-T3BDIToESZUHt7438wyKYMkRjKg3m1xAIux5fVpNvTRQlDOFLukWniQWBDhJ2znpU9kxMTR6+e31TVo8P15PZw==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/component": "0.7.5",
++        "@firebase/functions": "0.14.0",
++        "@firebase/functions-types": "0.6.5",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x",
++        "@firebase/app-compat": "0.x"
++      }
++    },
++    "node_modules/@firebase/functions-types": {
++      "version": "0.6.5",
++      "resolved": "https://registry.npmjs.org/@firebase/functions-types/-/functions-types-0.6.5.tgz",
++      "integrity": "sha512-Zc0pURjthHXzSj54ZivCkzKDSV1r/wIpnmHdhq82q2yFFPVoncG/ZJjnVMiANvQfeww/QnElhzODpfwUucVwdA==",
++      "license": "Apache-2.0"
++    },
++    "node_modules/@firebase/installations": {
++      "version": "0.6.24",
++      "resolved": "https://registry.npmjs.org/@firebase/installations/-/installations-0.6.24.tgz",
++      "integrity": "sha512-Ui52ey8wHoWqkBbXRKJEKYWylI0JZogZmoLS+o8Anh1bxWtK27ZYjLla1UJAAdC5DCKLJ2qAp0VpJOjg8VOX1g==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/component": "0.7.5",
++        "@firebase/util": "1.15.3",
++        "idb": "7.1.1",
++        "tslib": "^2.1.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x"
++      }
++    },
++    "node_modules/@firebase/installations-compat": {
++      "version": "0.2.24",
++      "resolved": "https://registry.npmjs.org/@firebase/installations-compat/-/installations-compat-0.2.24.tgz",
++      "integrity": "sha512-8M5nlcWwYt881x83COP2odq5vgf+NgwJh+RMd4LRSv8JI1pxwDfgrDJOERrjTgfC9J5Z0vnQX4b1pdN914e0Zw==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/component": "0.7.5",
++        "@firebase/installations": "0.6.24",
++        "@firebase/installations-types": "0.5.5",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x",
++        "@firebase/app-compat": "0.x"
++      }
++    },
++    "node_modules/@firebase/installations-types": {
++      "version": "0.5.5",
++      "resolved": "https://registry.npmjs.org/@firebase/installations-types/-/installations-types-0.5.5.tgz",
++      "integrity": "sha512-e9UYcju3puDl1vdrcKIi5dExzHLameOT/Tc61Q48PYwxtsM1NzZh/ikGbdBQTsbRgg0EMZqdPr0/m5ODUBobrg==",
++      "license": "Apache-2.0",
++      "peerDependencies": {
++        "@firebase/app-types": "0.x"
++      }
++    },
++    "node_modules/@firebase/logger": {
++      "version": "0.5.2",
++      "resolved": "https://registry.npmjs.org/@firebase/logger/-/logger-0.5.2.tgz",
++      "integrity": "sha512-J2VO4NFTc0xQFrxV1B/lm5balicm9cwuX2acR9Yn41fN8KgUeQFo+VJV222IqW2FPSXKDu9uo5WdQFWf9TPbYg==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "tslib": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      }
++    },
++    "node_modules/@firebase/messaging": {
++      "version": "0.13.2",
++      "resolved": "https://registry.npmjs.org/@firebase/messaging/-/messaging-0.13.2.tgz",
++      "integrity": "sha512-KcZoqUu2ih4sLH91dW9tmyHjCR0IQyNzSLZunX5uq7cLeImXb4uO2I0wq5FACduO2I+FoTeWa2BtUv7Jpowqdw==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/component": "0.7.5",
++        "@firebase/installations": "0.6.24",
++        "@firebase/messaging-interop-types": "0.2.6",
++        "@firebase/util": "1.15.3",
++        "idb": "7.1.1",
++        "tslib": "^2.1.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x"
++      }
++    },
++    "node_modules/@firebase/messaging-compat": {
++      "version": "0.2.29",
++      "resolved": "https://registry.npmjs.org/@firebase/messaging-compat/-/messaging-compat-0.2.29.tgz",
++      "integrity": "sha512-8Twe4CeYvAx8AzjBxyyQFKzinaMGGt13hPQBqaARQ2QZjagrEaqSVBe+Zy6F4L/vT8DV168yRgRu7W/RK7p+4w==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/component": "0.7.5",
++        "@firebase/messaging": "0.13.2",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x",
++        "@firebase/app-compat": "0.x"
++      }
++    },
++    "node_modules/@firebase/messaging-interop-types": {
++      "version": "0.2.6",
++      "resolved": "https://registry.npmjs.org/@firebase/messaging-interop-types/-/messaging-interop-types-0.2.6.tgz",
++      "integrity": "sha512-MVzvkKe2V4H2dHu5oOxRfeKQcfTwWmCgnzsC4V1q3ixun5iiL8riCZ2qI35rDhCL4glPGiu0jHxDbpVNuTKfow==",
++      "license": "Apache-2.0"
++    },
++    "node_modules/@firebase/performance": {
++      "version": "0.7.14",
++      "resolved": "https://registry.npmjs.org/@firebase/performance/-/performance-0.7.14.tgz",
++      "integrity": "sha512-9PH1XEZVHErxGdbXluvGz4Uyjw4W955H8v7Mv9rHIybRrg5F2Ac2tvf5+mSf5EtnxWNmxrD2WLnvMFaZP4sMrQ==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/component": "0.7.5",
++        "@firebase/installations": "0.6.24",
++        "@firebase/logger": "0.5.2",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0",
++        "web-vitals": "^4.2.4"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x"
++      }
++    },
++    "node_modules/@firebase/performance-compat": {
++      "version": "0.2.27",
++      "resolved": "https://registry.npmjs.org/@firebase/performance-compat/-/performance-compat-0.2.27.tgz",
++      "integrity": "sha512-O/ozTf/EbChN94Pk7bd1eUC0PAC36726AwsaiJyC0bZzSBWfLGSWASGPH5pebUWXQPJtGxIJYRkkbX5l0Qa+Hw==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/component": "0.7.5",
++        "@firebase/logger": "0.5.2",
++        "@firebase/performance": "0.7.14",
++        "@firebase/performance-types": "0.2.5",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x",
++        "@firebase/app-compat": "0.x"
++      }
++    },
++    "node_modules/@firebase/performance-types": {
++      "version": "0.2.5",
++      "resolved": "https://registry.npmjs.org/@firebase/performance-types/-/performance-types-0.2.5.tgz",
++      "integrity": "sha512-PRzOgB+/M+6AKlEkY8a9xy5Ff5SfZPIh4iShXhn2WAcL/euSbK7bdLqWysHduunNJhGFsXa22Ag3ixqL6rQtYg==",
++      "license": "Apache-2.0"
++    },
++    "node_modules/@firebase/remote-config": {
++      "version": "0.9.2",
++      "resolved": "https://registry.npmjs.org/@firebase/remote-config/-/remote-config-0.9.2.tgz",
++      "integrity": "sha512-Rii93DkXjM+RE/ytHdYa7EIiQLJbdBr+W8EEiqd/vbLCOC+1FdkDuRiumJBp6t3yewHGbdqbpjB3fk3z0cZ+8g==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/component": "0.7.5",
++        "@firebase/installations": "0.6.24",
++        "@firebase/logger": "0.5.2",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x"
++      }
++    },
++    "node_modules/@firebase/remote-config-compat": {
++      "version": "0.2.29",
++      "resolved": "https://registry.npmjs.org/@firebase/remote-config-compat/-/remote-config-compat-0.2.29.tgz",
++      "integrity": "sha512-mY7JtTISK6F4g4T0x3kVepr5cp0NXL7f5yjIUXXGaTrg4qUlFBWRbENaHaqZ78dwmNcLm24h/yPsOVRlDXEXhA==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/component": "0.7.5",
++        "@firebase/logger": "0.5.2",
++        "@firebase/remote-config": "0.9.2",
++        "@firebase/remote-config-types": "0.5.2",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x",
++        "@firebase/app-compat": "0.x"
++      }
++    },
++    "node_modules/@firebase/remote-config-types": {
++      "version": "0.5.2",
++      "resolved": "https://registry.npmjs.org/@firebase/remote-config-types/-/remote-config-types-0.5.2.tgz",
++      "integrity": "sha512-i8k1omVfoAnaT1ZPv2FFjxMZrATYsO/GnFgHEj5+7fAJLzi8wLnGGv1WK06oEAD6ltrWXSO1HzeNyajn/NjMWw==",
++      "license": "Apache-2.0"
++    },
++    "node_modules/@firebase/storage": {
++      "version": "0.14.5",
++      "resolved": "https://registry.npmjs.org/@firebase/storage/-/storage-0.14.5.tgz",
++      "integrity": "sha512-r2tozN/BlEewLi70tJNUQPzWwbex9GM7NgXZsamHKQrjKEfcR0i4jGgHBKAKA4hbwiPE9eNMb3hcxWnDpeJZwg==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/component": "0.7.5",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x"
++      }
++    },
++    "node_modules/@firebase/storage-compat": {
++      "version": "0.4.5",
++      "resolved": "https://registry.npmjs.org/@firebase/storage-compat/-/storage-compat-0.4.5.tgz",
++      "integrity": "sha512-vO0tFPxXbKDKdlTu8tYT08S9t9ezUTJYEdLCULpWxWq2aq6zojwN1QmAB+1a50AI/g47GlWUJn1XPncm/PDZsw==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/component": "0.7.5",
++        "@firebase/storage": "0.14.5",
++        "@firebase/storage-types": "0.8.5",
++        "@firebase/util": "1.15.3",
++        "tslib": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      },
++      "peerDependencies": {
++        "@firebase/app": "0.x",
++        "@firebase/app-compat": "0.x"
++      }
++    },
++    "node_modules/@firebase/storage-types": {
++      "version": "0.8.5",
++      "resolved": "https://registry.npmjs.org/@firebase/storage-types/-/storage-types-0.8.5.tgz",
++      "integrity": "sha512-GEDs5P+rNUfNcS+wxIdOLAHficife2YXtvTJnyi3ssrX11AAtBg+nDUdbYh8vuBzWehVQZPmztGUUnud4L+4yg==",
++      "license": "Apache-2.0",
++      "peerDependencies": {
++        "@firebase/app-types": "0.x",
++        "@firebase/util": "1.x"
++      }
++    },
++    "node_modules/@firebase/util": {
++      "version": "1.15.3",
++      "resolved": "https://registry.npmjs.org/@firebase/util/-/util-1.15.3.tgz",
++      "integrity": "sha512-c/z/gaIlaaLZEuGbE6sLUuJ61tskg1JghvhcNQzW948ASBinbVBBRnZTC4b4yt4LaEtJQkYlyzqLHcutFwEIvA==",
++      "hasInstallScript": true,
++      "license": "Apache-2.0",
++      "peer": true,
++      "dependencies": {
++        "tslib": "^2.1.0"
++      },
++      "engines": {
++        "node": ">=20.0.0"
++      }
++    },
++    "node_modules/@firebase/webchannel-wrapper": {
++      "version": "1.0.7",
++      "resolved": "https://registry.npmjs.org/@firebase/webchannel-wrapper/-/webchannel-wrapper-1.0.7.tgz",
++      "integrity": "sha512-phBFwieDLvkZGYN9CE9ZFNEIoBVksprzsnCzQejCmCHtgwCXReeuRpoEGN9C4EbhONztv8NRV1tau6Rb9pONwQ==",
++      "license": "Apache-2.0"
++    },
+     "node_modules/@fontsource/cairo": {
+       "version": "5.3.0",
+       "resolved": "https://registry.npmjs.org/@fontsource/cairo/-/cairo-5.3.0.tgz",
+@@ -43,6 +680,37 @@
+         "url": "https://github.com/sponsors/ayuhito"
+       }
+     },
++    "node_modules/@grpc/grpc-js": {
++      "version": "1.9.16",
++      "resolved": "https://registry.npmjs.org/@grpc/grpc-js/-/grpc-js-1.9.16.tgz",
++      "integrity": "sha512-wE4Ut/olIzfKqp631XrG+wbF0v1vWFN4YL9FyXC2LJiG33DsV7PLzURjrCvY/6je2ntdRkeLpPDluzSRGaVltQ==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@grpc/proto-loader": "^0.7.8",
++        "@types/node": ">=12.12.47"
++      },
++      "engines": {
++        "node": "^8.13.0 || >=10.10.0"
++      }
++    },
++    "node_modules/@grpc/proto-loader": {
++      "version": "0.7.15",
++      "resolved": "https://registry.npmjs.org/@grpc/proto-loader/-/proto-loader-0.7.15.tgz",
++      "integrity": "sha512-tMXdRCfYVixjuFK+Hk0Q1s38gV9zDiDJfWL3h1rv4Qc39oILCu1TRTDt7+fGUI8K4G1Fj125Hx/ru3azECWTyQ==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "lodash.camelcase": "^4.3.0",
++        "long": "^5.0.0",
++        "protobufjs": "^7.2.5",
++        "yargs": "^17.7.2"
++      },
++      "bin": {
++        "proto-loader-gen-types": "build/bin/proto-loader-gen-types.js"
++      },
++      "engines": {
++        "node": ">=6"
++      }
++    },
+     "node_modules/@oxc-project/types": {
+       "version": "0.144.0",
+       "resolved": "https://registry.npmjs.org/@oxc-project/types/-/types-0.144.0.tgz",
+@@ -376,6 +1044,63 @@
+         "node": "^20.19.0 || >=22.12.0"
+       }
+     },
++    "node_modules/@protobufjs/aspromise": {
++      "version": "1.1.2",
++      "resolved": "https://registry.npmjs.org/@protobufjs/aspromise/-/aspromise-1.1.2.tgz",
++      "integrity": "sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==",
++      "license": "BSD-3-Clause"
++    },
++    "node_modules/@protobufjs/base64": {
++      "version": "1.1.2",
++      "resolved": "https://registry.npmjs.org/@protobufjs/base64/-/base64-1.1.2.tgz",
++      "integrity": "sha512-AZkcAA5vnN/v4PDqKyMR5lx7hZttPDgClv83E//FMNhR2TMcLUhfRUBHCmSl0oi9zMgDDqRUJkSxO3wm85+XLg==",
++      "license": "BSD-3-Clause"
++    },
++    "node_modules/@protobufjs/codegen": {
++      "version": "2.0.5",
++      "resolved": "https://registry.npmjs.org/@protobufjs/codegen/-/codegen-2.0.5.tgz",
++      "integrity": "sha512-zgXFLzW3Ap33e6d0Wlj4MGIm6Ce8O89n/apUaGNB/jx+hw+ruWEp7EwGUshdLKVRCxZW12fp9r40E1mQrf/34g==",
++      "license": "BSD-3-Clause"
++    },
++    "node_modules/@protobufjs/eventemitter": {
++      "version": "1.1.1",
++      "resolved": "https://registry.npmjs.org/@protobufjs/eventemitter/-/eventemitter-1.1.1.tgz",
++      "integrity": "sha512-vW1GmwMZNnL+gMRaovlh9yZX74kc+TTU3FObkkurpMaRtBfLP3ldjS9KQWlwZgraRE0+dheEEoAxdzcJQ8eXZg==",
++      "license": "BSD-3-Clause"
++    },
++    "node_modules/@protobufjs/fetch": {
++      "version": "1.1.1",
++      "resolved": "https://registry.npmjs.org/@protobufjs/fetch/-/fetch-1.1.1.tgz",
++      "integrity": "sha512-GpptLrs57adMSuHi3VNj0mAF8dwh36LMaYF6XyJ6JMWlVsc+t42tm1HSEDmOs3A8fC9yyeisgLhsTVQokOZ0zw==",
++      "license": "BSD-3-Clause",
++      "dependencies": {
++        "@protobufjs/aspromise": "^1.1.1"
++      }
++    },
++    "node_modules/@protobufjs/float": {
++      "version": "1.0.2",
++      "resolved": "https://registry.npmjs.org/@protobufjs/float/-/float-1.0.2.tgz",
++      "integrity": "sha512-Ddb+kVXlXst9d+R9PfTIxh1EdNkgoRe5tOX6t01f1lYWOvJnSPDBlG241QLzcyPdoNTsblLUdujGSE4RzrTZGQ==",
++      "license": "BSD-3-Clause"
++    },
++    "node_modules/@protobufjs/path": {
++      "version": "1.1.2",
++      "resolved": "https://registry.npmjs.org/@protobufjs/path/-/path-1.1.2.tgz",
++      "integrity": "sha512-6JOcJ5Tm08dOHAbdR3GrvP+yUUfkjG5ePsHYczMFLq3ZmMkAD98cDgcT2iA1lJ9NVwFd4tH/iSSoe44YWkltEA==",
++      "license": "BSD-3-Clause"
++    },
++    "node_modules/@protobufjs/pool": {
++      "version": "1.1.0",
++      "resolved": "https://registry.npmjs.org/@protobufjs/pool/-/pool-1.1.0.tgz",
++      "integrity": "sha512-0kELaGSIDBKvcgS4zkjz1PeddatrjYcmMWOlAuAPwAeccUrPHdUqo/J6LiymHHEiJT5NrF1UVwxY14f+fy4WQw==",
++      "license": "BSD-3-Clause"
++    },
++    "node_modules/@protobufjs/utf8": {
++      "version": "1.1.2",
++      "resolved": "https://registry.npmjs.org/@protobufjs/utf8/-/utf8-1.1.2.tgz",
++      "integrity": "sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug==",
++      "license": "BSD-3-Clause"
++    },
+     "node_modules/@rolldown/binding-android-arm64": {
+       "version": "1.2.4",
+       "resolved": "https://registry.npmjs.org/@rolldown/binding-android-arm64/-/binding-android-arm64-1.2.4.tgz",
+@@ -621,25 +1346,13 @@
+       "dev": true,
+       "license": "MIT"
+     },
+-    "node_modules/@types/react": {
+-      "version": "19.2.18",
+-      "resolved": "https://registry.npmjs.org/@types/react/-/react-19.2.18.tgz",
+-      "integrity": "sha512-AnzbBERsrLKtk2XSfTbYRLjQPdy116Sty4q+T+Bp3IC4l6jNBvreVPAHmpq9qhXQM7CXZPjLVmGMw9sy+hxQ3w==",
+-      "dev": true,
++    "node_modules/@types/node": {
++      "version": "26.4.0",
++      "resolved": "https://registry.npmjs.org/@types/node/-/node-26.4.0.tgz",
++      "integrity": "sha512-faiGnoIrLH/V8cibOMEAZ8pMw6oXqSukl29ra4mN8GdaB2ZewzeaLj+INpV5N+Z1eKWzY+IzaIZH2EIR6YZRNQ==",
+       "license": "MIT",
+-      "peer": true,
+       "dependencies": {
+-        "csstype": "^3.2.2"
+-      }
+-    },
+-    "node_modules/@types/react-dom": {
+-      "version": "19.2.4",
+-      "resolved": "https://registry.npmjs.org/@types/react-dom/-/react-dom-19.2.4.tgz",
+-      "integrity": "sha512-Bsc+QHgp+P/F02XDzNCY9jnZNCUuLki36KT7VKrTXXLdHf+vHMNZnW1rVu5DNW/rCK+fya3DATySbLM4yhtKUw==",
+-      "dev": true,
+-      "license": "MIT",
+-      "peerDependencies": {
+-        "@types/react": "^19.2.0"
++        "undici-types": "~8.3.0"
+       }
+     },
+     "node_modules/@vitejs/plugin-react": {
+@@ -668,6 +1381,44 @@
+         }
+       }
+     },
++    "node_modules/ansi-regex": {
++      "version": "5.0.1",
++      "resolved": "https://registry.npmjs.org/ansi-regex/-/ansi-regex-5.0.1.tgz",
++      "integrity": "sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/ansi-styles": {
++      "version": "4.3.0",
++      "resolved": "https://registry.npmjs.org/ansi-styles/-/ansi-styles-4.3.0.tgz",
++      "integrity": "sha512-zbB9rCJAT1rbjiVDb2hqKFHNYLxgtk8NURxZ3IZwD3F6NtxbXZQCnnSi1Lkx+IDohdPlFp222wVALIheZJQSEg==",
++      "license": "MIT",
++      "dependencies": {
++        "color-convert": "^2.0.1"
++      },
++      "engines": {
++        "node": ">=8"
++      },
++      "funding": {
++        "url": "https://github.com/chalk/ansi-styles?sponsor=1"
++      }
++    },
++    "node_modules/cliui": {
++      "version": "8.0.1",
++      "resolved": "https://registry.npmjs.org/cliui/-/cliui-8.0.1.tgz",
++      "integrity": "sha512-BSeNnyus75C4//NQ9gQt1/csTXyo/8Sb+afLAkzAptFuMsod9HFokGNudZpi/oQV73hnVK+sR+5PVRMd+Dr7YQ==",
++      "license": "ISC",
++      "dependencies": {
++        "string-width": "^4.2.0",
++        "strip-ansi": "^6.0.1",
++        "wrap-ansi": "^7.0.0"
++      },
++      "engines": {
++        "node": ">=12"
++      }
++    },
+     "node_modules/clsx": {
+       "version": "2.1.1",
+       "resolved": "https://registry.npmjs.org/clsx/-/clsx-2.1.1.tgz",
+@@ -677,6 +1428,24 @@
+         "node": ">=6"
+       }
+     },
++    "node_modules/color-convert": {
++      "version": "2.0.1",
++      "resolved": "https://registry.npmjs.org/color-convert/-/color-convert-2.0.1.tgz",
++      "integrity": "sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==",
++      "license": "MIT",
++      "dependencies": {
++        "color-name": "~1.1.4"
++      },
++      "engines": {
++        "node": ">=7.0.0"
++      }
++    },
++    "node_modules/color-name": {
++      "version": "1.1.4",
++      "resolved": "https://registry.npmjs.org/color-name/-/color-name-1.1.4.tgz",
++      "integrity": "sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==",
++      "license": "MIT"
++    },
+     "node_modules/cookie": {
+       "version": "1.1.1",
+       "resolved": "https://registry.npmjs.org/cookie/-/cookie-1.1.1.tgz",
+@@ -690,13 +1459,6 @@
+         "url": "https://opencollective.com/express"
+       }
+     },
+-    "node_modules/csstype": {
+-      "version": "3.2.3",
+-      "resolved": "https://registry.npmjs.org/csstype/-/csstype-3.2.3.tgz",
+-      "integrity": "sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==",
+-      "dev": true,
+-      "license": "MIT"
+-    },
+     "node_modules/detect-libc": {
+       "version": "2.1.2",
+       "resolved": "https://registry.npmjs.org/detect-libc/-/detect-libc-2.1.2.tgz",
+@@ -707,6 +1469,33 @@
+         "node": ">=8"
+       }
+     },
++    "node_modules/emoji-regex": {
++      "version": "8.0.0",
++      "resolved": "https://registry.npmjs.org/emoji-regex/-/emoji-regex-8.0.0.tgz",
++      "integrity": "sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==",
++      "license": "MIT"
++    },
++    "node_modules/escalade": {
++      "version": "3.2.0",
++      "resolved": "https://registry.npmjs.org/escalade/-/escalade-3.2.0.tgz",
++      "integrity": "sha512-WUj2qlxaQtO4g6Pq5c29GTcWGDyd8itL8zTlipgECz3JesAiiOKotd8JU6otB3PACgG6xkJUyVhboMS+bje/jA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=6"
++      }
++    },
++    "node_modules/faye-websocket": {
++      "version": "0.11.4",
++      "resolved": "https://registry.npmjs.org/faye-websocket/-/faye-websocket-0.11.4.tgz",
++      "integrity": "sha512-CzbClwlXAuiRQAlUyfqPgvPoNKTckTPGfwZV4ZdAhVcP2lh9KUxJg2b5GkE7XbjKQ3YJnQ9z6D9ntLAlB+tP8g==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "websocket-driver": ">=0.5.1"
++      },
++      "engines": {
++        "node": ">=0.8.0"
++      }
++    },
+     "node_modules/fdir": {
+       "version": "6.5.0",
+       "resolved": "https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz",
+@@ -725,6 +1514,42 @@
+         }
+       }
+     },
++    "node_modules/firebase": {
++      "version": "12.18.0",
++      "resolved": "https://registry.npmjs.org/firebase/-/firebase-12.18.0.tgz",
++      "integrity": "sha512-XaL6tlE5Xd20ZDhckqOMIw+JJTET+wTdeZPxQ7ihc42oxRb7kWUyn/j1LO5V9dH1xq8Rv5R71Pv1fBCdIkt9Rw==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@firebase/ai": "2.15.0",
++        "@firebase/analytics": "0.10.24",
++        "@firebase/analytics-compat": "0.2.30",
++        "@firebase/app": "0.16.1",
++        "@firebase/app-check": "0.13.1",
++        "@firebase/app-check-compat": "0.4.7",
++        "@firebase/app-compat": "0.5.17",
++        "@firebase/app-types": "0.9.6",
++        "@firebase/auth": "1.13.5",
++        "@firebase/auth-compat": "0.6.10",
++        "@firebase/data-connect": "0.7.4",
++        "@firebase/database": "1.1.5",
++        "@firebase/database-compat": "2.1.7",
++        "@firebase/firestore": "4.17.1",
++        "@firebase/firestore-compat": "0.4.13",
++        "@firebase/functions": "0.14.0",
++        "@firebase/functions-compat": "0.5.0",
++        "@firebase/installations": "0.6.24",
++        "@firebase/installations-compat": "0.2.24",
++        "@firebase/messaging": "0.13.2",
++        "@firebase/messaging-compat": "0.2.29",
++        "@firebase/performance": "0.7.14",
++        "@firebase/performance-compat": "0.2.27",
++        "@firebase/remote-config": "0.9.2",
++        "@firebase/remote-config-compat": "0.2.29",
++        "@firebase/storage": "0.14.5",
++        "@firebase/storage-compat": "0.4.5",
++        "@firebase/util": "1.15.3"
++      }
++    },
+     "node_modules/fsevents": {
+       "version": "2.3.3",
+       "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
+@@ -740,6 +1565,36 @@
+         "node": "^8.16.0 || ^10.6.0 || >=11.0.0"
+       }
+     },
++    "node_modules/get-caller-file": {
++      "version": "2.0.5",
++      "resolved": "https://registry.npmjs.org/get-caller-file/-/get-caller-file-2.0.5.tgz",
++      "integrity": "sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg==",
++      "license": "ISC",
++      "engines": {
++        "node": "6.* || 8.* || >= 10.*"
++      }
++    },
++    "node_modules/http-parser-js": {
++      "version": "0.5.10",
++      "resolved": "https://registry.npmjs.org/http-parser-js/-/http-parser-js-0.5.10.tgz",
++      "integrity": "sha512-Pysuw9XpUq5dVc/2SMHpuTY01RFl8fttgcyunjL7eEMhGM3cI4eOmiCycJDVCo/7O7ClfQD3SaI6ftDzqOXYMA==",
++      "license": "MIT"
++    },
++    "node_modules/idb": {
++      "version": "7.1.1",
++      "resolved": "https://registry.npmjs.org/idb/-/idb-7.1.1.tgz",
++      "integrity": "sha512-gchesWBzyvGHRO9W8tzUWFDycow5gwjvFKfyV9FF32Y7F50yZMp7mP+T2mJIWFx49zicqyC4uefHM17o6xKIVQ==",
++      "license": "ISC"
++    },
++    "node_modules/is-fullwidth-code-point": {
++      "version": "3.0.0",
++      "resolved": "https://registry.npmjs.org/is-fullwidth-code-point/-/is-fullwidth-code-point-3.0.0.tgz",
++      "integrity": "sha512-zymm5+u+sCsSWyD9qNaejV3DFvhCKclKdizYaJUuHA83RLjb7nSuGnddCHGv0hk+KY7BMAlsWeK4Ueg6EV6XQg==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=8"
++      }
++    },
+     "node_modules/lightningcss": {
+       "version": "1.33.0",
+       "resolved": "https://registry.npmjs.org/lightningcss/-/lightningcss-1.33.0.tgz",
+@@ -1001,6 +1856,18 @@
+         "url": "https://opencollective.com/parcel"
+       }
+     },
++    "node_modules/lodash.camelcase": {
++      "version": "4.3.0",
++      "resolved": "https://registry.npmjs.org/lodash.camelcase/-/lodash.camelcase-4.3.0.tgz",
++      "integrity": "sha512-TwuEnCnxbc3rAvhf/LbG7tJUDzhqXyFnv3dtzLOPgCG/hODL7WFnsbwktkD7yUV0RrreP/l1PALq/YSg6VvjlA==",
++      "license": "MIT"
++    },
++    "node_modules/long": {
++      "version": "5.3.2",
++      "resolved": "https://registry.npmjs.org/long/-/long-5.3.2.tgz",
++      "integrity": "sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==",
++      "license": "Apache-2.0"
++    },
+     "node_modules/lucide-react": {
+       "version": "1.31.0",
+       "resolved": "https://registry.npmjs.org/lucide-react/-/lucide-react-1.31.0.tgz",
+@@ -1128,6 +1995,38 @@
+         "node": "^10 || ^12 || >=14"
+       }
+     },
++    "node_modules/protobufjs": {
++      "version": "7.6.6",
++      "resolved": "https://registry.npmjs.org/protobufjs/-/protobufjs-7.6.6.tgz",
++      "integrity": "sha512-dYDWdjSl5RNb7SgPxGQcRU+GtvP7s2fpkrY0r432PcOIaZ0/rBcxEZnQN67iJhFuQiVw754JDoPruPCNdGsbjg==",
++      "hasInstallScript": true,
++      "license": "BSD-3-Clause",
++      "dependencies": {
++        "@protobufjs/aspromise": "^1.1.2",
++        "@protobufjs/base64": "^1.1.2",
++        "@protobufjs/codegen": "^2.0.5",
++        "@protobufjs/eventemitter": "^1.1.1",
++        "@protobufjs/fetch": "^1.1.1",
++        "@protobufjs/float": "^1.0.2",
++        "@protobufjs/path": "^1.1.2",
++        "@protobufjs/pool": "^1.1.0",
++        "@protobufjs/utf8": "^1.1.1",
++        "@types/node": ">=13.7.0",
++        "long": "^5.3.2"
++      },
++      "engines": {
++        "node": ">=12.0.0"
++      }
++    },
++    "node_modules/re2js": {
++      "version": "2.8.6",
++      "resolved": "https://registry.npmjs.org/re2js/-/re2js-2.8.6.tgz",
++      "integrity": "sha512-xLgQil4kIUCrAzVk9fRSkxkFNwmygLFjVxXrLc65aE1F0+Zsb8rxumFBy4XKyvgMCTL6kilDq3EZ0piE2dP/Dg==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=18.0.0"
++      }
++    },
+     "node_modules/react": {
+       "version": "19.2.8",
+       "resolved": "https://registry.npmjs.org/react/-/react-19.2.8.tgz",
+@@ -1189,6 +2088,15 @@
+         "react-dom": ">=18"
+       }
+     },
++    "node_modules/require-directory": {
++      "version": "2.1.1",
++      "resolved": "https://registry.npmjs.org/require-directory/-/require-directory-2.1.1.tgz",
++      "integrity": "sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=0.10.0"
++      }
++    },
+     "node_modules/rolldown": {
+       "version": "1.2.4",
+       "resolved": "https://registry.npmjs.org/rolldown/-/rolldown-1.2.4.tgz",
+@@ -1222,6 +2130,26 @@
+         "@rolldown/binding-win32-x64-msvc": "1.2.4"
+       }
+     },
++    "node_modules/safe-buffer": {
++      "version": "5.2.1",
++      "resolved": "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.2.1.tgz",
++      "integrity": "sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ==",
++      "funding": [
++        {
++          "type": "github",
++          "url": "https://github.com/sponsors/feross"
++        },
++        {
++          "type": "patreon",
++          "url": "https://www.patreon.com/feross"
++        },
++        {
++          "type": "consulting",
++          "url": "https://feross.org/support"
++        }
++      ],
++      "license": "MIT"
++    },
+     "node_modules/scheduler": {
+       "version": "0.27.0",
+       "resolved": "https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz",
+@@ -1244,6 +2172,32 @@
+         "node": ">=0.10.0"
+       }
+     },
++    "node_modules/string-width": {
++      "version": "4.2.3",
++      "resolved": "https://registry.npmjs.org/string-width/-/string-width-4.2.3.tgz",
++      "integrity": "sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==",
++      "license": "MIT",
++      "dependencies": {
++        "emoji-regex": "^8.0.0",
++        "is-fullwidth-code-point": "^3.0.0",
++        "strip-ansi": "^6.0.1"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/strip-ansi": {
++      "version": "6.0.1",
++      "resolved": "https://registry.npmjs.org/strip-ansi/-/strip-ansi-6.0.1.tgz",
++      "integrity": "sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==",
++      "license": "MIT",
++      "dependencies": {
++        "ansi-regex": "^5.0.1"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
+     "node_modules/tailwind-merge": {
+       "version": "3.6.0",
+       "resolved": "https://registry.npmjs.org/tailwind-merge/-/tailwind-merge-3.6.0.tgz",
+@@ -1271,6 +2225,18 @@
+         "url": "https://github.com/sponsors/SuperchupuDev"
+       }
+     },
++    "node_modules/tslib": {
++      "version": "2.8.1",
++      "resolved": "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz",
++      "integrity": "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==",
++      "license": "0BSD"
++    },
++    "node_modules/undici-types": {
++      "version": "8.3.0",
++      "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-8.3.0.tgz",
++      "integrity": "sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==",
++      "license": "MIT"
++    },
+     "node_modules/vite": {
+       "version": "8.2.1",
+       "resolved": "https://registry.npmjs.org/vite/-/vite-8.2.1.tgz",
+@@ -1349,6 +2315,88 @@
+           "optional": true
+         }
+       }
++    },
++    "node_modules/web-vitals": {
++      "version": "4.2.4",
++      "resolved": "https://registry.npmjs.org/web-vitals/-/web-vitals-4.2.4.tgz",
++      "integrity": "sha512-r4DIlprAGwJ7YM11VZp4R884m0Vmgr6EAKe3P+kO0PPj3Unqyvv59rczf6UiGcb9Z8QxZVcqKNwv/g0WNdWwsw==",
++      "license": "Apache-2.0"
++    },
++    "node_modules/websocket-driver": {
++      "version": "0.7.5",
++      "resolved": "https://registry.npmjs.org/websocket-driver/-/websocket-driver-0.7.5.tgz",
++      "integrity": "sha512-ZL2+3c7kMBdIRCMz6l8jQMHyGVxj+UL+xVk74Ombiciboca8rHa15L86B19E5oh1pL9Ii/uj54gtsIrZGMo6zA==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "http-parser-js": ">=0.5.1",
++        "safe-buffer": ">=5.1.0",
++        "websocket-extensions": ">=0.1.1"
++      },
++      "engines": {
++        "node": ">=0.8.0"
++      }
++    },
++    "node_modules/websocket-extensions": {
++      "version": "0.1.4",
++      "resolved": "https://registry.npmjs.org/websocket-extensions/-/websocket-extensions-0.1.4.tgz",
++      "integrity": "sha512-OqedPIGOfsDlo31UNwYbCFMSaO9m9G/0faIHj5/dZFDMFqPTcx6UwqyOy3COEaEOg/9VsGIpdqn62W5KhoKSpg==",
++      "license": "Apache-2.0",
++      "engines": {
++        "node": ">=0.8.0"
++      }
++    },
++    "node_modules/wrap-ansi": {
++      "version": "7.0.0",
++      "resolved": "https://registry.npmjs.org/wrap-ansi/-/wrap-ansi-7.0.0.tgz",
++      "integrity": "sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==",
++      "license": "MIT",
++      "dependencies": {
++        "ansi-styles": "^4.0.0",
++        "string-width": "^4.1.0",
++        "strip-ansi": "^6.0.0"
++      },
++      "engines": {
++        "node": ">=10"
++      },
++      "funding": {
++        "url": "https://github.com/chalk/wrap-ansi?sponsor=1"
++      }
++    },
++    "node_modules/y18n": {
++      "version": "5.0.8",
++      "resolved": "https://registry.npmjs.org/y18n/-/y18n-5.0.8.tgz",
++      "integrity": "sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==",
++      "license": "ISC",
++      "engines": {
++        "node": ">=10"
++      }
++    },
++    "node_modules/yargs": {
++      "version": "17.7.3",
++      "resolved": "https://registry.npmjs.org/yargs/-/yargs-17.7.3.tgz",
++      "integrity": "sha512-GZtjxm/J/4TSxuL3FNYjCmLktBTnIw/rVmKSIyKeYAZpmJB2ig9VauCC5xsa82GNKVKDAqpOn3KVzNt0zmrU0g==",
++      "license": "MIT",
++      "dependencies": {
++        "cliui": "^8.0.1",
++        "escalade": "^3.1.1",
++        "get-caller-file": "^2.0.5",
++        "require-directory": "^2.1.1",
++        "string-width": "^4.2.3",
++        "y18n": "^5.0.5",
++        "yargs-parser": "^21.1.1"
++      },
++      "engines": {
++        "node": ">=12"
++      }
++    },
++    "node_modules/yargs-parser": {
++      "version": "21.1.1",
++      "resolved": "https://registry.npmjs.org/yargs-parser/-/yargs-parser-21.1.1.tgz",
++      "integrity": "sha512-tVpsJW7DdjecAiFpbIB1e3qxIQsE6NoPc5/eTdrbbIC4h0LVsWhnoa3g+m2HclBIujHzsxZ4VJVA+GUuc2/LBw==",
++      "license": "ISC",
++      "engines": {
++        "node": ">=12"
++      }
+     }
+   }
+ }
+diff --git a/package.json b/package.json
+index cb0103d..70803e4 100644
+--- a/package.json
++++ b/package.json
+@@ -13,6 +13,7 @@
+     "@fontsource/cairo": "^5.3.0",
+     "@fontsource/poppins": "^5.3.0",
+     "clsx": "^2.1.1",
++    "firebase": "^12.18.0",
+     "lucide-react": "^1.31.0",
+     "react": "^19.2.8",
+     "react-dom": "^19.2.8",
+diff --git a/src/components/common/MapPreview.jsx b/src/components/common/MapPreview.jsx
+new file mode 100644
+index 0000000..45656ef
+--- /dev/null
++++ b/src/components/common/MapPreview.jsx
+@@ -0,0 +1,88 @@
++import React, { useState } from 'react';
++import { MapPin, Flag, Truck } from 'lucide-react';
++import { TripStage } from '../../constants/enums';
++
++export const MapPreview = ({ 
++    pickupCity = '', 
++    deliveryCity = '', 
++    truckPosStage = null,
++    isInteractive = false,
++    height = 250
++}) => {
++    const [isExpanded, setIsExpanded] = useState(false);
++    
++    const getTruckPos = (stage) => {
++        switch (stage) {
++            case TripStage.ASSIGNED: return { right: '15%', top: '20%' };
++            case TripStage.PICKUP_ROUTE_EN: return { right: '25%', top: '28%' };
++            case TripStage.PICKUP_ARRIVED: return { right: '35%', top: '37%' };
++            case TripStage.LOADED: return { right: '35%', top: '37%' };
++            case TripStage.DELIVERY_ROUTE_EN: return { right: '60%', top: '60%' };
++            case TripStage.DELIVERED: return { right: '85%', top: '80%' };
++            default: return null;
++        }
++    };
++    
++    const truckPos = truckPosStage ? getTruckPos(truckPosStage) : null;
++    
++    const mapContent = (
++        <div style={{ height, backgroundColor: 'var(--color-primary)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--color-border)', position: 'relative', overflow: 'hidden', cursor: isInteractive ? 'pointer' : 'default' }} onClick={() => isInteractive && setIsExpanded(true)}>
++            <div style={{ position: 'absolute', inset: 0, opacity: 0.1, backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
++            
++            <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', transform: 'scaleX(-1)' }}>
++                <line x1="15%" y1="20%" x2="85%" y2="80%" stroke="var(--color-border)" strokeWidth="3" strokeDasharray="6,6" />
++            </svg>
++
++            <div style={{ position: 'absolute', right: '15%', top: '20%', transform: 'translate(50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
++                <div style={{ width: 28, height: 28, backgroundColor: 'var(--color-surface)', border: '2px solid var(--color-text)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2, overflow: 'hidden' }}>
++                    <img src="/logos/2-transparent.png" alt="start" style={{ width: 20, height: 20, objectFit: 'contain' }} />
++                </div>
++                <span style={{ color: 'white', fontSize: 12, marginTop: 4, fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>التحميل {pickupCity && `(${pickupCity})`}</span>
++            </div>
++
++            {truckPos && (
++                <div style={{ position: 'absolute', right: truckPos.right, top: truckPos.top, transform: 'translate(50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', transition: 'all 1s ease' }}>
++                    <div style={{ width: 32, height: 32, backgroundColor: 'var(--color-accent)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, boxShadow: '0 4px 12px rgba(255,122,41,0.4)' }}>
++                        <Truck size={16} color="white" />
++                    </div>
++                    <span style={{ color: 'var(--color-accent)', fontSize: 12, marginTop: 4, fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>الشاحنة الآن</span>
++                </div>
++            )}
++
++            <div style={{ position: 'absolute', right: '85%', top: '80%', transform: 'translate(50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
++                <div style={{ width: 24, height: 24, backgroundColor: 'var(--color-surface)', border: '2px solid var(--color-text)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
++                    <Flag size={14} color="var(--color-text)" />
++                </div>
++                <span style={{ color: 'white', fontSize: 12, marginTop: 4, fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>التسليم {deliveryCity && `(${deliveryCity})`}</span>
++            </div>
++            
++            <span style={{ color: 'rgba(255,255,255,0.7)', zIndex: 1, backgroundColor: 'rgba(0,0,0,0.5)', padding: '4px 12px', borderRadius: 16, fontSize: 12, position: 'absolute', bottom: 16, left: 16 }}>
++                موقع تجريبي {isInteractive && '(انقر للتكبير)'}
++            </span>
++        </div>
++    );
++    
++    if (isInteractive && isExpanded) {
++        return (
++            <>
++                {mapContent}
++                <div 
++                    style={{ position: 'fixed', inset: 0, zIndex: 1000, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
++                    onClick={() => setIsExpanded(false)}
++                >
++                    <div style={{ width: '100%', maxWidth: 800, backgroundColor: 'var(--color-surface)', borderRadius: 16, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
++                        <div style={{ padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)' }}>
++                            <h3 style={{ margin: 0 }}>خريطة المسار</h3>
++                            <button onClick={() => setIsExpanded(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 24, color: 'var(--color-text)' }}>&times;</button>
++                        </div>
++                        <div style={{ position: 'relative' }}>
++                            <MapPreview pickupCity={pickupCity} deliveryCity={deliveryCity} truckPosStage={truckPosStage} height={500} />
++                        </div>
++                    </div>
++                </div>
++            </>
++        );
++    }
++    
++    return mapContent;
++};
+diff --git a/src/components/wallet/TopUpModal.jsx b/src/components/wallet/TopUpModal.jsx
+index eafd2f8..4b40c0f 100644
+--- a/src/components/wallet/TopUpModal.jsx
++++ b/src/components/wallet/TopUpModal.jsx
+@@ -7,19 +7,30 @@ import { Input } from '../common/Input';
+ export const TopUpModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
+     const [amount, setAmount] = useState('');
+ 
++    const [status, setStatus] = useState('IDLE'); // IDLE, SUCCESS
++
+     useEffect(() => {
+         if (isOpen) {
+             setAmount('');
++            setStatus('IDLE');
+         }
+     }, [isOpen]);
+ 
+     if (!isOpen) return null;
+ 
+-    const handleSubmit = (e) => {
++    const handleSubmit = async (e) => {
+         e.preventDefault();
+         const numAmount = Number(amount);
+         if (numAmount > 0) {
+-            onConfirm(numAmount);
++            try {
++                await onConfirm(numAmount);
++                setStatus('SUCCESS');
++                setTimeout(() => {
++                    onClose();
++                }, 2000);
++            } catch (err) {
++                console.error(err);
++            }
+         }
+     };
+ 
+@@ -36,27 +47,40 @@ export const TopUpModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
+             <div style={{ width: 400, maxWidth: '90%' }}>
+                 <Card>
+                     <h3 style={{ marginBottom: 16 }}>شحن الرصيد</h3>
+-                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+-                        <div>
+-                            <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>المبلغ (ر.س)</label>
+-                            <Input
+-                                type="number"
+-                                placeholder="أدخل المبلغ"
+-                                value={amount}
+-                                onChange={e => setAmount(e.target.value)}
+-                                min="1"
+-                                required
+-                            />
+-                        </div>
+-                        <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+-                            <Button type="submit" disabled={isLoading || !amount || Number(amount) <= 0} style={{ flex: 1 }} isLoading={isLoading}>
+-                                تأكيد شحن الرصيد
+-                            </Button>
+-                            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading} style={{ flex: 1 }}>
+-                                إلغاء
+-                            </Button>
++                    {status === 'SUCCESS' ? (
++                        <div style={{ textAlign: 'center', padding: '24px 0' }}>
++                            <div style={{ width: 64, height: 64, backgroundColor: 'var(--color-success)', borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
++                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
++                                    <polyline points="20 6 9 17 4 12"></polyline>
++                                </svg>
++                            </div>
++                            <h3 style={{ marginBottom: 8 }}>تم الشحن بنجاح</h3>
++                            <p className="text-helper">تمت إضافة المبلغ إلى رصيد محفظتك.</p>
+                         </div>
+-                    </form>
++                    ) : (
++                        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
++                            <div>
++                                <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>المبلغ (ر.س)</label>
++                                <Input
++                                    type="number"
++                                    placeholder="أدخل المبلغ"
++                                    value={amount}
++                                    onChange={e => setAmount(e.target.value)}
++                                    min="1"
++                                    required
++                                    disabled={isLoading}
++                                />
++                            </div>
++                            <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
++                                <Button type="submit" disabled={isLoading || !amount || Number(amount) <= 0} style={{ flex: 1 }} isLoading={isLoading}>
++                                    تأكيد شحن الرصيد
++                                </Button>
++                                <Button type="button" variant="outline" onClick={onClose} disabled={isLoading} style={{ flex: 1 }}>
++                                    إلغاء
++                                </Button>
++                            </div>
++                        </form>
++                    )}
+                 </Card>
+             </div>
+         </div>
+diff --git a/src/components/wallet/WithdrawModal.jsx b/src/components/wallet/WithdrawModal.jsx
+index cae320d..5e862fa 100644
+--- a/src/components/wallet/WithdrawModal.jsx
++++ b/src/components/wallet/WithdrawModal.jsx
+@@ -8,16 +8,19 @@ export const WithdrawModal = ({ isOpen, onClose, onConfirm, isLoading, currentBa
+     const [amount, setAmount] = useState('');
+     const [error, setError] = useState(null);
+ 
++    const [status, setStatus] = useState('IDLE'); // IDLE, SUCCESS
++
+     useEffect(() => {
+         if (isOpen) {
+             setAmount('');
+             setError(null);
++            setStatus('IDLE');
+         }
+     }, [isOpen]);
+ 
+     if (!isOpen) return null;
+ 
+-    const handleSubmit = (e) => {
++    const handleSubmit = async (e) => {
+         e.preventDefault();
+         setError(null);
+         
+@@ -33,7 +36,15 @@ export const WithdrawModal = ({ isOpen, onClose, onConfirm, isLoading, currentBa
+             return;
+         }
+ 
+-        onConfirm(numAmount);
++        try {
++            await onConfirm(numAmount);
++            setStatus('SUCCESS');
++            setTimeout(() => {
++                onClose();
++            }, 2000);
++        } catch (err) {
++            setError('حدث خطأ أثناء عملية السحب');
++        }
+     };
+ 
+     const modalContent = (
+@@ -57,37 +68,50 @@ export const WithdrawModal = ({ isOpen, onClose, onConfirm, isLoading, currentBa
+                         </div>
+                     </div>
+ 
+-                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+-                        <div>
+-                            <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>المبلغ المراد سحبه (ر.س)</label>
+-                            <Input
+-                                type="number"
+-                                placeholder="أدخل المبلغ"
+-                                value={amount}
+-                                onChange={e => {
+-                                    setAmount(e.target.value);
+-                                    if (error) setError(null);
+-                                }}
+-                                min="1"
+-                                max={currentBalance}
+-                                required
+-                            />
+-                            {error && <div style={{ color: 'var(--color-error)', fontSize: 12, marginTop: 4 }}>{error}</div>}
++                    {status === 'SUCCESS' ? (
++                        <div style={{ textAlign: 'center', padding: '24px 0' }}>
++                            <div style={{ width: 64, height: 64, backgroundColor: 'var(--color-success)', borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
++                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
++                                    <polyline points="20 6 9 17 4 12"></polyline>
++                                </svg>
++                            </div>
++                            <h3 style={{ marginBottom: 8 }}>تم السحب بنجاح</h3>
++                            <p className="text-helper">تم خصم المبلغ من رصيدك.</p>
+                         </div>
+-                        
+-                        <p style={{ fontSize: 12, color: 'var(--color-text-muted)', margin: '0' }}>
+-                            هذه عملية تجريبية في نسخة المعاينة ولا يتم تحويل أموال حقيقية.
+-                        </p>
++                    ) : (
++                        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
++                            <div>
++                                <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>المبلغ المراد سحبه (ر.س)</label>
++                                <Input
++                                    type="number"
++                                    placeholder="أدخل المبلغ"
++                                    value={amount}
++                                    onChange={e => {
++                                        setAmount(e.target.value);
++                                        if (error) setError(null);
++                                    }}
++                                    min="1"
++                                    max={currentBalance}
++                                    required
++                                    disabled={isLoading}
++                                />
++                                {error && <div style={{ color: 'var(--color-error)', fontSize: 12, marginTop: 4 }}>{error}</div>}
++                            </div>
++                            
++                            <p style={{ fontSize: 12, color: 'var(--color-text-muted)', margin: '0' }}>
++                                هذه عملية تجريبية في نسخة المعاينة ولا يتم تحويل أموال حقيقية.
++                            </p>
+ 
+-                        <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+-                            <Button type="submit" disabled={isLoading} style={{ flex: 1 }} isLoading={isLoading}>
+-                                تأكيد سحب الرصيد
+-                            </Button>
+-                            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading} style={{ flex: 1 }}>
+-                                إلغاء
+-                            </Button>
+-                        </div>
+-                    </form>
++                            <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
++                                <Button type="submit" disabled={isLoading} style={{ flex: 1 }} isLoading={isLoading}>
++                                    تأكيد سحب الرصيد
++                                </Button>
++                                <Button type="button" variant="outline" onClick={onClose} disabled={isLoading} style={{ flex: 1 }}>
++                                    إلغاء
++                                </Button>
++                            </div>
++                        </form>
++                    )}
+                 </Card>
+             </div>
+         </div>
+diff --git a/src/firebase/config.js b/src/firebase/config.js
+new file mode 100644
+index 0000000..630e5bf
+--- /dev/null
++++ b/src/firebase/config.js
+@@ -0,0 +1,19 @@
++import { initializeApp } from 'firebase/app';
++import { getAuth } from 'firebase/auth';
++import { getFirestore } from 'firebase/firestore';
++import { getStorage } from 'firebase/storage';
++
++// TODO: Replace with real Firebase configuration once available
++const firebaseConfig = {
++    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "demo-api-key",
++    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "demo-project.firebaseapp.com",
++    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "demo-project",
++    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "demo-project.appspot.com",
++    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "123456789",
++    appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:123456789:web:abcdef123456"
++};
++
++const app = initializeApp(firebaseConfig);
++export const auth = getAuth(app);
++export const db = getFirestore(app);
++export const storage = getStorage(app);
+diff --git a/src/mocks/data.js b/src/mocks/data.js
+index 2bcc556..12fe587 100644
+--- a/src/mocks/data.js
++++ b/src/mocks/data.js
+@@ -325,6 +325,28 @@ export const mockTrips = [
+         route: 'جدة -> المدينة المنورة',
+         carrierName: 'أحمد محمد'
+     },
++    // Completed trip — carrier-1 (For full testing of carrier flow)
++    {
++        id: 'TR-4001',
++        shipmentId: 'HM-4001',
++        carrierId: 'user-carrier-1',
++        shipperId: 'user-shipper-1',
++        currentStage: TripStage.DELIVERED,
++        finalPrice: 2000,
++        startedAt: '2024-03-01T08:00:00Z',
++        completedAt: '2024-03-02T12:00:00Z',
++        route: 'الدمام -> الرياض',
++        carrierName: 'أحمد محمد',
++        rating: {
++            id: 'rating-2',
++            tripId: 'TR-4001',
++            reviewerId: 'user-shipper-1',
++            reviewedId: 'user-carrier-1',
++            stars: 5,
++            comment: 'ناقل ممتاز وموثوق',
++            timestamp: '2024-03-03T10:00:00Z'
++        }
++    },
+     // Completed trip — carrier-2
+     {
+         id: 'TR-0987',
+@@ -401,6 +423,16 @@ export const mockTransactions = [
+         timestamp: '2024-03-12T08:00:00Z',
+         tripId: 'TR-2001',
+         balanceAfter: 8500
++    },
++    {
++        id: 'txn-5',
++        walletId: 'user-carrier-1',
++        type: TransactionType.TRIP_SETTLEMENT,
++        amount: 2000,
++        description: 'تسوية رحلة TR-4001',
++        timestamp: '2024-03-03T11:00:00Z',
++        tripId: 'TR-4001',
++        balanceAfter: 10500
+     }
+ ];
+ 
+diff --git a/src/pages/auth/Register.jsx b/src/pages/auth/Register.jsx
+index a50acd2..65b7d83 100644
+--- a/src/pages/auth/Register.jsx
++++ b/src/pages/auth/Register.jsx
+@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
+ import styles from './Auth.module.css';
+ import { Input } from '../../components/common/Input';
+ import { Button } from '../../components/common/Button';
++import { authService } from '../../services/api';
+ 
+ export const Register = () => {
+     const navigate = useNavigate();
+@@ -49,7 +50,7 @@ export const Register = () => {
+             
+             const phoneStr = formData.phone.replace(/\s+/g, '');
+             if (!formData.phone.trim()) { newErrors.phone = 'هذا الحقل مطلوب'; isValid = false; }
+-            else if (!/^\d+$/.test(phoneStr) || phoneStr.length < 9) { newErrors.phone = 'يرجى إدخال رقم جوال صحيح'; isValid = false; }
++            else if (!/^(05|5|\+9665)[0-9]{8}$/.test(phoneStr)) { newErrors.phone = 'يرجى إدخال رقم جوال سعودي صحيح (مثال: 05XXXXXXXX)'; isValid = false; }
+             
+             if (!formData.email.trim()) { newErrors.email = 'هذا الحقل مطلوب'; isValid = false; }
+             else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) { newErrors.email = 'يرجى إدخال بريد إلكتروني صحيح'; isValid = false; }
+@@ -105,9 +106,23 @@ export const Register = () => {
+         }
+     };
+ 
+-    const simulateAdminApproval = () => {
+-        localStorage.setItem('demo_role', role);
+-        window.location.href = '/app';
++    const simulateAdminApproval = async () => {
++        const newUser = {
++            role: role,
++            name: accountType === 'COMPANY' ? formData.managerName : formData.individualName,
++            email: formData.email || `new_${Math.floor(Math.random() * 1000)}@example.com`,
++            phone: formData.phone || `05${Math.floor(Math.random() * 100000000)}`,
++            accountType: accountType,
++            companyName: formData.companyName,
++            truckType: formData.truckType
++        };
++        
++        try {
++            await authService.register(newUser);
++            window.location.href = '/app';
++        } catch (e) {
++            console.error(e);
++        }
+     };
+ 
+     return (<div className={styles.container}>
+diff --git a/src/pages/carrier/CarrierShipmentDetail.jsx b/src/pages/carrier/CarrierShipmentDetail.jsx
+index a521a12..d0b4b97 100644
+--- a/src/pages/carrier/CarrierShipmentDetail.jsx
++++ b/src/pages/carrier/CarrierShipmentDetail.jsx
+@@ -7,6 +7,7 @@ import { PriceBlock } from '../../components/common/PriceBlock';
+ import { Input } from '../../components/common/Input';
+ import { shipmentService, offerService } from '../../services/api';
+ import { OfferStatus } from '../../constants/enums';
++import { MapPreview } from '../../components/common/MapPreview';
+ 
+ export const CarrierShipmentDetail = ({ user }) => {
+     const { shipmentId } = useParams();
+@@ -74,6 +75,14 @@ export const CarrierShipmentDetail = ({ user }) => {
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                     <Card>
+                         <h3 style={{ marginBottom: 16 }}>تفاصيل المسار والبضاعة</h3>
++                        <div style={{ marginBottom: 24 }}>
++                            <MapPreview 
++                                pickupCity={shipment.pickupCity} 
++                                deliveryCity={shipment.deliveryCity} 
++                                isInteractive={true} 
++                                height={200} 
++                            />
++                        </div>
+                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                             <div>
+                                 <div className="text-helper">موقع التحميل</div>
+diff --git a/src/pages/carrier/CarrierTripTrack.jsx b/src/pages/carrier/CarrierTripTrack.jsx
+index 4b01608..6b8f5ed 100644
+--- a/src/pages/carrier/CarrierTripTrack.jsx
++++ b/src/pages/carrier/CarrierTripTrack.jsx
+@@ -22,6 +22,8 @@ export const CarrierTripTrack = () => {
+     const [trip, setTrip] = useState(null);
+     const [shipment, setShipment] = useState(null);
+     const [isLoading, setIsLoading] = useState(true);
++    const [pickupProof, setPickupProof] = useState(null);
++    const [deliveryProof, setDeliveryProof] = useState(null);
+     const [isUpdating, setIsUpdating] = useState(false);
+ 
+     const fetchTrip = () => {
+@@ -199,16 +201,46 @@ export const CarrierTripTrack = () => {
+         <Card style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+           <div>
+             <div style={{ fontWeight: 'bold', fontSize: 16 }}>إثبات التحميل</div>
+-            <div className="text-helper" style={{ fontSize: 12, marginTop: 4 }}>الرجاء رفع صورة إثبات التحميل</div>
++            <div className="text-helper" style={{ fontSize: 12, marginTop: 4 }}>
++              {pickupProof ? 'تم الرفع' : 'يرجى رفع المستند (بوليصة الشحن)'}
++            </div>
++            {!pickupProof && (
++              <label style={{ display: 'inline-block', marginTop: 8, color: 'var(--color-primary)', cursor: 'pointer', fontSize: 14 }}>
++                اختر ملف...
++                <input type="file" style={{ display: 'none' }} onChange={(e) => {
++                  if (e.target.files.length > 0) {
++                    setPickupProof(e.target.files[0]);
++                    alert('تم محاكاة رفع الإثبات بنجاح');
++                  }
++                }} />
++              </label>
++            )}
++          </div>
++          <div style={{ width: 40, height: 40, backgroundColor: pickupProof ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.05)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
++            <Clock size={20} color={pickupProof ? "var(--color-success)" : "var(--color-text-muted)"} />
+           </div>
+-          <Button variant="outline" size="sm" onClick={() => alert('محاكاة رفع ملف')}>رفع مستند</Button>
+         </Card>
+         <Card style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+           <div>
+             <div style={{ fontWeight: 'bold', fontSize: 16 }}>إثبات التسليم</div>
+-            <div className="text-helper" style={{ fontSize: 12, marginTop: 4 }}>الرجاء رفع صورة إثبات التسليم</div>
++            <div className="text-helper" style={{ fontSize: 12, marginTop: 4 }}>
++              {deliveryProof ? 'تم الرفع' : 'يرجى رفع المستند (سند الاستلام)'}
++            </div>
++            {!deliveryProof && (
++              <label style={{ display: 'inline-block', marginTop: 8, color: 'var(--color-primary)', cursor: 'pointer', fontSize: 14 }}>
++                اختر ملف...
++                <input type="file" style={{ display: 'none' }} onChange={(e) => {
++                  if (e.target.files.length > 0) {
++                    setDeliveryProof(e.target.files[0]);
++                    alert('تم محاكاة رفع الإثبات بنجاح');
++                  }
++                }} />
++              </label>
++            )}
++          </div>
++          <div style={{ width: 40, height: 40, backgroundColor: deliveryProof ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.05)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
++            <Clock size={20} color={deliveryProof ? "var(--color-success)" : "var(--color-text-muted)"} />
+           </div>
+-          <Button variant="outline" size="sm" onClick={() => alert('محاكاة رفع ملف')}>رفع مستند</Button>
+         </Card>
+       </div>
+ 
+diff --git a/src/pages/shipper/ShipmentDetail.jsx b/src/pages/shipper/ShipmentDetail.jsx
+index 9c736ec..40d3ec9 100644
+--- a/src/pages/shipper/ShipmentDetail.jsx
++++ b/src/pages/shipper/ShipmentDetail.jsx
+@@ -5,6 +5,8 @@ import { Card } from '../../components/common/Card';
+ import { StatusBadge } from '../../components/common/StatusBadge';
+ import { PriceBlock } from '../../components/common/PriceBlock';
+ import { shipmentService } from '../../services/api';
++import { MapPreview } from '../../components/common/MapPreview';
++
+ export const ShipmentDetail = () => {
+     const { shipmentId } = useParams();
+     const navigate = useNavigate();
+@@ -39,6 +41,14 @@ export const ShipmentDetail = () => {
+         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+           <Card>
+             <h3 style={{ marginBottom: 16 }}>تفاصيل المسار والبضاعة</h3>
++            <div style={{ marginBottom: 24 }}>
++              <MapPreview 
++                pickupCity={shipment.pickupCity} 
++                deliveryCity={shipment.deliveryCity} 
++                isInteractive={true} 
++                height={200} 
++              />
++            </div>
+             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+               <div>
+                 <div className="text-helper">موقع التحميل</div>
+diff --git a/src/pages/shipper/TripTrack.jsx b/src/pages/shipper/TripTrack.jsx
+index bde2bd0..5b1c361 100644
+--- a/src/pages/shipper/TripTrack.jsx
++++ b/src/pages/shipper/TripTrack.jsx
+@@ -93,7 +93,7 @@ export const TripTrack = () => {
+           <div>
+             <div className="text-helper" style={{ fontSize: 12 }}>الناقل المكلّف</div>
+             <div style={{ fontWeight: 'bold', fontSize: 16 }}>
+-              {carrier?.name || trip.carrierName || 'بيانات الناقل غير متاحة'}
++              {trip.carrierId ? (carrier?.name || trip.carrierName || 'بيانات الناقل غير متاحة') : 'غير محدد'}
+             </div>
+           </div>
+           <div style={{ width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text)' }}>
+@@ -123,8 +123,8 @@ export const TripTrack = () => {
+ 
+         {/* Pickup Marker */}
+         <div style={{ position: 'absolute', right: '15%', top: '20%', transform: 'translate(50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+-          <div style={{ width: 24, height: 24, backgroundColor: 'var(--color-surface)', border: '2px solid var(--color-text)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+-            <MapPin size={14} color="var(--color-text)" />
++          <div style={{ width: 28, height: 28, backgroundColor: 'var(--color-surface)', border: '2px solid var(--color-text)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2, overflow: 'hidden' }}>
++            <img src="/logos/2-transparent.png" alt="start" style={{ width: 20, height: 20, objectFit: 'contain' }} />
+           </div>
+           <span style={{ color: 'white', fontSize: 12, marginTop: 4, fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>التحميل</span>
+         </div>
+diff --git a/src/services/api.js b/src/services/api.js
+index dca4677..61a7d9b 100644
+--- a/src/services/api.js
++++ b/src/services/api.js
+@@ -1,8 +1,13 @@
+ import { mockShipments, mockOffers, mockTrips, mockWallets, mockTransactions, mockNotifications, mockUsers } from '../mocks/data';
+ import { ShipmentStatus, OfferStatus, TripStage, TransactionType } from '../constants/enums';
++import { firebaseAuthService } from './firebase-services'; // Will add more later
++
++const USE_FIREBASE = import.meta.env.VITE_USE_FIREBASE === 'true';
++
+ // Helper to simulate network delay
+ const delay = (ms = 800) => new Promise(resolve => setTimeout(resolve, ms));
+-export const authService = {
++
++const mockAuthService = {
+     login: async (identifier, password, role = 'SHIPPER') => {
+         await delay();
+         
+@@ -20,6 +25,18 @@ export const authService = {
+         localStorage.setItem('demo_user_id', user.id); // Persist actual user ID
+         return user;
+     },
++    register: async (userData) => {
++        await delay();
++        const newUser = {
++            id: `user-${userData.role.toLowerCase()}-${Math.floor(Math.random() * 10000)}`,
++            ...userData,
++            accountStatus: 'VERIFIED'
++        };
++        mockUsers.push(newUser);
++        localStorage.setItem('demo_role', newUser.role);
++        localStorage.setItem('demo_user_id', newUser.id);
++        return newUser;
++    },
+     getCurrentUser: async () => {
+         await delay(300);
+         const role = localStorage.getItem('demo_role');
+@@ -41,7 +58,8 @@ export const authService = {
+         localStorage.removeItem('demo_user_id');
+     }
+ };
+-export const shipmentService = {
++
++const mockShipmentService = {
+     getShipments: async () => {
+         await delay();
+         return [...mockShipments];
+@@ -66,7 +84,8 @@ export const shipmentService = {
+         return newShipment;
+     }
+ };
+-export const offerService = {
++
++const mockOfferService = {
+     getOffersForShipment: async (shipmentId) => {
+         await delay();
+         return mockOffers.filter(o => o.shipmentId === shipmentId);
+@@ -128,7 +147,8 @@ export const offerService = {
+         return newTrip;
+     }
+ };
+-export const tripService = {
++
++const mockTripService = {
+     getTrips: async () => {
+         await delay();
+         return [...mockTrips];
+@@ -153,7 +173,8 @@ export const tripService = {
+         }
+     }
+ };
+-export const walletService = {
++
++const mockWalletService = {
+     getWallet: async () => {
+         await delay();
+         const user = await authService.getCurrentUser();
+@@ -220,7 +241,8 @@ export const walletService = {
+         return newTransaction;
+     }
+ };
+-export const notificationService = {
++
++const mockNotificationService = {
+     getNotifications: async () => {
+         await delay();
+         return [...mockNotifications];
+@@ -235,10 +257,20 @@ export const notificationService = {
+         mockNotifications.forEach(n => n.isRead = true);
+     }
+ };
+-export const userService = {
++
++const mockUserService = {
+     getUserById: async (id) => {
+         await delay(200);
+         const user = mockUsers.find(u => u.id === id);
+         return user ? { ...user } : null;
+     }
+ };
++
++// --- Exports ---
++export const authService = USE_FIREBASE ? firebaseAuthService : mockAuthService;
++export const shipmentService = USE_FIREBASE ? {} : mockShipmentService;
++export const offerService = USE_FIREBASE ? {} : mockOfferService;
++export const tripService = USE_FIREBASE ? {} : mockTripService;
++export const walletService = USE_FIREBASE ? {} : mockWalletService;
++export const notificationService = USE_FIREBASE ? {} : mockNotificationService;
++export const userService = USE_FIREBASE ? {} : mockUserService;
+diff --git a/src/services/firebase-services.js b/src/services/firebase-services.js
+new file mode 100644
+index 0000000..15ddac9
+--- /dev/null
++++ b/src/services/firebase-services.js
+@@ -0,0 +1,57 @@
++import { auth, db, storage } from '../firebase/config';
++import { 
++    signInWithEmailAndPassword, 
++    createUserWithEmailAndPassword, 
++    signOut 
++} from 'firebase/auth';
++import { 
++    collection, 
++    doc, 
++    getDoc, 
++    getDocs, 
++    setDoc, 
++    addDoc, 
++    updateDoc, 
++    query, 
++    where 
++} from 'firebase/firestore';
++import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
++
++export const firebaseAuthService = {
++    login: async (email, password) => {
++        const userCredential = await signInWithEmailAndPassword(auth, email, password);
++        return userCredential.user;
++    },
++    register: async (email, password) => {
++        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
++        return userCredential.user;
++    },
++    logout: async () => {
++        await signOut(auth);
++    }
++};
++
++export const firebaseDbService = {
++    getUser: async (userId) => {
++        const docRef = doc(db, 'users', userId);
++        const docSnap = await getDoc(docRef);
++        return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
++    },
++    createUserProfile: async (userId, data) => {
++        await setDoc(doc(db, 'users', userId), data);
++    },
++    getShipments: async () => {
++        const q = query(collection(db, 'shipments'));
++        const querySnapshot = await getDocs(q);
++        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
++    },
++    // Scaffolding for future real methods
++};
++
++export const firebaseStorageService = {
++    uploadFile: async (path, file) => {
++        const storageRef = ref(storage, path);
++        await uploadBytes(storageRef, file);
++        return await getDownloadURL(storageRef);
++    }
++};
+-- 
+2.52.0.windows.1
+

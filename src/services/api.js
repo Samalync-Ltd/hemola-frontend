@@ -2,6 +2,10 @@ import { mockShipments, mockOffers, mockTrips, mockWallets, mockTransactions, mo
 import { persistMockStore } from '../mocks/persistence';
 import { ShipmentStatus, OfferStatus, TripStage, TransactionType, AccountStatus } from '../constants/enums';
 import { COMMISSION_RATE, CANCELLATION_WARNING_THRESHOLD } from '../constants/config';
+import { firebaseAuthService } from './firebase-services'; // Will add more later
+
+const USE_FIREBASE = import.meta.env.VITE_USE_FIREBASE === 'true';
+
 // Helper to simulate network delay
 const delay = (ms = 800) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -67,7 +71,7 @@ const logTransaction = (walletId, type, amount, description) => {
     mockTransactions.unshift(txn);
     return txn;
 };
-export const authService = withAutoPersist({
+const mockAuthService = withAutoPersist({
     login: async (identifier, password, role = 'SHIPPER') => {
         await delay();
         
@@ -165,7 +169,7 @@ export const authService = withAutoPersist({
         localStorage.removeItem('demo_user_id');
     }
 });
-export const shipmentService = withAutoPersist({
+const mockShipmentService = withAutoPersist({
     getShipments: async () => {
         await delay();
         return [...mockShipments];
@@ -235,7 +239,7 @@ export const shipmentService = withAutoPersist({
         return { ...shipment };
     }
 });
-export const offerService = withAutoPersist({
+const mockOfferService = withAutoPersist({
     getOffersForShipment: async (shipmentId) => {
         await delay();
         return mockOffers.filter(o => o.shipmentId === shipmentId);
@@ -415,7 +419,7 @@ export const offerService = withAutoPersist({
         return newTrip;
     }
 });
-export const tripService = withAutoPersist({
+const mockTripService = withAutoPersist({
     getTrips: async () => {
         await delay();
         return [...mockTrips];
@@ -536,7 +540,7 @@ export const tripService = withAutoPersist({
         return message;
     }
 });
-export const walletService = withAutoPersist({
+const mockWalletService = withAutoPersist({
     getWallet: async () => {
         await delay();
         const user = await authService.getCurrentUser();
@@ -592,7 +596,7 @@ export const walletService = withAutoPersist({
         return pendingTxn;
     }
 });
-export const notificationService = withAutoPersist({
+const mockNotificationService = withAutoPersist({
     getNotifications: async () => {
         await delay();
         return [...mockNotifications];
@@ -607,10 +611,19 @@ export const notificationService = withAutoPersist({
         mockNotifications.forEach(n => n.isRead = true);
     }
 });
-export const userService = withAutoPersist({
+const mockUserService = withAutoPersist({
     getUserById: async (id) => {
         await delay(200);
         const user = mockUsers.find(u => u.id === id);
         return user ? { ...user } : null;
     }
 });
+
+// --- Exports ---
+export const authService = USE_FIREBASE ? firebaseAuthService : mockAuthService;
+export const shipmentService = USE_FIREBASE ? {} : mockShipmentService;
+export const offerService = USE_FIREBASE ? {} : mockOfferService;
+export const tripService = USE_FIREBASE ? {} : mockTripService;
+export const walletService = USE_FIREBASE ? {} : mockWalletService;
+export const notificationService = USE_FIREBASE ? {} : mockNotificationService;
+export const userService = USE_FIREBASE ? {} : mockUserService;
