@@ -3,11 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { MapPin, Flag, Truck } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
-import { tripService, shipmentService } from '../../services/api';
+import { tripService, shipmentService, userService } from '../../services/api';
 import { TripStage as TripStageEnum, TripStageAr, UserRole } from '../../constants/enums';
 import { ProofPhotoCapture } from '../../components/trip/ProofPhotoCapture';
 import { QuickMessagePanel } from '../../components/trip/QuickMessagePanel';
-import { TripMap, openInMaps } from '../../components/map/TripMap';
+import { openInMaps } from '../../components/map/TripMap';
+import { MapThumbnail } from '../../components/map/MapThumbnail';
+import { CallButton } from '../../components/trip/CallButton';
 
 const stageOrder = [
     TripStageEnum.ASSIGNED,
@@ -26,6 +28,7 @@ export const CarrierTripTrack = () => {
     const navigate = useNavigate();
     const [trip, setTrip] = useState(null);
     const [shipment, setShipment] = useState(null);
+    const [shipper, setShipper] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
@@ -36,9 +39,15 @@ export const CarrierTripTrack = () => {
             tripService.getTripById(tripId)
                 .then(t => {
                     setTrip(t);
-                    return shipmentService.getShipmentById(t.shipmentId).catch(() => null);
+                    return Promise.all([
+                        shipmentService.getShipmentById(t.shipmentId).catch(() => null),
+                        t.shipperId ? userService.getUserById(t.shipperId) : Promise.resolve(null)
+                    ]);
                 })
-                .then(s => setShipment(s))
+                .then(([s, sh]) => {
+                    setShipment(s);
+                    setShipper(sh);
+                })
                 .finally(() => setIsLoading(false));
         }
     };
@@ -241,9 +250,10 @@ export const CarrierTripTrack = () => {
         <>
           <h3 style={{ marginTop: 8, marginBottom: 8 }}>بيانات الموقع</h3>
           {(shipment.pickupLat || shipment.deliveryLat) && (
-            <TripMap
+            <MapThumbnail
               pickup={shipment.pickupLat ? [shipment.pickupLat, shipment.pickupLng] : null}
               delivery={shipment.deliveryLat ? [shipment.deliveryLat, shipment.deliveryLng] : null}
+              title="موقع الرحلة"
             />
           )}
           <Card>
@@ -306,6 +316,8 @@ export const CarrierTripTrack = () => {
           )}
         </Card>
       </div>
+
+      <CallButton phoneNumber={shipper?.phone} label="الاتصال بصاحب الشحنة" />
 
       <h3 style={{ marginTop: 8, marginBottom: 8 }}>رسائل سريعة</h3>
       <Card>

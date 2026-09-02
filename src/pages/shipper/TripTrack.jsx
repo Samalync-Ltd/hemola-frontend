@@ -7,7 +7,9 @@ import { tripService, shipmentService, userService } from '../../services/api';
 import { TripStage as TripStageEnum, TripStageAr, UserRole } from '../../constants/enums';
 import { ProofPhotoCapture } from '../../components/trip/ProofPhotoCapture';
 import { QuickMessagePanel } from '../../components/trip/QuickMessagePanel';
-import { TripMap, openInMaps } from '../../components/map/TripMap';
+import { openInMaps } from '../../components/map/TripMap';
+import { MapThumbnail } from '../../components/map/MapThumbnail';
+import { CallButton } from '../../components/trip/CallButton';
 
 const stageOrder = [
     TripStageEnum.ASSIGNED,
@@ -141,6 +143,8 @@ export const TripTrack = () => {
         )}
       </Card>
 
+      {!isCancelled && <CallButton phoneNumber={carrier?.phone} label="الاتصال بالناقل" />}
+
       <div style={{ backgroundColor: 'rgba(255,122,41,0.1)', padding: '20px 24px', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontSize: 24, fontWeight: 'bold', color: 'var(--color-accent)' }} dir="ltr">{trip.finalPrice} ر.س</div>
         <div style={{ fontWeight: 'bold', fontSize: 16 }}>السعر النهائي المتفق عليه</div>
@@ -210,9 +214,10 @@ export const TripTrack = () => {
       {shipment && (shipment.pickupLat || shipment.deliveryLat) && (
         <>
           <h3 style={{ marginTop: 8, marginBottom: 8 }}>بيانات الموقع</h3>
-          <TripMap
+          <MapThumbnail
             pickup={shipment.pickupLat ? [shipment.pickupLat, shipment.pickupLng] : null}
             delivery={shipment.deliveryLat ? [shipment.deliveryLat, shipment.deliveryLng] : null}
+            title="موقع الرحلة"
           />
           <Card>
             <div className="responsive-two-col-even">
