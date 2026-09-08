@@ -45,7 +45,7 @@ export const Login = () => {
             }
         } else {
             const phoneStr = identifier.replace(/\s+/g, '');
-            if (!/^\d+$/.test(phoneStr) || phoneStr.length < 9) {
+            if (!/^[+\d]+$/.test(phoneStr) || phoneStr.length < 9) {
                 setError('يرجى إدخال رقم جوال صحيح');
                 return;
             }
@@ -56,10 +56,11 @@ export const Login = () => {
         setIsLoading(true);
         try {
             const user = await authService.login(identifier, pass, role);
-            if (user.role === 'ADMIN')
-                navigate('/admin');
-            else
-                navigate('/app');
+            if (user.role === 'ADMIN') {
+              setError('يرجى استخدام بوابة الإدارة المخصصة لتسجيل دخول المديرين');
+            } else {
+              navigate('/app');
+            }
         }
         catch (err) {
             setError(err.message || 'بيانات تسجيل الدخول غير صحيحة');

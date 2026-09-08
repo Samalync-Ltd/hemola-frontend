@@ -2,7 +2,16 @@ import { mockShipments, mockOffers, mockTrips, mockWallets, mockTransactions, mo
 import { persistMockStore } from '../mocks/persistence';
 import { ShipmentStatus, OfferStatus, TripStage, TransactionType, AccountStatus } from '../constants/enums';
 import { COMMISSION_RATE, CANCELLATION_WARNING_THRESHOLD } from '../constants/config';
-import { firebaseAuthService } from './firebase-services'; // Will add more later
+import { normalizeSaudiPhone } from '../utils/validators';
+import { 
+    firebaseAuthService,
+    firebaseShipmentService,
+    firebaseOfferService,
+    firebaseTripService,
+    firebaseWalletService,
+    firebaseNotificationService,
+    firebaseUserService
+} from './firebase-services';
 
 const USE_FIREBASE = import.meta.env.VITE_USE_FIREBASE === 'true';
 
@@ -77,7 +86,7 @@ const mockAuthService = withAutoPersist({
         
         const normalizedId = identifier.toLowerCase();
         let user = mockUsers.find(u => 
-            (u.email.toLowerCase() === normalizedId || u.phone === identifier) && 
+            ((u.email && u.email.toLowerCase() === normalizedId) || u.phone === identifier || u.phone === normalizeSaudiPhone(identifier)) && 
             u.role === role
         );
 
@@ -104,13 +113,14 @@ const mockAuthService = withAutoPersist({
         const user = {
             id,
             role: payload.role,
-            name: isCompany ? payload.managerName : payload.individualName,
+            name: payload.name,
             email: payload.email,
             phone: payload.phone,
             accountType: payload.accountType,
             // Demo-only: the review step's "simulate admin approval" button
             // is what gets a user here, so the account is verified by then.
-            accountStatus: AccountStatus.VERIFIED,
+            accountStatus: AccountStatus.UNDER_REVIEW,
+            isSuspended: false,
             notificationsEnabled: true,
             ...(isCompany ? { companyName: payload.companyName } : {}),
             ...(payload.role === 'CARRIER'
@@ -621,9 +631,9 @@ const mockUserService = withAutoPersist({
 
 // --- Exports ---
 export const authService = USE_FIREBASE ? firebaseAuthService : mockAuthService;
-export const shipmentService = USE_FIREBASE ? {} : mockShipmentService;
-export const offerService = USE_FIREBASE ? {} : mockOfferService;
-export const tripService = USE_FIREBASE ? {} : mockTripService;
-export const walletService = USE_FIREBASE ? {} : mockWalletService;
-export const notificationService = USE_FIREBASE ? {} : mockNotificationService;
-export const userService = USE_FIREBASE ? {} : mockUserService;
+export const shipmentService = USE_FIREBASE ? firebaseShipmentService : mockShipmentService;
+export const offerService = USE_FIREBASE ? firebaseOfferService : mockOfferService;
+export const tripService = USE_FIREBASE ? firebaseTripService : mockTripService;
+export const walletService = USE_FIREBASE ? firebaseWalletService : mockWalletService;
+export const notificationService = USE_FIREBASE ? firebaseNotificationService : mockNotificationService;
+export const userService = USE_FIREBASE ? firebaseUserService : mockUserService;

@@ -3,10 +3,12 @@ import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { DataTable } from '../../components/common/DataTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
+import { UserRole, AccountType, DocumentStatus } from '../../constants/enums';
+
 export const AdminApprovals = () => {
     const [approvals, setApprovals] = useState([
-        { id: 'REQ-001', name: 'مؤسسة النقل السريع', type: 'شركة', role: 'ناقل', status: 'PENDING', date: '2023-10-25' },
-        { id: 'REQ-002', name: 'أحمد محمد', type: 'فرد', role: 'صاحب شحنة', status: 'PENDING', date: '2023-10-26' }
+        { id: 'REQ-001', name: 'مؤسسة النقل السريع', type: AccountType.COMPANY, role: UserRole.CARRIER, status: DocumentStatus.PENDING, date: '2023-10-25' },
+        { id: 'REQ-002', name: 'أحمد محمد', type: AccountType.INDIVIDUAL, role: UserRole.SHIPPER, status: DocumentStatus.PENDING, date: '2023-10-26' }
     ]);
     const handleApprove = (id) => {
         setApprovals(approvals.filter(a => a.id !== id));
@@ -19,8 +21,8 @@ export const AdminApprovals = () => {
     const columns = [
         { key: 'id', header: 'رقم الطلب', render: (a) => <strong>{a.id}</strong> },
         { key: 'name', header: 'الاسم', render: (a) => a.name },
-        { key: 'type', header: 'النوع', render: (a) => a.type },
-        { key: 'role', header: 'الدور', render: (a) => a.role },
+        { key: 'type', header: 'النوع', render: (a) => a.type === AccountType.COMPANY ? 'شركة' : 'فرد' },
+        { key: 'role', header: 'الدور', render: (a) => a.role === UserRole.CARRIER ? 'ناقل' : 'صاحب شحنة' },
         { key: 'date', header: 'تاريخ الطلب', render: (a) => a.date },
         { key: 'status', header: 'الحالة', render: (a) => <StatusBadge status={a.status}/> },
         {

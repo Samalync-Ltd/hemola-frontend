@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Star, Building2, Clock, MapPin, Flag, Truck } from 'lucide-react';
+import { Star, Building2, Clock, Truck } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { tripService, shipmentService, userService } from '../../services/api';
 import { TripStage as TripStageEnum, TripStageAr, UserRole } from '../../constants/enums';
 import { ProofPhotoCapture } from '../../components/trip/ProofPhotoCapture';
 import { QuickMessagePanel } from '../../components/trip/QuickMessagePanel';
-import { TripMap, openInMaps } from '../../components/map/TripMap';
+import { openInMaps } from '../../components/map/TripMap';
+import { MapThumbnail } from '../../components/map/MapThumbnail';
+import { CallButton } from '../../components/trip/CallButton';
 
 const stageOrder = [
     TripStageEnum.ASSIGNED,
@@ -125,9 +127,9 @@ export const TripTrack = () => {
       <Card style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}>
           <div>
-            <div className="text-helper" style={{ fontSize: 12 }}>الناقل المكلّف</div>
+            <div className="text-helper" style={{ fontSize: 12 }}>{trip.carrierId ? 'الناقل المكلّف' : 'الناقل المكلّف'}</div>
             <div style={{ fontWeight: 'bold', fontSize: 16 }}>
-              {carrier?.name || trip.carrierName || 'بيانات الناقل غير متاحة'}
+              {trip.carrierId || carrier?.name || trip.carrierName ? (carrier?.name || trip.carrierName || 'بيانات الناقل غير متاحة') : 'غير محدد'}
             </div>
           </div>
           <div style={{ width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text)' }}>
@@ -140,6 +142,8 @@ export const TripTrack = () => {
           </span>
         )}
       </Card>
+
+      {!isCancelled && !isDelivered && <CallButton phoneNumber={carrier?.phone} label="الاتصال بالناقل" />}
 
       <div style={{ backgroundColor: 'rgba(255,122,41,0.1)', padding: '20px 24px', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontSize: 24, fontWeight: 'bold', color: 'var(--color-accent)' }} dir="ltr">{trip.finalPrice} ر.س</div>
@@ -158,7 +162,7 @@ export const TripTrack = () => {
         {/* Pickup Marker */}
         <div style={{ position: 'absolute', right: '15%', top: '20%', transform: 'translate(50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div style={{ width: 24, height: 24, backgroundColor: 'var(--color-surface)', border: '2px solid var(--color-text)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
-            <MapPin size={14} color="var(--color-text)" />
+            <img src="/logos/1.png" alt="Start" style={{ width: 14, height: 14, objectFit: 'contain' }} />
           </div>
           <span style={{ color: 'white', fontSize: 12, marginTop: 4, fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>التحميل</span>
         </div>
@@ -174,7 +178,7 @@ export const TripTrack = () => {
         {/* Delivery Marker */}
         <div style={{ position: 'absolute', right: '85%', top: '80%', transform: 'translate(50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div style={{ width: 24, height: 24, backgroundColor: 'var(--color-surface)', border: '2px solid var(--color-text)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
-            <Flag size={14} color="var(--color-text)" />
+            <img src="/logos/1.png" alt="End" style={{ width: 14, height: 14, objectFit: 'contain', filter: 'grayscale(100%)' }} />
           </div>
           <span style={{ color: 'white', fontSize: 12, marginTop: 4, fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>التسليم</span>
         </div>
@@ -210,9 +214,10 @@ export const TripTrack = () => {
       {shipment && (shipment.pickupLat || shipment.deliveryLat) && (
         <>
           <h3 style={{ marginTop: 8, marginBottom: 8 }}>بيانات الموقع</h3>
-          <TripMap
+          <MapThumbnail
             pickup={shipment.pickupLat ? [shipment.pickupLat, shipment.pickupLng] : null}
             delivery={shipment.deliveryLat ? [shipment.deliveryLat, shipment.deliveryLng] : null}
+            title="موقع الرحلة"
           />
           <Card>
             <div className="responsive-two-col-even">

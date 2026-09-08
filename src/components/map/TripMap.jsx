@@ -8,14 +8,26 @@ import { pickupIcon, deliveryIcon } from '../../utils/mapIcons';
  * tracking screens. Only ever rendered post-assignment — see the visibility
  * rule on SiteDetails.
  */
-export const TripMap = ({ pickup, delivery, height = 220 }) => {
+export const TripMap = ({ pickup, delivery, height = 220, interactive = true }) => {
     if (!pickup && !delivery) return null;
     const points = [pickup, delivery].filter(Boolean);
     const center = points[0];
 
     return (
         <div style={{ height, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-            <MapContainer center={center} zoom={points.length > 1 ? 6 : 11} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
+            <MapContainer
+                center={center}
+                zoom={points.length > 1 ? 6 : 11}
+                style={{ height: '100%', width: '100%' }}
+                scrollWheelZoom={false}
+                dragging={interactive}
+                touchZoom={interactive}
+                doubleClickZoom={interactive}
+                boxZoom={interactive}
+                keyboard={interactive}
+                zoomControl={interactive}
+                attributionControl={interactive}
+            >
                 <TileLayer
                     url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
                     attribution="© OpenStreetMap"

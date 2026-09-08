@@ -12,9 +12,6 @@ import { TripRating } from './pages/shipper/TripRating';
 import { Profile } from './pages/shipper/Profile';
 import { NotificationsPage } from './pages/shipper/NotificationsPage';
 import AppLayout from './components/layout/AppLayout';
-import AdminLayout from './components/layout/AdminLayout';
-import { AdminDashboard } from './pages/admin/AdminDashboard';
-import { AdminApprovals } from './pages/admin/AdminApprovals';
 
 import { ShipmentsWrapper } from './pages/common/ShipmentsWrapper';
 import { ShipmentDetailWrapper } from './pages/common/ShipmentDetailWrapper';
@@ -46,13 +43,6 @@ function App() {
           <Route path="account" element={<Profile />}/>
           <Route path="notifications" element={<NotificationsPage />}/>
           {/* other app routes */}
-        </Route>
-
-        {/* Admin Routes */}
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<AdminDashboard />}/>
-          <Route path="approvals" element={<AdminApprovals />}/>
-          {/* other admin routes */}
         </Route>
 
         <Route path="*" element={<Navigate to="/login" replace/>}/>

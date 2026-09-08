@@ -69,6 +69,13 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
     };
 
     const handleAccept = async () => {
+        // Funds are reserved (not deducted) from the shipper's available
+        // balance the moment this finalizes — surface that plainly before
+        // committing, so the user isn't surprised by it after the fact.
+        // `currentPrice` is always in sync with `offer.offeredPrice` (every
+        // mutation in offerService updates both together), so either can be
+        // shown here; `currentPrice` is what's already on screen.
+        if (!window.confirm(`سيتم حجز ${currentPrice} ر.س من رصيد صاحب الشحنة المتاح عند تأكيد هذا السعر. هل تريد المتابعة؟`)) return;
         setError('');
         setIsSubmitting(true);
         try {

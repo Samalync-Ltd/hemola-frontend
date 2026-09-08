@@ -8,7 +8,7 @@ import { Input } from '../../components/common/Input';
 import { shipmentService, offerService, isCarrierBusy } from '../../services/api';
 import { OfferStatus, ShipmentStatus } from '../../constants/enums';
 import { lookupCityCoordinates } from '../../utils/geo';
-import { TripMap } from '../../components/map/TripMap';
+import { MapThumbnail } from '../../components/map/MapThumbnail';
 
 export const CarrierShipmentDetail = ({ user }) => {
     const { shipmentId } = useParams();
@@ -68,6 +68,10 @@ export const CarrierShipmentDetail = ({ user }) => {
     // "submit a matching offer, then accept it in the negotiation thread"
     // but as the single click a real Accept action should be.
     const handleAcceptPostedPrice = async () => {
+        // Funds are reserved (not deducted) from the shipper's available
+        // balance the moment this finalizes — surface that plainly before
+        // committing, same as the negotiation-thread Accept action.
+        if (!window.confirm(`سيتم حجز ${shipment.proposedPrice} ر.س من رصيد صاحب الشحنة المتاح عند تأكيد هذا السعر. هل تريد المتابعة؟`)) return;
         setSubmitError('');
         setIsAccepting(true);
         try {
@@ -117,7 +121,7 @@ export const CarrierShipmentDetail = ({ user }) => {
                             if (!pickup || !delivery) return null;
                             return (
                                 <div style={{ marginBottom: 16 }}>
-                                    <TripMap pickup={pickup} delivery={delivery} height={160} />
+                                    <MapThumbnail pickup={pickup} delivery={delivery} height={160} title="معاينة المسار" />
                                 </div>
                             );
                         })()}

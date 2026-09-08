@@ -18,8 +18,7 @@ export const Register = () => {
     // Step 3
     const [formData, setFormData] = useState({
         companyName: '',
-        managerName: '',
-        individualName: '',
+        name: '',
         phone: '',
         email: '',
         password: ''
@@ -32,7 +31,7 @@ export const Register = () => {
     const [isLoading, setIsLoading] = useState(false);
 
     const handleTextChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
-    const handleFileChange = (e) => setFiles({ ...files, [e.target.name]: !!e.target.files.length });
+    const handleFileChange = (e) => setFiles({ ...files, [e.target.name]: e.target.files[0] });
 
     const validateStep = () => {
         const newErrors = {};
@@ -45,9 +44,9 @@ export const Register = () => {
         } else if (step === 3) {
             if (accountType === 'COMPANY') {
                 if (!formData.companyName.trim()) { newErrors.companyName = 'يرجى إدخال اسم الشركة'; isValid = false; }
-                if (!formData.managerName.trim()) { newErrors.managerName = 'هذا الحقل مطلوب'; isValid = false; }
+                if (!formData.name.trim()) { newErrors.name = 'هذا الحقل مطلوب'; isValid = false; }
             } else {
-                if (!formData.individualName.trim()) { newErrors.individualName = 'هذا الحقل مطلوب'; isValid = false; }
+                if (!formData.name.trim()) { newErrors.name = 'هذا الحقل مطلوب'; isValid = false; }
             }
             
             if (!formData.phone.trim()) { newErrors.phone = 'هذا الحقل مطلوب'; isValid = false; }
@@ -59,25 +58,26 @@ export const Register = () => {
             if (!formData.password.trim()) { newErrors.password = 'هذا الحقل مطلوب'; isValid = false; }
         } else if (step === 4) {
             if (role === 'SHIPPER') {
-                if (accountType === 'INDIVIDUAL' && !files.idCard) { newErrors.idCard = 'هذا الحقل مطلوب'; isValid = false; }
+                if (accountType === 'INDIVIDUAL' && !files.nationalId) { newErrors.nationalId = 'هذا الحقل مطلوب'; isValid = false; }
                 if (accountType === 'COMPANY') {
-                    if (!files.cr) { newErrors.cr = 'هذا الحقل مطلوب'; isValid = false; }
+                    if (!files.commercialRegistration) { newErrors.commercialRegistration = 'هذا الحقل مطلوب'; isValid = false; }
                     if (!files.managerId) { newErrors.managerId = 'هذا الحقل مطلوب'; isValid = false; }
                 }
             } else if (role === 'CARRIER') {
-                if (accountType === 'INDIVIDUAL' && !files.idCard) { newErrors.idCard = 'هذا الحقل مطلوب'; isValid = false; }
-                if (accountType === 'COMPANY') {
-                    if (!files.cr) { newErrors.cr = 'هذا الحقل مطلوب'; isValid = false; }
-                    if (!files.managerId) { newErrors.managerId = 'هذا الحقل مطلوب'; isValid = false; }
-                    if (!files.transportLicense) { newErrors.transportLicense = 'هذا الحقل مطلوب'; isValid = false; }
+                if (accountType === 'INDIVIDUAL') {
+                    if (!files.nationalId) { newErrors.nationalId = 'هذا الحقل مطلوب'; isValid = false; }
+                    if (!files.publicDrivingLicense) { newErrors.publicDrivingLicense = 'هذا الحقل مطلوب'; isValid = false; }
                 }
-                if (!files.drivingLicense) { newErrors.drivingLicense = 'هذا الحقل مطلوب'; isValid = false; }
+                if (accountType === 'COMPANY') {
+                    if (!files.commercialRegistration) { newErrors.commercialRegistration = 'هذا الحقل مطلوب'; isValid = false; }
+                    if (!files.managerId) { newErrors.managerId = 'هذا الحقل مطلوب'; isValid = false; }
+                }
             }
         } else if (step === 5 && role === 'CARRIER') {
             if (!formData.truckType?.trim()) { newErrors.truckType = 'يرجى إدخال نوع الشاحنة'; isValid = false; }
             if (!formData.plateNumber?.trim()) { newErrors.plateNumber = 'هذا الحقل مطلوب'; isValid = false; }
-            if (!files.registration) { newErrors.registration = 'هذا الحقل مطلوب'; isValid = false; }
-            if (!files.insurance) { newErrors.insurance = 'هذا الحقل مطلوب'; isValid = false; }
+            if (!files.vehicleOperatingCard) { newErrors.vehicleOperatingCard = 'هذا الحقل مطلوب'; isValid = false; }
+            if (!files.vehicleRegistration) { newErrors.vehicleRegistration = 'هذا الحقل مطلوب'; isValid = false; }
         }
 
         setErrors(newErrors);
@@ -99,11 +99,15 @@ export const Register = () => {
 
     const handleRegister = async () => {
         setIsLoading(true);
-        // Simulate API delay
-        setTimeout(() => {
+        try {
+            await authService.registerNewUser({ role, accountType, files, ...formData });
+            markFreshAccount();
             setIsLoading(false);
             setStep(role === 'CARRIER' ? 6 : 5); // Review step
-        }, 1000);
+        } catch (err) {
+            setIsLoading(false);
+            alert('حدث خطأ أثناء التسجيل: ' + err.message);
+        }
     };
 
     const onSubmit = (e) => {
@@ -118,11 +122,6 @@ export const Register = () => {
     };
 
     const simulateAdminApproval = () => {
-        // Mints a real new user (see authService.registerNewUser) instead of
-        // silently reusing a seeded demo identity, so this account actually
-        // starts with no shipments/offers/trips/wallet history anywhere.
-        authService.registerNewUser({ role, accountType, ...formData });
-        markFreshAccount();
         // A client-side transition, not a hard reload: mockUsers/mockShipments
         // etc. are plain in-memory module state (see src/mocks/data.js) with
         // no persistence layer under them — a full page load (window.location)
@@ -180,7 +179,7 @@ export const Register = () => {
               {accountType === 'COMPANY' && (
                   <Input name="companyName" label="اسم الشركة / المنشأة" value={formData.companyName} onChange={handleTextChange} error={errors.companyName} />
               )}
-              <Input name={accountType === 'COMPANY' ? 'managerName' : 'individualName'} label={accountType === 'COMPANY' ? "اسم المسؤول" : "الاسم"} value={accountType === 'COMPANY' ? formData.managerName : formData.individualName} onChange={handleTextChange} error={accountType === 'COMPANY' ? errors.managerName : errors.individualName} />
+              <Input name="name" label={accountType === 'COMPANY' ? "اسم المسؤول" : "الاسم"} value={formData.name} onChange={handleTextChange} error={errors.name} />
               <Input name="phone" label="رقم الجوال" type="tel" value={formData.phone} onChange={handleTextChange} error={errors.phone} />
               <Input name="email" label="البريد الإلكتروني" type="email" value={formData.email} onChange={handleTextChange} error={errors.email} />
               <Input name="password" label="كلمة المرور" type="password" value={formData.password} onChange={handleTextChange} error={errors.password} />
@@ -189,31 +188,30 @@ export const Register = () => {
           {step === 4 && role === 'SHIPPER' && (<>
               <h2 style={{ textAlign: 'center', marginBottom: 24 }}>المستندات</h2>
               {accountType === 'INDIVIDUAL' ? (
-                  <Input name="idCard" type="file" label="الهوية" onChange={handleFileChange} error={errors.idCard} />
+                  <Input name="nationalId" type="file" label="الهوية الوطنية / الإقامة" onChange={handleFileChange} error={errors.nationalId} />
               ) : (<>
-                  <Input name="cr" type="file" label="السجل التجاري / مستندات المنشأة" onChange={handleFileChange} error={errors.cr} />
-                  <Input name="managerId" type="file" label="بيانات المسؤول" onChange={handleFileChange} error={errors.managerId} />
+                  <Input name="commercialRegistration" type="file" label="السجل التجاري" onChange={handleFileChange} error={errors.commercialRegistration} />
+                  <Input name="managerId" type="file" label="هوية المسؤول" onChange={handleFileChange} error={errors.managerId} />
                 </>)}
             </>)}
 
           {step === 4 && role === 'CARRIER' && (<>
               <h2 style={{ textAlign: 'center', marginBottom: 24 }}>المستندات الأساسية</h2>
-              {accountType === 'INDIVIDUAL' ? (
-                  <Input name="idCard" type="file" label="الهوية الوطنية / الإقامة" onChange={handleFileChange} error={errors.idCard} />
-              ) : (<>
-                  <Input name="cr" type="file" label="السجل التجاري" onChange={handleFileChange} error={errors.cr} />
+              {accountType === 'INDIVIDUAL' ? (<>
+                  <Input name="nationalId" type="file" label="الهوية الوطنية / الإقامة" onChange={handleFileChange} error={errors.nationalId} />
+                  <Input name="publicDrivingLicense" type="file" label="رخصة قيادة عمومي" onChange={handleFileChange} error={errors.publicDrivingLicense} />
+              </>) : (<>
+                  <Input name="commercialRegistration" type="file" label="السجل التجاري" onChange={handleFileChange} error={errors.commercialRegistration} />
                   <Input name="managerId" type="file" label="هوية المسؤول" onChange={handleFileChange} error={errors.managerId} />
-                  <Input name="transportLicense" type="file" label="ترخيص هيئة النقل" onChange={handleFileChange} error={errors.transportLicense} />
                 </>)}
-              <Input name="drivingLicense" type="file" label="رخصة القيادة للمندوب" onChange={handleFileChange} error={errors.drivingLicense} />
             </>)}
 
           {step === 5 && role === 'CARRIER' && (<>
               <h2 style={{ textAlign: 'center', marginBottom: 24 }}>بيانات الشاحنة</h2>
               <Input name="truckType" label="نوع الشاحنة (تريلا، دينا...)" value={formData.truckType || ''} onChange={handleTextChange} error={errors.truckType} />
               <Input name="plateNumber" label="رقم اللوحة" value={formData.plateNumber || ''} onChange={handleTextChange} error={errors.plateNumber} />
-              <Input name="registration" type="file" label="الاستمارة (رخصة السير)" onChange={handleFileChange} error={errors.registration} />
-              <Input name="insurance" type="file" label="وثيقة التأمين" onChange={handleFileChange} error={errors.insurance} />
+              <Input name="vehicleOperatingCard" type="file" label="بطاقة تشغيل مركبة" onChange={handleFileChange} error={errors.vehicleOperatingCard} />
+              <Input name="vehicleRegistration" type="file" label="الاستمارة (رخصة السير)" onChange={handleFileChange} error={errors.vehicleRegistration} />
             </>)}
 
           {( (step === 5 && role === 'SHIPPER') || (step === 6 && role === 'CARRIER') ) && (<div style={{ textAlign: 'center' }}>

@@ -245,6 +245,48 @@ export const mockShipments = [
         status: ShipmentStatus.CANCELLED,
         createdAt: '2024-02-05T09:00:00Z',
         offerCount: 0
+    },
+    // ─── HM-0800: Completed shipment for user-carrier-1 ───────────────────
+    {
+        id: 'HM-0800',
+        shipperId: 'demo-shipper',
+        pickupCity: 'الرياض',
+        pickupLocation: 'الملز',
+        deliveryCity: 'الدمام',
+        deliveryLocation: 'الخبر',
+        cargoType: 'أثاث مكتبي',
+        weight: 12.0,
+        volume: 25,
+        requiredTruckType: 'شاحنة صندوق مغلق',
+        loadingDate: '2024-01-15',
+        loadingTime: '08:00 AM',
+        proposedPrice: 1800,
+        finalPrice: 1900,
+        status: ShipmentStatus.COMPLETED,
+        createdAt: '2024-01-10T09:00:00Z',
+        assignedCarrierId: 'user-carrier-1',
+        offerCount: 2
+    },
+    // ─── HM-0801: Cancelled shipment for user-carrier-1 ───────────────────
+    {
+        id: 'HM-0801',
+        shipperId: 'demo-shipper',
+        pickupCity: 'جدة',
+        pickupLocation: 'الصفا',
+        deliveryCity: 'ينبع',
+        deliveryLocation: 'الصناعية',
+        cargoType: 'معدات',
+        weight: 8.0,
+        volume: 15,
+        requiredTruckType: 'دينا',
+        loadingDate: '2024-02-20',
+        loadingTime: '11:00 AM',
+        proposedPrice: 1200,
+        finalPrice: 1200,
+        status: ShipmentStatus.CANCELLED,
+        createdAt: '2024-02-15T14:00:00Z',
+        assignedCarrierId: 'user-carrier-1',
+        offerCount: 1
     }
 ];
 
@@ -347,6 +389,42 @@ export const mockTrips = [
             comment: 'توصيل سريع وممتاز',
             timestamp: '2024-02-27T08:00:00Z'
         }
+    },
+    // Completed trip - carrier-1
+    {
+        id: 'TR-0800',
+        shipmentId: 'HM-0800',
+        carrierId: 'user-carrier-1',
+        shipperId: 'demo-shipper',
+        currentStage: TripStage.DELIVERED,
+        finalPrice: 1900,
+        startedAt: '2024-01-15T09:00:00Z',
+        completedAt: '2024-01-16T14:00:00Z',
+        route: 'الرياض -> الدمام',
+        carrierName: 'أحمد محمد',
+        rating: {
+            id: 'rating-2',
+            tripId: 'TR-0800',
+            reviewerId: 'demo-shipper',
+            reviewedId: 'user-carrier-1',
+            stars: 4,
+            comment: 'خدمة جيدة جداً',
+            timestamp: '2024-01-17T10:00:00Z'
+        }
+    },
+    // Cancelled trip - carrier-1
+    {
+        id: 'TR-0801',
+        shipmentId: 'HM-0801',
+        carrierId: 'user-carrier-1',
+        shipperId: 'demo-shipper',
+        currentStage: TripStage.ASSIGNED,
+        overallStatus: 'CANCELLED',
+        finalPrice: 1200,
+        startedAt: '2024-02-20T11:00:00Z',
+        route: 'جدة -> ينبع',
+        carrierName: 'أحمد محمد',
+        cancellation: { cancelledBy: 'SHIPPER', commission: 0, at: '2024-02-20T12:00:00Z' }
     }
 ];
 
@@ -414,6 +492,16 @@ export const mockTransactions = [
         timestamp: '2024-03-12T08:00:00Z',
         tripId: 'TR-2001',
         balanceAfter: 8500
+    },
+    {
+        id: 'txn-5',
+        walletId: 'user-carrier-1',
+        type: TransactionType.TRIP_SETTLEMENT,
+        amount: 1805, // 1900 - 5% commission
+        description: 'تسوية رحلة TR-0800',
+        timestamp: '2024-01-16T15:00:00Z',
+        tripId: 'TR-0800',
+        balanceAfter: 10305
     }
 ];
 

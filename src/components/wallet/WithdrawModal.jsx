@@ -7,17 +7,19 @@ import { Input } from '../common/Input';
 export const WithdrawModal = ({ isOpen, onClose, onConfirm, isLoading, currentBalance }) => {
     const [amount, setAmount] = useState('');
     const [error, setError] = useState(null);
+    const [status, setStatus] = useState('idle');
 
     useEffect(() => {
         if (isOpen) {
             setAmount('');
             setError(null);
+            setStatus('idle');
         }
     }, [isOpen]);
 
     if (!isOpen) return null;
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError(null);
         
@@ -33,6 +35,11 @@ export const WithdrawModal = ({ isOpen, onClose, onConfirm, isLoading, currentBa
             return;
         }
 
+        setStatus('processing');
+        // Simulate backend processing
+        await new Promise(r => setTimeout(r, 1500));
+        setStatus('success');
+        await new Promise(r => setTimeout(r, 1000));
         onConfirm(numAmount);
     };
 
@@ -57,37 +64,45 @@ export const WithdrawModal = ({ isOpen, onClose, onConfirm, isLoading, currentBa
                         </div>
                     </div>
 
-                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        <div>
-                            <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>المبلغ المراد سحبه (ر.س)</label>
-                            <Input
-                                type="number"
-                                placeholder="أدخل المبلغ"
-                                value={amount}
-                                onChange={e => {
-                                    setAmount(e.target.value);
-                                    if (error) setError(null);
-                                }}
-                                min="1"
-                                max={currentBalance}
-                                required
-                            />
-                            {error && <div style={{ color: 'var(--color-error)', fontSize: 12, marginTop: 4 }}>{error}</div>}
+                    {status === 'success' ? (
+                        <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                            <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: 'var(--color-success)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>✓</div>
+                            <h4 style={{ margin: 0, color: 'var(--color-success)' }}>تمت الموافقة على طلب السحب</h4>
                         </div>
-                        
-                        <p style={{ fontSize: 12, color: 'var(--color-text-muted)', margin: '0' }}>
-                            هذه عملية تجريبية في نسخة المعاينة ولا يتم تحويل أموال حقيقية.
-                        </p>
+                    ) : (
+                        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>المبلغ المراد سحبه (ر.س)</label>
+                                <Input
+                                    type="number"
+                                    placeholder="أدخل المبلغ"
+                                    value={amount}
+                                    onChange={e => {
+                                        setAmount(e.target.value);
+                                        if (error) setError(null);
+                                    }}
+                                    min="1"
+                                    max={currentBalance}
+                                    required
+                                    disabled={status === 'processing' || isLoading}
+                                />
+                                {error && <div style={{ color: 'var(--color-error)', fontSize: 12, marginTop: 4 }}>{error}</div>}
+                            </div>
+                            
+                            <p style={{ fontSize: 12, color: 'var(--color-text-muted)', margin: '0' }}>
+                                هذه عملية تجريبية في نسخة المعاينة ولا يتم تحويل أموال حقيقية.
+                            </p>
 
-                        <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-                            <Button type="submit" disabled={isLoading} style={{ flex: 1 }} isLoading={isLoading}>
-                                تأكيد سحب الرصيد
-                            </Button>
-                            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading} style={{ flex: 1 }}>
-                                إلغاء
-                            </Button>
-                        </div>
-                    </form>
+                            <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                                <Button type="submit" disabled={isLoading || status === 'processing'} style={{ flex: 1 }} isLoading={isLoading || status === 'processing'}>
+                                    {status === 'processing' ? 'جاري المعالجة...' : 'تأكيد سحب الرصيد'}
+                                </Button>
+                                <Button type="button" variant="outline" onClick={onClose} disabled={isLoading || status === 'processing'} style={{ flex: 1 }}>
+                                    إلغاء
+                                </Button>
+                            </div>
+                        </form>
+                    )}
                 </Card>
             </div>
         </div>
