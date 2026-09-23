@@ -57,10 +57,10 @@ export const Dashboard = () => {
     if (isLoading) {
         return <div>جاري التحميل...</div>;
     }
-    const pendingShipments = shipments.filter(s => s.status === ShipmentStatus.OFFERS_PENDING ||
-        s.status === ShipmentStatus.NEGOTIATING ||
-        s.status === ShipmentStatus.SELECTION_AWAITING);
-    const activeTrips = trips.filter(t => t.currentStage !== 'DELIVERED'); // Simplifying active condition for demo
+    const pendingShipments = shipments.filter(s => s.status === ShipmentStatus.PENDING_OFFERS ||
+        s.status === ShipmentStatus.NEGOTIATING);
+    // Read status before stage — a cancelled trip keeps the stage it stopped at.
+    const activeTrips = trips.filter(t => t.overallStatus ? t.overallStatus === 'ACTIVE' : t.currentStage !== 'DELIVERED');
     const columns = [
         { key: 'id', header: 'رقم الشحنة', render: (s) => <strong>{s.id}</strong> },
         { key: 'route', header: 'المسار', render: (s) => `${s.pickupCity} -> ${s.deliveryCity}` },
@@ -79,7 +79,7 @@ export const Dashboard = () => {
       <div className={styles.kpiGrid}>
         <Card className={styles.kpiCard}>
           <span className={styles.kpiLabel}>بانتظار العروض</span>
-          <span className={styles.kpiValue}>{shipments.filter(s => s.status === ShipmentStatus.OFFERS_PENDING).length}</span>
+          <span className={styles.kpiValue}>{shipments.filter(s => s.status === ShipmentStatus.PENDING_OFFERS).length}</span>
         </Card>
         <Card className={styles.kpiCard}>
           <span className={styles.kpiLabel}>قيد التفاوض</span>

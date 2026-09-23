@@ -11,6 +11,7 @@ export const TripRating = () => {
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState('');
     useEffect(() => {
         if (tripId) {
             tripService.getTripById(tripId).then(setTrip);
@@ -18,18 +19,22 @@ export const TripRating = () => {
     }, [tripId]);
     if (!trip)
         return <div>جاري التحميل...</div>;
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (rating === 0) {
             alert('الرجاء اختيار التقييم أولاً');
             return;
         }
+        setError('');
         setIsLoading(true);
-        // Simulate API call
-        setTimeout(() => {
-            setIsLoading(false);
+        try {
+            await tripService.submitRating(trip.id, rating, comment.trim() || undefined);
             alert('تم إرسال التقييم بنجاح. شكراً لك!');
             navigate('/app/trips');
-        }, 1000);
+        } catch (err) {
+            setError(err.message || 'حدث خطأ أثناء إرسال التقييم');
+        } finally {
+            setIsLoading(false);
+        }
     };
     return (<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
       <Card style={{ width: '100%', maxWidth: 500, textAlign: 'center', padding: 32 }}>
@@ -52,6 +57,12 @@ export const TripRating = () => {
         <div style={{ textAlign: 'right' }}>
           <Input label="تعليق إضافي (اختياري)" value={comment} onChange={e => setComment(e.target.value)} placeholder="اكتب تعليقك هنا..."/>
         </div>
+
+        {error && (
+          <div style={{ padding: 12, marginTop: 8, borderRadius: 8, backgroundColor: 'rgba(229,62,62,0.08)', color: 'var(--color-error)', fontSize: 13, textAlign: 'right' }}>
+            {error}
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: 16, marginTop: 32 }}>
           <Button variant="outline" style={{ flex: 1 }} onClick={() => navigate('/app/trips')}>تخطي</Button>

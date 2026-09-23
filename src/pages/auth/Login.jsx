@@ -3,13 +3,16 @@ import { useNavigate, Link } from 'react-router-dom';
 import styles from './Auth.module.css';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
-import { authService } from '../../services/api';
+import { authService, USE_FIREBASE_AUTH } from '../../services/api';
 
-// Demo credentials — pre-fill for one-click client testing
-const DEMO_CREDENTIALS = {
-    SHIPPER: { email: 'info@alnokhba.sa', password: '123456' },
-    CARRIER: { email: 'ahmed@example.com', password: '123456' },
-};
+// Demo credentials — pre-fill for one-click client testing. They only exist
+// in the mock store, so against the real backend the form starts empty.
+const DEMO_CREDENTIALS = USE_FIREBASE_AUTH
+    ? { SHIPPER: { email: '', password: '' }, CARRIER: { email: '', password: '' } }
+    : {
+        SHIPPER: { email: 'info@alnokhba.sa', password: '123456' },
+        CARRIER: { email: 'ahmed@example.com', password: '123456' },
+    };
 
 export const Login = () => {
     const navigate = useNavigate();
@@ -58,6 +61,13 @@ export const Login = () => {
             const user = await authService.login(identifier, pass, role);
             if (user.role === 'ADMIN') {
               setError('يرجى استخدام بوابة الإدارة المخصصة لتسجيل دخول المديرين');
+            } else if (user.accountStatus === 'UNDER_REVIEW') {
+              // accountStatus (document review) and isSuspended (the operating
+              // ban) are unrelated — this only ever gates on the former, per
+              // hemooltak-backend/INTEGRATION.md §6.
+              setError('حسابك قيد المراجعة من قبل الإدارة — سيتم إشعارك عند التفعيل.');
+            } else if (user.accountStatus === 'REJECTED') {
+              setError(user.rejectReason ? `تم رفض الحساب: ${user.rejectReason}` : 'تم رفض هذا الحساب من قبل الإدارة.');
             } else {
               navigate('/app');
             }
@@ -89,7 +99,7 @@ export const Login = () => {
         <form className={styles.form} onSubmit={handleLogin}>
           {error && <div style={{ color: 'var(--color-error)', marginBottom: 16, fontSize: 14, textAlign: 'center' }}>{error}</div>}
 
-          <Input label="رقم الجوال أو البريد الإلكتروني" placeholder="أدخل البريد الإلكتروني" value={email} onChange={(e) => setEmail(e.target.value)} required/>
+          <Input label="رقم الجوال أو البريد الإلكتروني" placeholder="05xxxxxxxx أو name@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required/>
 
           <Input type="password" label="كلمة المرور" placeholder="أدخل كلمة المرور" value={password} onChange={(e) => setPassword(e.target.value)} required/>
 

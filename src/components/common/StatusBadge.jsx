@@ -8,11 +8,10 @@ export const StatusBadge = ({ status, label, className = '' }) => {
     if (Object.values(ShipmentStatus).includes(status)) {
         text = label || ShipmentStatusAr[status];
         switch (status) {
-            case ShipmentStatus.OFFERS_PENDING:
+            case ShipmentStatus.PENDING_OFFERS:
                 variant = styles.neutral;
                 break;
             case ShipmentStatus.NEGOTIATING:
-            case ShipmentStatus.SELECTION_AWAITING:
                 variant = styles.warning;
                 break;
             case ShipmentStatus.ACTIVE:

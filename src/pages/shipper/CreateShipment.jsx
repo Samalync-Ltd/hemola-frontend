@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
-import { shipmentService, authService } from '../../services/api';
+import { shipmentService, catalogService } from '../../services/api';
 import { MapPickerModal } from '../../components/map/MapPickerModal';
+import { TRUCK_TYPE_OPTIONS, TruckTypeAr } from '../../constants/enums';
+import { isValidSaudiPhone } from '../../utils/validators';
+const DEFAULT_CARGO_NAMES = ['مواد غذائية', 'أجهزة كهربائية', 'مواد بناء', 'بضائع عامة'];
 const steps = [
     'المواقع',
     'البضاعة',
@@ -18,32 +21,45 @@ export const CreateShipment = () => {
     const navigate = useNavigate();
     const [currentStep, setCurrentStep] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
+    const [publishError, setPublishError] = useState('');
     const [formData, setFormData] = useState({
         pickupCity: '',
-        pickupLocation: '',
         deliveryCity: '',
-        deliveryLocation: '',
-        pickupDirections: '',
-        pickupContact: '',
+        pickupNotes: '',
+        deliveryNotes: '',
+        onSiteContact: '',
         pickupLat: null,
         pickupLng: null,
-        deliveryDirections: '',
-        deliveryContact: '',
         deliveryLat: null,
         deliveryLng: null,
         cargoType: '',
         customCargoType: '',
         weight: '',
-        volume: '',
         description: '',
         requiredTruckType: '',
-        customTruckType: '',
         loadingDate: '',
         loadingTime: '',
         proposedPrice: ''
     });
     const [errors, setErrors] = useState({});
     const [pickerOpen, setPickerOpen] = useState(null); // 'pickup' | 'delivery' | null
+    // Admin-managed lists (config/cargoTypes, config/truckTypes); the
+    // built-in defaults apply until the admin saves their own.
+    const [cargoOptions, setCargoOptions] = useState(DEFAULT_CARGO_NAMES);
+    const [truckLabels, setTruckLabels] = useState(TruckTypeAr);
+    const [truckOptions, setTruckOptions] = useState(TRUCK_TYPE_OPTIONS);
+
+    useEffect(() => {
+        catalogService.getCargoTypes()
+            .then(items => { if (items) setCargoOptions(items.map(i => i.name)); })
+            .catch(() => { /* keep defaults */ });
+        catalogService.getTruckTypeOverrides()
+            .then(overrides => {
+                setTruckLabels(Object.fromEntries(TRUCK_TYPE_OPTIONS.map(t => [t, overrides[t]?.label || TruckTypeAr[t]])));
+                setTruckOptions(TRUCK_TYPE_OPTIONS.filter(t => overrides[t]?.active !== false));
+            })
+            .catch(() => { /* keep defaults */ });
+    }, []);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -57,17 +73,20 @@ export const CreateShipment = () => {
         const newErrors = {};
         if (step === 0) {
             if (!formData.pickupCity) newErrors.pickupCity = 'هذا الحقل مطلوب';
-            if (!formData.pickupLocation) newErrors.pickupLocation = 'هذا الحقل مطلوب';
             if (!formData.deliveryCity) newErrors.deliveryCity = 'هذا الحقل مطلوب';
-            if (!formData.deliveryLocation) newErrors.deliveryLocation = 'هذا الحقل مطلوب';
+            // The backend requires precise coordinates for both ends
+            // (siteDetails.pickupCoords/deliveryCoords) — the map pin is
+            // not optional here, unlike the old mock-only flow.
+            if (formData.pickupLat == null) newErrors.pickupPin = 'يرجى تحديد موقع التحميل على الخريطة';
+            if (formData.deliveryLat == null) newErrors.deliveryPin = 'يرجى تحديد موقع التسليم على الخريطة';
+            if (!formData.onSiteContact) newErrors.onSiteContact = 'هذا الحقل مطلوب';
+            else if (!isValidSaudiPhone(formData.onSiteContact)) newErrors.onSiteContact = 'صيغة رقم الجوال غير صحيحة (05XXXXXXXX)';
         } else if (step === 1) {
             if (!formData.cargoType) newErrors.cargoType = 'يرجى اختيار نوع البضاعة';
             if (formData.cargoType === 'أخرى' && !formData.customCargoType) newErrors.customCargoType = 'هذا الحقل مطلوب';
             if (!formData.weight || Number(formData.weight) <= 0) newErrors.weight = 'يجب إدخال وزن صحيح أكبر من 0';
-            if (!formData.volume || Number(formData.volume) <= 0) newErrors.volume = 'يجب إدخال حجم صحيح أكبر من 0';
         } else if (step === 2) {
             if (!formData.requiredTruckType) newErrors.requiredTruckType = 'يرجى اختيار نوع الشاحنة';
-            if (formData.requiredTruckType === 'أخرى' && !formData.customTruckType) newErrors.customTruckType = 'هذا الحقل مطلوب';
         } else if (step === 3) {
             if (!formData.loadingDate) newErrors.loadingDate = 'هذا الحقل مطلوب';
             if (!formData.loadingTime) newErrors.loadingTime = 'هذا الحقل مطلوب';
@@ -88,25 +107,36 @@ export const CreateShipment = () => {
 
     const handlePublish = async () => {
         if (!validateStep(4)) return; // Final sanity check
+        setPublishError('');
         setIsLoading(true);
         try {
             const finalCargoType = formData.cargoType === 'أخرى' ? formData.customCargoType : formData.cargoType;
-            const finalTruckType = formData.requiredTruckType === 'أخرى' ? formData.customTruckType : formData.requiredTruckType;
-            const currentUser = await authService.getCurrentUser();
+            // loadingDate + loadingTime are collected separately in the UI but
+            // sent as one ISO-8601 timestamp, as the backend expects.
+            const loadingDateTime = new Date(`${formData.loadingDate}T${formData.loadingTime}`).toISOString();
 
             await shipmentService.createShipment({
-                ...formData,
+                pickupCity: formData.pickupCity,
+                deliveryCity: formData.deliveryCity,
+                pickupLat: formData.pickupLat,
+                pickupLng: formData.pickupLng,
+                deliveryLat: formData.deliveryLat,
+                deliveryLng: formData.deliveryLng,
+                onSiteContact: formData.onSiteContact,
+                pickupNotes: formData.pickupNotes,
+                deliveryNotes: formData.deliveryNotes,
                 cargoType: finalCargoType,
-                requiredTruckType: finalTruckType,
                 weight: Number(formData.weight),
-                volume: Number(formData.volume),
+                description: formData.description,
+                requiredTruckType: formData.requiredTruckType,
+                loadingDate: loadingDateTime,
                 proposedPrice: Number(formData.proposedPrice),
-                shipperId: currentUser?.id ?? 'user-shipper-1'
             });
             navigate(`/app/shipments`);
         }
         catch (err) {
             console.error(err);
+            setPublishError(err.message || 'حدث خطأ أثناء نشر الشحنة');
         }
         finally {
             setIsLoading(false);
@@ -150,22 +180,6 @@ export const CreateShipment = () => {
               <h3 style={{ marginBottom: 16 }}>مواقع التحميل والتسليم</h3>
               <Input name="pickupCity" label="مدينة التحميل" value={formData.pickupCity} onChange={handleChange}/>
               <ErrorMsg error={errors.pickupCity} />
-              <Input name="pickupLocation" label="تفاصيل موقع التحميل" value={formData.pickupLocation} onChange={handleChange}/>
-              <ErrorMsg error={errors.pickupLocation} />
-              
-              <div style={{ margin: '24px 0', borderTop: '1px solid var(--color-border)' }}></div>
-              
-              <Input name="deliveryCity" label="مدينة التسليم" value={formData.deliveryCity} onChange={handleChange}/>
-              <ErrorMsg error={errors.deliveryCity} />
-              <Input name="deliveryLocation" label="تفاصيل موقع التسليم" value={formData.deliveryLocation} onChange={handleChange}/>
-              <ErrorMsg error={errors.deliveryLocation} />
-
-              <div style={{ margin: '24px 0', borderTop: '1px solid var(--color-border)' }}></div>
-              <p className="text-helper" style={{ marginBottom: 8 }}>
-                بيانات إضافية (اختياري) — لا تظهر إلا للناقل بعد إسناد الشحنة إليه فقط.
-              </p>
-              <Input name="pickupDirections" label="إرشادات الوصول لموقع التحميل" value={formData.pickupDirections} onChange={handleChange}/>
-              <Input name="pickupContact" label="جوال المسؤول في موقع التحميل" value={formData.pickupContact} onChange={handleChange}/>
               <Button
                 type="button"
                 variant="outline"
@@ -173,18 +187,33 @@ export const CreateShipment = () => {
                 style={{ marginBottom: 16 }}
                 onClick={() => setPickerOpen('pickup')}
               >
-                {formData.pickupLat ? '📍 تم تحديد الموقع على الخريطة — تعديل' : '📍 تحديد موقع التحميل على الخريطة (اختياري)'}
+                {formData.pickupLat ? '📍 تم تحديد الموقع على الخريطة — تعديل' : '📍 تحديد موقع التحميل على الخريطة'}
               </Button>
-              <Input name="deliveryDirections" label="إرشادات الوصول لموقع التسليم" value={formData.deliveryDirections} onChange={handleChange}/>
-              <Input name="deliveryContact" label="جوال المسؤول في موقع التسليم" value={formData.deliveryContact} onChange={handleChange}/>
+              <ErrorMsg error={errors.pickupPin} />
+
+              <div style={{ margin: '24px 0', borderTop: '1px solid var(--color-border)' }}></div>
+
+              <Input name="deliveryCity" label="مدينة التسليم" value={formData.deliveryCity} onChange={handleChange}/>
+              <ErrorMsg error={errors.deliveryCity} />
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
+                style={{ marginBottom: 16 }}
                 onClick={() => setPickerOpen('delivery')}
               >
-                {formData.deliveryLat ? '📍 تم تحديد الموقع على الخريطة — تعديل' : '📍 تحديد موقع التسليم على الخريطة (اختياري)'}
+                {formData.deliveryLat ? '📍 تم تحديد الموقع على الخريطة — تعديل' : '📍 تحديد موقع التسليم على الخريطة'}
               </Button>
+              <ErrorMsg error={errors.deliveryPin} />
+
+              <div style={{ margin: '24px 0', borderTop: '1px solid var(--color-border)' }}></div>
+              <p className="text-helper" style={{ marginBottom: 8 }}>
+                بيانات إضافية — لا تظهر إلا للناقل بعد إسناد الشحنة إليه فقط.
+              </p>
+              <Input name="onSiteContact" label="جوال المسؤول في الموقع" value={formData.onSiteContact} onChange={handleChange} dir="ltr" style={{ textAlign: 'right' }} />
+              <ErrorMsg error={errors.onSiteContact} />
+              <Input name="pickupNotes" label="ملاحظات موقع التحميل (اختياري)" value={formData.pickupNotes} onChange={handleChange}/>
+              <Input name="deliveryNotes" label="ملاحظات موقع التسليم (اختياري)" value={formData.deliveryNotes} onChange={handleChange}/>
 
               <MapPickerModal
                 isOpen={pickerOpen === 'pickup'}
@@ -208,10 +237,7 @@ export const CreateShipment = () => {
               <h3 style={{ marginBottom: 16 }}>تفاصيل البضاعة</h3>
               <Select name="cargoType" label="نوع البضاعة" value={formData.cargoType} onChange={handleChange} options={[
                 { value: '', label: 'اختر نوع البضاعة' },
-                { value: 'مواد غذائية', label: 'مواد غذائية' },
-                { value: 'أجهزة كهربائية', label: 'أجهزة كهربائية' },
-                { value: 'مواد بناء', label: 'مواد بناء' },
-                { value: 'بضائع عامة', label: 'بضائع عامة' },
+                ...cargoOptions.map(name => ({ value: name, label: name })),
                 { value: 'أخرى', label: 'أخرى' }
               ]}/>
               <ErrorMsg error={errors.cargoType} />
@@ -221,16 +247,8 @@ export const CreateShipment = () => {
                   <ErrorMsg error={errors.customCargoType} />
                   </>
               )}
-              <div className="responsive-two-col-even">
-                <div>
-                  <Input name="weight" type="number" label="الوزن (طن)" value={formData.weight} onChange={handleChange}/>
-                  <ErrorMsg error={errors.weight} />
-                </div>
-                <div>
-                  <Input name="volume" type="number" label="الحجم (متر مكعب)" value={formData.volume} onChange={handleChange}/>
-                  <ErrorMsg error={errors.volume} />
-                </div>
-              </div>
+              <Input name="weight" type="number" label="الوزن (طن)" value={formData.weight} onChange={handleChange}/>
+              <ErrorMsg error={errors.weight} />
               <Input name="description" label="وصف إضافي (اختياري)" value={formData.description} onChange={handleChange}/>
             </div>)}
 
@@ -238,19 +256,9 @@ export const CreateShipment = () => {
               <h3 style={{ marginBottom: 16 }}>الشاحنة المطلوبة</h3>
               <Select name="requiredTruckType" label="نوع الشاحنة" value={formData.requiredTruckType} onChange={handleChange} options={[
                 { value: '', label: 'اختر نوع الشاحنة' },
-                { value: 'دينا', label: 'دينا (حتى 4 طن)' },
-                { value: 'دينا مغلقة', label: 'دينا مغلقة' },
-                { value: 'شاحنة نقل ثقيل (تريلا)', label: 'شاحنة نقل ثقيل (تريلا)' },
-                { value: 'تريلا جوانب', label: 'تريلا جوانب' },
-                { value: 'أخرى', label: 'أخرى' }
+                ...truckOptions.map(t => ({ value: t, label: truckLabels[t] || t })),
               ]}/>
               <ErrorMsg error={errors.requiredTruckType} />
-              {formData.requiredTruckType === 'أخرى' && (
-                  <>
-                  <Input name="customTruckType" label="اكتب نوع الشاحنة" value={formData.customTruckType} onChange={handleChange}/>
-                  <ErrorMsg error={errors.customTruckType} />
-                  </>
-              )}
             </div>)}
 
           {currentStep === 3 && (<div>
@@ -272,10 +280,15 @@ export const CreateShipment = () => {
 
           {currentStep === 5 && (<div>
               <h3 style={{ marginBottom: 16 }}>مراجعة الشحنة</h3>
+              {publishError && (
+                  <div style={{ padding: 12, marginBottom: 16, borderRadius: 8, backgroundColor: 'rgba(229,62,62,0.08)', color: 'var(--color-error)', fontSize: 13 }}>
+                      {publishError}
+                  </div>
+              )}
               <div className="responsive-two-col-even">
                 <div><strong>المسار:</strong> {formData.pickupCity} إلى {formData.deliveryCity}</div>
                 <div><strong>البضاعة:</strong> {formData.cargoType === 'أخرى' ? formData.customCargoType : formData.cargoType} ({formData.weight} طن)</div>
-                <div><strong>الشاحنة:</strong> {formData.requiredTruckType === 'أخرى' ? formData.customTruckType : formData.requiredTruckType}</div>
+                <div><strong>الشاحنة:</strong> {truckLabels[formData.requiredTruckType] || formData.requiredTruckType}</div>
                 <div><strong>الجدولة:</strong> {formData.loadingDate} - {formData.loadingTime}</div>
                 <div><strong>السعر المقترح:</strong> {formData.proposedPrice} ر.س</div>
               </div>
@@ -313,7 +326,7 @@ export const CreateShipment = () => {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span className="text-helper">الشاحنة</span>
-                <span>{formData.requiredTruckType || '-'}</span>
+                <span>{truckLabels[formData.requiredTruckType] || formData.requiredTruckType || '-'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span className="text-helper">السعر</span>

@@ -5,7 +5,7 @@ import { Card } from '../../components/common/Card';
 import { DataTable } from '../../components/common/DataTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
-import { shipmentService, offerService } from '../../services/api';
+import { shipmentService, offerService, USE_FIREBASE } from '../../services/api';
 import { OfferStatus } from '../../constants/enums';
 import { DEMO_MODE } from '../../constants/config';
 import { hasSeededDemoOffer, markDemoOfferSeeded } from '../../utils/freshAccount';
@@ -39,7 +39,7 @@ export const ReceivedOffers = () => {
     // is a stale/partial session. Gated behind DEMO_MODE; never touches the
     // shipper's own data.
     useEffect(() => {
-        if (!DEMO_MODE || hasSeededDemoOffer()) return;
+        if (!DEMO_MODE || USE_FIREBASE || hasSeededDemoOffer()) return;
         if (isLoading || !shipment || offers.length > 0) return;
 
         const timer = setTimeout(async () => {

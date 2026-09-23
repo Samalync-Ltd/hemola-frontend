@@ -1,9 +1,9 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
+import { getStorage, connectStorageEmulator } from 'firebase/storage';
 
-// TODO: Replace with real Firebase configuration once available
 const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDGp022Eznp6C5KJweMfaaDsc4s10zxm0w",
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "hemooltak.firebaseapp.com",
@@ -16,4 +16,18 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// Every Cloud Function in hemooltak-backend runs in me-central2 (Dammam) —
+// see hemooltak-backend/INTEGRATION.md. Calling httpsCallable against the
+// default region 404s every single time.
+export const functions = getFunctions(app, 'me-central2');
 export const storage = getStorage(app);
+
+const USE_EMULATORS = import.meta.env.VITE_USE_EMULATORS === 'true';
+
+if (USE_EMULATORS) {
+    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    connectFirestoreEmulator(db, '127.0.0.1', 8080);
+    connectFunctionsEmulator(functions, '127.0.0.1', 5001);
+    connectStorageEmulator(storage, '127.0.0.1', 9199);
+}

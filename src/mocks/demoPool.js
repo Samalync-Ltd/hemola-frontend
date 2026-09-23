@@ -16,7 +16,7 @@ export const demoCarrierFeedShipments = [
         loadingDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
         proposedPrice: 4200,
         requiredTruckType: 'دينا مغلقة',
-        status: 'OFFERS_PENDING',
+        status: 'PENDING_OFFERS',
     },
     {
         id: 'demo-shp-2',
@@ -27,7 +27,7 @@ export const demoCarrierFeedShipments = [
         loadingDate: new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10),
         proposedPrice: 6800,
         requiredTruckType: 'تريلا جوانب',
-        status: 'OFFERS_PENDING',
+        status: 'PENDING_OFFERS',
     },
     {
         id: 'demo-shp-3',
@@ -38,7 +38,7 @@ export const demoCarrierFeedShipments = [
         loadingDate: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
         proposedPrice: 3900,
         requiredTruckType: 'شاحنة نقل ثقيل (تريلا)',
-        status: 'OFFERS_PENDING',
+        status: 'PENDING_OFFERS',
         // A real precise pin (not just the city center) on at least one demo
         // shipment, so the map-picker/"open in maps" feature is reachable
         // end-to-end from the demo marketplace, not only on a shipment a
@@ -65,7 +65,7 @@ export const demoCarrierFeedShipments = [
         loadingDate: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10),
         proposedPrice: 3100,
         requiredTruckType: 'دينا',
-        status: 'OFFERS_PENDING',
+        status: 'PENDING_OFFERS',
     },
 ];
 

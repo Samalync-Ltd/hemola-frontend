@@ -14,6 +14,7 @@ export const Profile = () => {
     const [isPasswordOpen, setIsPasswordOpen] = useState(false);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [isTruckOpen, setIsTruckOpen] = useState(false);
+    const [selectedTruck, setSelectedTruck] = useState(null);
     // Form state
     const [formData, setFormData] = useState({
         name: '',
@@ -87,19 +88,26 @@ export const Profile = () => {
           <Card>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <h3 style={{ margin: 0 }}>مركباتي</h3>
+                  <Button size="sm" onClick={() => { setSelectedTruck(null); setIsTruckOpen(true); }}>إضافة شاحنة</Button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <button
-                      type="button"
-                      onClick={() => setIsTruckOpen(true)}
-                      style={{ padding: 16, border: '1px solid var(--color-border)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', cursor: 'pointer', width: '100%', textAlign: 'right', font: 'inherit', color: 'inherit' }}
-                  >
-                      <div>
-                          <strong style={{ display: 'block', marginBottom: 4 }}>{user.truckType || 'لم يتم تحديد نوع الشاحنة'}</strong>
-                          <span className="text-helper">اللوحة: {user.plateNumber || '—'}</span>
-                      </div>
-                      <StatusBadge status={user.accountStatus} />
-                  </button>
+                  {(user.trucks || []).length === 0 && (
+                      <p className="text-helper">لا توجد شاحنات مسجلة بعد — أضف شاحنتك الأولى.</p>
+                  )}
+                  {(user.trucks || []).map(truck => (
+                      <button
+                          key={truck.id}
+                          type="button"
+                          onClick={() => { setSelectedTruck(truck); setIsTruckOpen(true); }}
+                          style={{ padding: 16, border: '1px solid var(--color-border)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', cursor: 'pointer', width: '100%', textAlign: 'right', font: 'inherit', color: 'inherit' }}
+                      >
+                          <div>
+                              <strong style={{ display: 'block', marginBottom: 4 }}>{truck.type || 'لم يتم تحديد نوع الشاحنة'} {truck.brand ? `— ${truck.brand} ${truck.model}` : ''}</strong>
+                              <span className="text-helper">اللوحة: {truck.plateNumber || '—'} | السعة: {truck.capacityTons ?? '—'} طن</span>
+                          </div>
+                          <StatusBadge status={truck.operatingCard?.status} />
+                      </button>
+                  ))}
               </div>
           </Card>
       )}
@@ -143,7 +151,9 @@ export const Profile = () => {
               isOpen={isTruckOpen}
               onClose={() => setIsTruckOpen(false)}
               user={user}
-              onUpdated={(updated) => setUser(u => ({ ...u, ...updated }))}
+              truck={selectedTruck}
+              onSaved={(updatedUser) => setUser(updatedUser)}
+              onDeleted={(updatedUser) => setUser(updatedUser)}
           />
       )}
     </div>);

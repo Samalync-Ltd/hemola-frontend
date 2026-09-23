@@ -5,15 +5,16 @@ import { walletService } from '../../services/api';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { DataTable } from '../../components/common/DataTable';
 import { TopUpModal } from '../../components/wallet/TopUpModal';
-import { WithdrawModal } from '../../components/wallet/WithdrawModal';
 import { TransactionType } from '../../constants/enums';
 
+// Withdrawals are carrier-only (INTEGRATION.md §12 requestWithdrawal), so a
+// shipper's statement never shows WITHDRAWAL.
 const TRANSACTION_LABELS = {
     [TransactionType.TOP_UP]: 'شحن رصيد',
-    [TransactionType.WITHDRAWAL]: 'سحب رصيد',
-    [TransactionType.FEE_DEDUCTION]: 'دفعة شحنة',
+    [TransactionType.TRIP_SETTLEMENT]: 'دفعة شحنة',
     [TransactionType.COMMISSION_DEDUCTION]: 'عمولة إلغاء',
-    [TransactionType.TRIP_SETTLEMENT]: 'تسوية رحلة',
+    [TransactionType.FEE_DEDUCTION]: 'سداد مديونية',
+    [TransactionType.DEBT_FORGIVENESS]: 'إعفاء من المديونية',
 };
 
 export const WalletPage = () => {
@@ -22,8 +23,6 @@ export const WalletPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isTopUpOpen, setIsTopUpOpen] = useState(false);
     const [isToppingUp, setIsToppingUp] = useState(false);
-    const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
-    const [isWithdrawing, setIsWithdrawing] = useState(false);
 
     const fetchData = () => {
         return Promise.all([
@@ -54,19 +53,6 @@ export const WalletPage = () => {
         }
     };
 
-    const handleWithdraw = async (amount) => {
-        setIsWithdrawing(true);
-        try {
-            await walletService.withdraw(amount);
-            await fetchData();
-            setIsWithdrawOpen(false);
-        } catch (error) {
-            console.error('Failed to withdraw', error);
-        } finally {
-            setIsWithdrawing(false);
-        }
-    };
-
     if (isLoading)
         return <div>جاري التحميل...</div>;
     if (!wallet)
@@ -74,8 +60,10 @@ export const WalletPage = () => {
     const columns = [
         { key: 'id', header: 'رقم العملية', render: (t) => <strong>{t.id}</strong> },
         { key: 'type', header: 'النوع', render: (t) => TRANSACTION_LABELS[t.type] || t.type },
-        { key: 'amount', header: 'المبلغ', render: (t) => (<span style={{ color: t.amount >= 0 ? 'var(--color-success)' : 'var(--color-error)' }} dir="ltr">
-        {t.amount >= 0 ? '+' : ''}{t.amount} ر.س
+        { key: 'amount', header: 'المبلغ', render: (t) => (t.amount === 0 && t.withheld
+            ? <span className="text-helper">خُصم {t.withheld} ر.س من المستحق</span>
+            : <span style={{ color: t.amount >= 0 ? 'var(--color-success)' : 'var(--color-error)' }} dir="ltr">
+        {t.amount > 0 ? '+' : ''}{t.amount} ر.س
       </span>) },
         { key: 'date', header: 'التاريخ', render: (t) => <span dir="ltr">{new Date(t.timestamp).toLocaleString('ar-SA')}</span> },
         { key: 'ref', header: 'المرجع', render: (t) => t.referenceId || '-' }
@@ -102,7 +90,6 @@ export const WalletPage = () => {
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
             <Button variant="secondary" style={{ flex: 1 }} onClick={() => setIsTopUpOpen(true)}>شحن الرصيد</Button>
-            <Button variant="outline" style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', borderColor: 'transparent' }} onClick={() => setIsWithdrawOpen(true)}>سحب الرصيد</Button>
           </div>
         </Card>
 
@@ -125,14 +112,6 @@ export const WalletPage = () => {
         onClose={() => setIsTopUpOpen(false)}
         onConfirm={handleTopUp}
         isLoading={isToppingUp}
-      />
-
-      <WithdrawModal
-        isOpen={isWithdrawOpen}
-        onClose={() => setIsWithdrawOpen(false)}
-        onConfirm={handleWithdraw}
-        isLoading={isWithdrawing}
-        currentBalance={wallet.available}
       />
     </div>);
 };

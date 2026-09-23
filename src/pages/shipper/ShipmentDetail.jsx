@@ -4,9 +4,8 @@ import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
-import { Input } from '../../components/common/Input';
 import { shipmentService } from '../../services/api';
-import { ShipmentStatus } from '../../constants/enums';
+import { ShipmentStatus, TruckTypeAr } from '../../constants/enums';
 export const ShipmentDetail = () => {
     const { shipmentId } = useParams();
     const navigate = useNavigate();
@@ -14,9 +13,6 @@ export const ShipmentDetail = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [isCancelling, setIsCancelling] = useState(false);
-    const [isEditingSite, setIsEditingSite] = useState(false);
-    const [isSavingSite, setIsSavingSite] = useState(false);
-    const [siteForm, setSiteForm] = useState({ pickupDirections: '', pickupContact: '', deliveryDirections: '', deliveryContact: '' });
     useEffect(() => {
         if (shipmentId) {
             shipmentService.getShipmentById(shipmentId)
@@ -34,29 +30,6 @@ export const ShipmentDetail = () => {
     // nothing to charge. Once a carrier is assigned, cancellation moves to
     // the trip-track screen where commission rules apply.
     const canCancelFree = shipment.status !== ShipmentStatus.ACTIVE && shipment.status !== ShipmentStatus.COMPLETED && shipment.status !== ShipmentStatus.CANCELLED;
-
-    const openSiteEdit = () => {
-        setSiteForm({
-            pickupDirections: shipment.pickupDirections || '',
-            pickupContact: shipment.pickupContact || '',
-            deliveryDirections: shipment.deliveryDirections || '',
-            deliveryContact: shipment.deliveryContact || '',
-        });
-        setIsEditingSite(true);
-    };
-
-    const handleSaveSiteDetails = async () => {
-        setIsSavingSite(true);
-        try {
-            const updated = await shipmentService.updateSiteDetails(shipment.id, siteForm);
-            setShipment(updated);
-            setIsEditingSite(false);
-        } catch (err) {
-            alert(err.message);
-        } finally {
-            setIsSavingSite(false);
-        }
-    };
 
     const handleCancel = async () => {
         if (!window.confirm('هل تريد إلغاء هذه الشحنة؟ لم يتم إسنادها لناقل بعد، فلن يتم خصم أي مبلغ.')) return;
@@ -92,28 +65,28 @@ export const ShipmentDetail = () => {
             <h3 style={{ marginBottom: 16 }}>تفاصيل المسار والبضاعة</h3>
             <div className="responsive-two-col-even">
               <div>
-                <div className="text-helper">موقع التحميل</div>
-                <div style={{ fontWeight: 700 }}>{shipment.pickupCity} - {shipment.pickupLocation}</div>
+                <div className="text-helper">مدينة التحميل</div>
+                <div style={{ fontWeight: 700 }}>{shipment.pickupCity}</div>
               </div>
               <div>
-                <div className="text-helper">موقع التسليم</div>
-                <div style={{ fontWeight: 700 }}>{shipment.deliveryCity} - {shipment.deliveryLocation}</div>
+                <div className="text-helper">مدينة التسليم</div>
+                <div style={{ fontWeight: 700 }}>{shipment.deliveryCity}</div>
               </div>
               <div>
                 <div className="text-helper">نوع البضاعة</div>
                 <div style={{ fontWeight: 700 }}>{shipment.cargoType}</div>
               </div>
               <div>
-                <div className="text-helper">الوزن / الحجم</div>
-                <div style={{ fontWeight: 700 }}>{shipment.weight} طن / {shipment.volume} م³</div>
+                <div className="text-helper">الوزن</div>
+                <div style={{ fontWeight: 700 }}>{shipment.weight} طن</div>
               </div>
               <div>
                 <div className="text-helper">نوع الشاحنة المطلوبة</div>
-                <div style={{ fontWeight: 700 }}>{shipment.requiredTruckType}</div>
+                <div style={{ fontWeight: 700 }}>{TruckTypeAr[shipment.requiredTruckType] || shipment.requiredTruckType}</div>
               </div>
               <div>
                 <div className="text-helper">تاريخ ووقت التحميل</div>
-                <div style={{ fontWeight: 700 }}>{shipment.loadingDate} - {shipment.loadingTime}</div>
+                <div style={{ fontWeight: 700 }}>{shipment.loadingDate ? new Date(shipment.loadingDate).toLocaleString('ar-SA') : '—'}</div>
               </div>
             </div>
             {shipment.description && (<div style={{ marginTop: 16 }}>
@@ -123,48 +96,24 @@ export const ShipmentDetail = () => {
           </Card>
 
           <Card>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0 }}>بيانات الموقع (تظهر للناقل بعد الإسناد فقط)</h3>
-              {canCancelFree && !isEditingSite && (
-                <Button variant="outline" size="sm" onClick={openSiteEdit}>تعديل</Button>
-              )}
-            </div>
-            {!canCancelFree && (
-              <p className="text-helper" style={{ fontSize: 12, marginBottom: 12 }}>
-                تم إسناد الشحنة لناقل — لم يعد بالإمكان تعديل بيانات الموقع.
-              </p>
-            )}
-            {isEditingSite ? (
+            <h3 style={{ marginBottom: 16 }}>بيانات الموقع (تظهر للناقل بعد الإسناد فقط)</h3>
+            <p className="text-helper" style={{ fontSize: 12, marginBottom: 12 }}>
+              لا يمكن تعديل بيانات الموقع بعد نشر الشحنة.
+            </p>
+            <div className="responsive-two-col-even">
               <div>
-                <Input label="إرشادات الوصول لموقع التحميل" value={siteForm.pickupDirections} onChange={e => setSiteForm(f => ({ ...f, pickupDirections: e.target.value }))}/>
-                <Input label="جوال المسؤول في موقع التحميل" value={siteForm.pickupContact} onChange={e => setSiteForm(f => ({ ...f, pickupContact: e.target.value }))}/>
-                <Input label="إرشادات الوصول لموقع التسليم" value={siteForm.deliveryDirections} onChange={e => setSiteForm(f => ({ ...f, deliveryDirections: e.target.value }))}/>
-                <Input label="جوال المسؤول في موقع التسليم" value={siteForm.deliveryContact} onChange={e => setSiteForm(f => ({ ...f, deliveryContact: e.target.value }))}/>
-                <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-                    <Button size="sm" onClick={handleSaveSiteDetails} isLoading={isSavingSite}>حفظ</Button>
-                    <Button size="sm" variant="outline" onClick={() => setIsEditingSite(false)}>إلغاء</Button>
-                </div>
+                <div className="text-helper">جوال المسؤول في الموقع</div>
+                <div dir="ltr">{shipment.onSiteContact || '—'}</div>
               </div>
-            ) : (
-              <div className="responsive-two-col-even">
-                <div>
-                  <div className="text-helper">إرشادات موقع التحميل</div>
-                  <div>{shipment.pickupDirections || '—'}</div>
-                </div>
-                <div>
-                  <div className="text-helper">جوال المسؤول (تحميل)</div>
-                  <div dir="ltr">{shipment.pickupContact || '—'}</div>
-                </div>
-                <div>
-                  <div className="text-helper">إرشادات موقع التسليم</div>
-                  <div>{shipment.deliveryDirections || '—'}</div>
-                </div>
-                <div>
-                  <div className="text-helper">جوال المسؤول (تسليم)</div>
-                  <div dir="ltr">{shipment.deliveryContact || '—'}</div>
-                </div>
+              <div>
+                <div className="text-helper">ملاحظات موقع التحميل</div>
+                <div>{shipment.pickupNotes || '—'}</div>
               </div>
-            )}
+              <div>
+                <div className="text-helper">ملاحظات موقع التسليم</div>
+                <div>{shipment.deliveryNotes || '—'}</div>
+              </div>
+            </div>
           </Card>
         </div>
 
@@ -183,13 +132,8 @@ export const ShipmentDetail = () => {
             <h3 style={{ marginBottom: 16 }}>سجل النشاط</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span className="text-helper">{new Date(shipment.createdAt).toLocaleString('ar-SA')}</span>
+                <span className="text-helper">{shipment.createdAt ? new Date(shipment.createdAt).toLocaleString('ar-SA') : '—'}</span>
                 <strong>تم نشر الشحنة</strong>
-              </div>
-              {/* Demo activity log */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span className="text-helper">تحديث تلقائي</span>
-                <strong>بانتظار عروض الناقلين</strong>
               </div>
             </div>
           </Card>

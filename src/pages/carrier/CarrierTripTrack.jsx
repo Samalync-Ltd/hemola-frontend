@@ -74,10 +74,16 @@ export const CarrierTripTrack = () => {
     const advanceStage = async (stage, proof) => {
         setIsUpdating(true);
         try {
-            await tripService.updateTripStage(trip.id, stage, proof);
+            const updated = await tripService.updateTripStage(trip.id, stage, proof);
+            if (updated.settlement) {
+                // The number the carrier will actually ask about — surface it
+                // plainly the moment settlement happens (INTEGRATION.md §15).
+                alert(`تم تسليم الشحنة وتسوية الرحلة:\nالسعر: ${updated.settlement.price} ر.س\nعمولة المنصة: ${updated.settlement.commission} ر.س\n${updated.settlement.debtDeducted ? `دين مستحق مخصوم: ${updated.settlement.debtDeducted} ر.س\n` : ''}المبلغ الصافي المستلم: ${updated.settlement.netToCarrier} ر.س`);
+            }
             fetchTrip();
         } catch (error) {
             console.error('Failed to update trip stage', error);
+            alert(error.message || 'حدث خطأ أثناء تحديث حالة الرحلة');
         } finally {
             setIsUpdating(false);
         }
@@ -92,7 +98,10 @@ export const CarrierTripTrack = () => {
         if (!window.confirm('سيتم خصم عمولة الإلغاء من محفظتك وتسجيل تحذير على حسابك. هل تريد المتابعة؟')) return;
         setIsCancelling(true);
         try {
-            await tripService.cancelTrip(trip.id, 'CARRIER');
+            const updated = await tripService.cancelTrip(trip.id, 'CARRIER');
+            if (updated.cancellationResult?.commission) {
+                alert(`تم إلغاء الرحلة — تم خصم عمولة إلغاء قدرها ${updated.cancellationResult.commission} ر.س${updated.cancellationResult.addedToDebt ? ` (منها ${updated.cancellationResult.addedToDebt} ر.س أضيفت كدين مستحق)` : ''}`);
+            }
             fetchTrip();
         } catch (error) {
             alert(error.message);
@@ -127,8 +136,8 @@ export const CarrierTripTrack = () => {
         }
     };
     const truckPos = getTruckPos(trip.currentStage);
-    const loadProof = stagesList.find(s => s.stage === TripStageEnum.LOADED)?.proof;
-    const deliveryProof = stagesList.find(s => s.stage === TripStageEnum.DELIVERED)?.proof;
+    const loadProof = trip.proofOfLoad;
+    const deliveryProof = trip.proofOfDelivery;
 
     return (<div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 600, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -143,7 +152,7 @@ export const CarrierTripTrack = () => {
           {deliveryCity}
         </h2>
         <span className="text-helper" style={{ fontSize: 14, marginTop: 8, display: 'inline-block' }}>
-          {shipment?.cargoType || 'غير محدد'} • {shipment?.loadingDate || new Date().toLocaleDateString('ar-SA')}
+          {shipment?.cargoType || 'غير محدد'} • {shipment?.loadingDate ? new Date(shipment.loadingDate).toLocaleDateString('ar-SA') : new Date().toLocaleDateString('ar-SA')}
         </span>
       </div>
 
@@ -160,11 +169,8 @@ export const CarrierTripTrack = () => {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
           <div className="text-helper" style={{ fontSize: 12 }}>تاريخ التحميل</div>
           <div style={{ fontWeight: 'bold', fontSize: 14 }}>
-            {shipment?.loadingDate || new Date().toLocaleDateString('ar-SA')}
+            {shipment?.loadingDate ? new Date(shipment.loadingDate).toLocaleString('ar-SA') : new Date().toLocaleDateString('ar-SA')}
           </div>
-          {shipment?.loadingTime && (
-            <div className="text-helper" style={{ fontSize: 12 }}>{shipment.loadingTime}</div>
-          )}
         </div>
       </Card>
 
@@ -175,7 +181,7 @@ export const CarrierTripTrack = () => {
 
       {isCancelled ? (
         <div style={{ padding: 16, backgroundColor: 'rgba(229,62,62,0.1)', color: 'var(--color-error)', borderRadius: 8, fontWeight: 'bold', textAlign: 'center' }}>
-          تم إلغاء هذه الرحلة — تم خصم عمولة إلغاء قدرها {trip.cancellation?.commission} ر.س
+          تم إلغاء هذه الرحلة
         </div>
       ) : (<>
       <h3 style={{ margin: '8px 0 0' }}>الموقع الحالي</h3>
@@ -246,7 +252,7 @@ export const CarrierTripTrack = () => {
         })}
       </div>
 
-      {shipment && (shipment.pickupDirections || shipment.pickupContact || shipment.deliveryDirections || shipment.deliveryContact || shipment.pickupLat || shipment.deliveryLat) && (
+      {shipment && (shipment.onSiteContact || shipment.pickupNotes || shipment.deliveryNotes || shipment.pickupLat || shipment.deliveryLat) && (
         <>
           <h3 style={{ marginTop: 8, marginBottom: 8 }}>بيانات الموقع</h3>
           {(shipment.pickupLat || shipment.deliveryLat) && (
@@ -257,12 +263,17 @@ export const CarrierTripTrack = () => {
             />
           )}
           <Card>
+            {shipment.onSiteContact && (
+              <div style={{ marginBottom: 16 }}>
+                <div className="text-helper">جوال المسؤول في الموقع</div>
+                <div dir="ltr">☎ {shipment.onSiteContact}</div>
+              </div>
+            )}
             <div className="responsive-two-col-even">
-              {(shipment.pickupDirections || shipment.pickupContact || shipment.pickupLat) && (
+              {(shipment.pickupNotes || shipment.pickupLat) && (
                 <div>
                   <div className="text-helper">📦 موقع التحميل</div>
-                  {shipment.pickupDirections && <div>{shipment.pickupDirections}</div>}
-                  {shipment.pickupContact && <div dir="ltr">☎ {shipment.pickupContact}</div>}
+                  {shipment.pickupNotes && <div>{shipment.pickupNotes}</div>}
                   {shipment.pickupLat && (
                     <Button variant="outline" size="sm" style={{ marginTop: 8 }} onClick={() => openInMaps(shipment.pickupLat, shipment.pickupLng)}>
                       فتح في خرائط جوجل
@@ -270,11 +281,10 @@ export const CarrierTripTrack = () => {
                   )}
                 </div>
               )}
-              {(shipment.deliveryDirections || shipment.deliveryContact || shipment.deliveryLat) && (
+              {(shipment.deliveryNotes || shipment.deliveryLat) && (
                 <div>
                   <div className="text-helper">🏁 موقع التسليم</div>
-                  {shipment.deliveryDirections && <div>{shipment.deliveryDirections}</div>}
-                  {shipment.deliveryContact && <div dir="ltr">☎ {shipment.deliveryContact}</div>}
+                  {shipment.deliveryNotes && <div>{shipment.deliveryNotes}</div>}
                   {shipment.deliveryLat && (
                     <Button variant="outline" size="sm" style={{ marginTop: 8 }} onClick={() => openInMaps(shipment.deliveryLat, shipment.deliveryLng)}>
                       فتح في خرائط جوجل
@@ -321,7 +331,7 @@ export const CarrierTripTrack = () => {
 
       <h3 style={{ marginTop: 8, marginBottom: 8 }}>رسائل سريعة</h3>
       <Card>
-        <QuickMessagePanel role={UserRole.CARRIER} messages={trip.messages} onSend={handleSendMessage} isSending={isSendingMessage} />
+        <QuickMessagePanel role={UserRole.CARRIER} currentUserId={trip.carrierId} messages={trip.messages} onSend={handleSendMessage} isSending={isSendingMessage} />
       </Card>
 
       <div style={{ marginTop: 8 }}>

@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Local environment overrides — see .env.example for the documented set of
+# variables (VITE_USE_FIREBASE and the VITE_FIREBASE_* config).
+.env
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,21 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '../common/Button';
+import { USE_FIREBASE } from '../../services/api';
 
 /**
  * Required proof-of-load / proof-of-delivery capture: browser camera
  * (getUserMedia) + geolocation, timestamped, matching mobile's requirement
  * at the LOADED and DELIVERED stages exactly (see trips_provider.dart).
  *
- * The capture itself completes the stage immediately — `onCaptured` fires
- * as soon as the photo + GPS fix are in hand — while the "upload" is
- * simulated asynchronously afterward (same 2200ms delay / ~35% first-try
- * failure / 6s auto-retry timing mobile uses), never blocking the stage
- * update on the upload finishing.
+ * `onCaptured` fires as soon as the photo + GPS fix are in hand. In mock
+ * mode the "upload" is then simulated (same 2200ms delay / ~35% first-try
+ * failure / 6s auto-retry timing mobile uses); against the real backend the
+ * caller uploads it before advancing the stage. A file picker is offered
+ * next to the camera for devices without one.
  */
 export const ProofPhotoCapture = ({ label, onCaptured, existingPhoto }) => {
     const videoRef = useRef(null);
     const streamRef = useRef(null);
+    const fileInputRef = useRef(null);
     const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const [isLocating, setIsLocating] = useState(false);
     const [error, setError] = useState('');
     const [uploadStatus, setUploadStatus] = useState(existingPhoto ? 'uploaded' : null);
 
@@ -63,6 +66,24 @@ export const ProofPhotoCapture = ({ label, onCaptured, existingPhoto }) => {
         }, 2200);
     };
 
+    // Shared by the camera and the file picker. Against the real backend the
+    // GPS fix is mandatory (recordTripProof rejects missing coords) and the
+    // upload happens for real inside tripService.updateTripStage, so there
+    // is nothing to simulate afterwards.
+    const submitPhoto = async (photoDataUrl) => {
+        setError('');
+        setIsLocating(true);
+        const location = await getLocation();
+        setIsLocating(false);
+        if (USE_FIREBASE && !location) {
+            setError('تعذّر تحديد موقعك — اسمح للمتصفح بالوصول إلى الموقع ثم أعد المحاولة.');
+            return;
+        }
+        const capturedAt = new Date().toISOString();
+        onCaptured({ photoDataUrl, lat: location?.lat ?? null, lng: location?.lng ?? null, capturedAt });
+        if (!USE_FIREBASE) simulateUpload();
+    };
+
     const capture = async () => {
         const video = videoRef.current;
         if (!video) return;
@@ -74,12 +95,25 @@ export const ProofPhotoCapture = ({ label, onCaptured, existingPhoto }) => {
 
         stopCamera();
         setIsCameraOpen(false);
+        await submitPhoto(photoDataUrl);
+    };
 
-        const location = await getLocation();
-        const capturedAt = new Date().toISOString();
-        // Stage advances immediately — upload happens in the background.
-        onCaptured({ photoDataUrl, lat: location?.lat ?? null, lng: location?.lng ?? null, capturedAt });
-        simulateUpload();
+    // Fallback for devices without a camera (e.g. a desktop): pick an image.
+    const pickFile = (e) => {
+        const file = e.target.files?.[0];
+        e.target.value = '';
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            setError('يرجى اختيار صورة.');
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            setError('حجم الصورة يجب أن يكون أقل من 5 ميجابايت.');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => submitPhoto(reader.result);
+        reader.readAsDataURL(file);
     };
 
     const uploadStatusLabel = {
@@ -119,8 +153,14 @@ export const ProofPhotoCapture = ({ label, onCaptured, existingPhoto }) => {
                         <Button size="sm" variant="outline" onClick={() => { stopCamera(); setIsCameraOpen(false); }}>إلغاء</Button>
                     </div>
                 </div>
+            ) : isLocating ? (
+                <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>جارِ تحديد الموقع...</div>
             ) : (
-                <Button variant="outline" size="sm" onClick={openCamera}>{label}</Button>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <Button variant="outline" size="sm" onClick={openCamera}>{label}</Button>
+                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>أو اختر صورة من الجهاز</Button>
+                    <input ref={fileInputRef} type="file" accept="image/*" onChange={pickFile} style={{ display: 'none' }} />
+                </div>
             )}
         </div>
     );

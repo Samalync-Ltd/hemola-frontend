@@ -1,8 +1,10 @@
 import { mockShipments, mockOffers, mockTrips, mockWallets, mockTransactions, mockNotifications, mockUsers, MOCK_ARRAYS } from '../mocks/data';
 import { persistMockStore } from '../mocks/persistence';
-import { ShipmentStatus, OfferStatus, TripStage, TransactionType, AccountStatus } from '../constants/enums';
+import { ShipmentStatus, OfferStatus, TripStage, TransactionType, AccountStatus, DocumentStatus } from '../constants/enums';
 import { COMMISSION_RATE, CANCELLATION_WARNING_THRESHOLD } from '../constants/config';
 import { normalizeSaudiPhone } from '../utils/validators';
+import { createTruck } from '../models';
+import { DOCUMENT_KEYS } from '../constants/documentKeys';
 import { 
     firebaseAuthService,
     firebaseShipmentService,
@@ -10,10 +12,15 @@ import {
     firebaseTripService,
     firebaseWalletService,
     firebaseNotificationService,
-    firebaseUserService
+    firebaseUserService,
+    firebaseCatalogService
 } from './firebase-services';
 
-const USE_FIREBASE = import.meta.env.VITE_USE_FIREBASE === 'true';
+// Exported so screens can gate DEMO_MODE's simulated marketplace trickle
+// (see useDemoShipmentTrickle) off once Stage 2 is live — there is no way
+// to "inject" a fake shipment/offer into a real backend without it becoming
+// a genuinely persisted, misleading document.
+export const USE_FIREBASE = import.meta.env.VITE_USE_FIREBASE === 'true';
 
 // Helper to simulate network delay
 const delay = (ms = 800) => new Promise(resolve => setTimeout(resolve, ms));
@@ -26,10 +33,13 @@ const persist = () => persistMockStore(MOCK_ARRAYS);
  * DELIVERED (or cancelled). This is the hard backend check: every
  * assignment/offer path below calls this before proceeding, so a carrier
  * can't end up on two active shipments even if a UI-level restriction were
- * bypassed or stale.
+ * bypassed or stale. `carrier` is the carrier's profile — on the real
+ * backend `isBusy` is maintained server-side (INTEGRATION.md §2); the mock
+ * derives it from its own trips.
  */
-export const isCarrierBusy = (carrierId) =>
-    mockTrips.some(t => t.carrierId === carrierId && t.currentStage !== TripStage.DELIVERED && t.overallStatus !== 'CANCELLED');
+export const isCarrierBusy = (carrier) => USE_FIREBASE
+    ? !!carrier?.isBusy
+    : mockTrips.some(t => t.carrierId === carrier?.id && t.currentStage !== TripStage.DELIVERED && t.overallStatus !== 'CANCELLED');
 
 /**
  * Every exported service below mutates the shared mock store at some point
@@ -110,6 +120,17 @@ const mockAuthService = withAutoPersist({
     registerNewUser: (payload) => {
         const id = `${payload.role === 'CARRIER' ? 'new-carrier' : 'new-shipper'}-${Date.now()}`;
         const isCompany = payload.accountType === 'COMPANY';
+
+        // Every identity/company document uploaded in step 4, keyed by the
+        // stable DOCUMENT_KEYS constants (NATIONAL_ID, PUBLIC_DRIVING_LICENCE,
+        // COMMERCIAL_REGISTRATION, MANAGER_ID) — mirrors what the real
+        // Firebase registration flow stores after actually uploading them.
+        const documents = {};
+        for (const key of Object.values(DOCUMENT_KEYS)) {
+            const file = payload.files?.[key];
+            if (file) documents[key] = { fileUrl: `mock-upload://${file.name}`, status: DocumentStatus.PENDING };
+        }
+
         const user = {
             id,
             role: payload.role,
@@ -118,17 +139,33 @@ const mockAuthService = withAutoPersist({
             phone: payload.phone,
             accountType: payload.accountType,
             // Demo-only: the review step's "simulate admin approval" button
-            // is what gets a user here, so the account is verified by then.
+            // is what actually flips this to VERIFIED — see
+            // Register.jsx's simulateAdminApproval. Nothing here approves
+            // the account automatically; it stays UNDER_REVIEW otherwise.
             accountStatus: AccountStatus.UNDER_REVIEW,
             isSuspended: false,
             notificationsEnabled: true,
+            documents,
             ...(isCompany ? { companyName: payload.companyName } : {}),
             ...(payload.role === 'CARRIER'
                 ? {
-                    truckType: payload.truckType,
-                    plateNumber: payload.plateNumber || '',
+                    trucks: (payload.trucks || []).map(t => createTruck({
+                        brand: t.brand,
+                        model: t.model,
+                        type: t.type,
+                        capacityTons: t.capacityTons,
+                        plateNumber: t.plateNumber,
+                        operatingCard: {
+                            fileUrl: t.operatingCardFile ? `mock-upload://${t.operatingCardFile.name}` : '',
+                            expiryDate: t.operatingCardExpiryDate || '',
+                        },
+                        registration: {
+                            fileUrl: t.registrationFile ? `mock-upload://${t.registrationFile.name}` : '',
+                        },
+                    })),
                     rating: 0,
                     completedTrips: 0,
+                    warnings: 0,
                 }
                 : {}),
         };
@@ -149,13 +186,47 @@ const mockAuthService = withAutoPersist({
         if (user) user.notificationsEnabled = value;
         return { notificationsEnabled: value };
     },
-    /** Carrier truck info shown/edited from the profile screen. */
-    updateTruckInfo: async (userId, { truckType, plateNumber }) => {
+    /** Adds one new truck (with its own documents) to the carrier's fleet. */
+    addTruck: async (userId, { brand, model, type, capacityTons, plateNumber, operatingCardFile, registrationFile, operatingCardExpiryDate }) => {
         await delay(400);
         const user = mockUsers.find(u => u.id === userId);
         if (!user) throw new Error('المستخدم غير موجود');
-        user.truckType = truckType;
-        user.plateNumber = plateNumber;
+        if (!user.trucks) user.trucks = [];
+        const truck = createTruck({
+            brand, model, type, capacityTons, plateNumber,
+            operatingCard: {
+                fileUrl: operatingCardFile ? `mock-upload://${operatingCardFile.name}` : '',
+                expiryDate: operatingCardExpiryDate || '',
+            },
+            registration: {
+                fileUrl: registrationFile ? `mock-upload://${registrationFile.name}` : '',
+            },
+        });
+        user.trucks.push(truck);
+        return { ...user };
+    },
+    /** Edits one existing truck's own details (not its documents). */
+    updateTruck: async (userId, truckId, { brand, model, type, capacityTons, plateNumber }) => {
+        await delay(400);
+        const user = mockUsers.find(u => u.id === userId);
+        if (!user) throw new Error('المستخدم غير موجود');
+        const truck = (user.trucks || []).find(t => t.id === truckId);
+        if (!truck) throw new Error('الشاحنة غير موجودة');
+        Object.assign(truck, {
+            brand: brand ?? truck.brand,
+            model: model ?? truck.model,
+            type: type ?? truck.type,
+            capacityTons: capacityTons != null ? Number(capacityTons) : truck.capacityTons,
+            plateNumber: plateNumber ?? truck.plateNumber,
+        });
+        return { ...user };
+    },
+    /** Removes a truck from the carrier's fleet. */
+    removeTruck: async (userId, truckId) => {
+        await delay(300);
+        const user = mockUsers.find(u => u.id === userId);
+        if (!user) throw new Error('المستخدم غير موجود');
+        user.trucks = (user.trucks || []).filter(t => t.id !== truckId);
         return { ...user };
     },
     getCurrentUser: async () => {
@@ -196,7 +267,7 @@ const mockShipmentService = withAutoPersist({
         const newShipment = {
             ...data,
             id: `HM-${Math.floor(1000 + Math.random() * 9000)}`,
-            status: ShipmentStatus.OFFERS_PENDING,
+            status: ShipmentStatus.PENDING_OFFERS,
             createdAt: new Date().toISOString(),
             offerCount: 0
         };
@@ -258,9 +329,18 @@ const mockOfferService = withAutoPersist({
         await delay();
         return mockOffers.filter(o => o.carrierId === carrierId);
     },
+    /** The mock keeps one flat offer record per thread (no chained ids), so this is just a lookup by id. */
+    getThreadContainingOffer: async (shipmentId, offerId) => {
+        await delay();
+        return mockOffers.find(o => o.id === offerId) || null;
+    },
     submitOffer: async (data) => {
         await delay();
-        if (isCarrierBusy(data.carrierId)) {
+        const submittingCarrier = mockUsers.find(u => u.id === data.carrierId);
+        if (submittingCarrier?.isSuspended) {
+            throw new Error('تم إيقاف حسابك — لا يمكنك تقديم عروض حتى تتم مراجعة الحساب من قبل الإدارة.');
+        }
+        if (isCarrierBusy({ id: data.carrierId })) {
             throw new Error('لديك شحنة نشطة حالياً — لا يمكنك تقديم عروض على شحنات أخرى حتى تسليمها أو إلغاؤها.');
         }
         const newOffer = {
@@ -311,8 +391,14 @@ const mockOfferService = withAutoPersist({
         await delay(400);
         const offer = mockOffers.find(o => o.id === offerId);
         if (!offer) throw new Error('العرض غير موجود');
-        if (senderRole === 'CARRIER' && isCarrierBusy(offer.carrierId)) {
-            throw new Error('لديك شحنة نشطة حالياً — لا يمكنك التفاوض على شحنات أخرى حتى تسليمها أو إلغاؤها.');
+        if (senderRole === 'CARRIER') {
+            const negotiatingCarrier = mockUsers.find(u => u.id === offer.carrierId);
+            if (negotiatingCarrier?.isSuspended) {
+                throw new Error('تم إيقاف حسابك — لا يمكنك التفاوض حتى تتم مراجعة الحساب من قبل الإدارة.');
+            }
+            if (isCarrierBusy({ id: offer.carrierId })) {
+                throw new Error('لديك شحنة نشطة حالياً — لا يمكنك التفاوض على شحنات أخرى حتى تسليمها أو إلغاؤها.');
+            }
         }
         offer.offeredPrice = amount;
         offer.status = OfferStatus.PENDING;
@@ -359,7 +445,7 @@ const mockOfferService = withAutoPersist({
         }
         return { ...offer };
     },
-    rejectOffer: async (offerId) => {
+    rejectOffer: async (shipmentId, offerId) => {
         await delay(300);
         const offer = mockOffers.find(o => o.id === offerId);
         if (!offer) throw new Error('العرض غير موجود');
@@ -378,11 +464,19 @@ const mockOfferService = withAutoPersist({
         const offer = mockOffers.find(o => o.id === offerId);
         if (!offer) throw new Error('العرض غير موجود');
 
+        // Hard safety check, not just a UI-level restriction: a suspended
+        // carrier can't be assigned a shipment even if the shipper is the
+        // one clicking accept.
+        const acceptedCarrier = mockUsers.find(u => u.id === offer.carrierId);
+        if (acceptedCarrier?.isSuspended) {
+            throw new Error('هذا الناقل موقوف حالياً ولا يمكن إسناد شحنة إليه.');
+        }
+
         // Hard safety check, not just a UI-level restriction: refuses
         // outright, changing nothing, if this carrier already has another
         // shipment anywhere between assigned and delivered — regardless of
         // whether the shipper or the carrier is the one clicking accept.
-        if (isCarrierBusy(offer.carrierId)) {
+        if (isCarrierBusy({ id: offer.carrierId })) {
             throw new Error('هذا الناقل لديه شحنة نشطة حالياً ولا يمكن إسناد شحنة أخرى إليه حتى يسلّمها أو تُلغى.');
         }
 
@@ -474,7 +568,7 @@ const mockTripService = withAutoPersist({
         const shipperWallet = findOrCreateWallet(trip.shipperId);
         shipperWallet.reservedBalance = Math.max(0, shipperWallet.reservedBalance - trip.finalPrice);
         shipperWallet.balance -= trip.finalPrice;
-        logTransaction(trip.shipperId, TransactionType.FEE_DEDUCTION, -trip.finalPrice, `تسوية رحلة ${trip.id} — دفعة للناقل`);
+        logTransaction(trip.shipperId, TransactionType.TRIP_SETTLEMENT, -trip.finalPrice, `تسوية رحلة ${trip.id} — دفعة للناقل`);
 
         const carrierWallet = findOrCreateWallet(trip.carrierId);
         carrierWallet.balance += carrierNet;
@@ -484,7 +578,7 @@ const mockTripService = withAutoPersist({
     cancellableStages: [TripStage.ASSIGNED, TripStage.EN_ROUTE_PICKUP, TripStage.ARRIVED_PICKUP],
     /**
      * Cancels an in-progress trip and applies the same commission /
-     * blacklist rules as mobile:
+     * suspension rules as mobile:
      *  - Before assignment there's no trip yet, so this only ever runs on an
      *    assigned/in-progress trip — cancellation there always charges
      *    commission to whoever cancelled.
@@ -493,9 +587,9 @@ const mockTripService = withAutoPersist({
      *  - Carrier cancels: shipper is refunded in full (reservation released,
      *    nothing debited), carrier pays the commission (balance may go
      *    negative — that's the "debt" mobile carries into the next
-     *    settlement), and a cancellation warning is recorded — the carrier
-     *    is blacklisted at CANCELLATION_WARNING_THRESHOLD. The shipment goes
-     *    back on the marketplace for another carrier to pick up.
+     *    settlement), and `warnings` is incremented — the carrier is
+     *    suspended (`isSuspended`) at CANCELLATION_WARNING_THRESHOLD. The
+     *    shipment goes back on the marketplace for another carrier to pick up.
      * Throws if `stage` is at/after LOADED — callers should already disable
      * the action there, this is the safety net.
      */
@@ -524,12 +618,12 @@ const mockTripService = withAutoPersist({
 
             const carrier = mockUsers.find(u => u.id === trip.carrierId);
             if (carrier) {
-                carrier.warningCount = (carrier.warningCount || 0) + 1;
-                if (carrier.warningCount >= CANCELLATION_WARNING_THRESHOLD) carrier.isBlacklisted = true;
+                carrier.warnings = (carrier.warnings || 0) + 1;
+                if (carrier.warnings >= CANCELLATION_WARNING_THRESHOLD) carrier.isSuspended = true;
             }
             // Reopens the shipment for other carriers, same as mobile's returnToMarketplace.
             if (shipment) {
-                shipment.status = ShipmentStatus.OFFERS_PENDING;
+                shipment.status = ShipmentStatus.PENDING_OFFERS;
                 shipment.assignedCarrierId = null;
                 shipment.finalPrice = null;
             }
@@ -548,6 +642,16 @@ const mockTripService = withAutoPersist({
         const message = { id: `msg-${Date.now()}`, senderRole, messageKey, label, timestamp: new Date().toISOString() };
         trip.messages.push(message);
         return message;
+    },
+    /** One rating per party per trip — mirrors the real backend's `already-exists` refusal on a repeat. */
+    submitRating: async (tripId, score, comment) => {
+        await delay(400);
+        const trip = mockTrips.find(t => t.id === tripId);
+        if (!trip) throw new Error('الرحلة غير موجودة');
+        if (trip.isRated) throw new Error('لقد قمت بتقييم هذه الرحلة مسبقاً');
+        trip.isRated = true;
+        trip.rating = { score, comment: comment || null, at: new Date().toISOString() };
+        return { tripId, score, ratedId: trip.carrierId, rating: score, ratingCount: 1 };
     }
 });
 const mockWalletService = withAutoPersist({
@@ -630,10 +734,26 @@ const mockUserService = withAutoPersist({
 });
 
 // --- Exports ---
-export const authService = USE_FIREBASE ? firebaseAuthService : mockAuthService;
+// Stage 1 (auth, registration, accounts, documents, trucks) is live against
+// the real hemooltak-backend and has its own flag so it can go live before
+// Stage 2 (shipments/offers/trips/wallet) is rewired — see VITE_USE_FIREBASE
+// below, which stays false until that migration happens. Flipping
+// VITE_USE_FIREBASE_AUTH separately means login/registration hit the real
+// backend without breaking the still-mocked marketplace/wallet screens.
+export const USE_FIREBASE_AUTH = import.meta.env.VITE_USE_FIREBASE_AUTH === 'true' || USE_FIREBASE;
+
+export const authService = USE_FIREBASE_AUTH ? firebaseAuthService : mockAuthService;
 export const shipmentService = USE_FIREBASE ? firebaseShipmentService : mockShipmentService;
 export const offerService = USE_FIREBASE ? firebaseOfferService : mockOfferService;
 export const tripService = USE_FIREBASE ? firebaseTripService : mockTripService;
 export const walletService = USE_FIREBASE ? firebaseWalletService : mockWalletService;
 export const notificationService = USE_FIREBASE ? firebaseNotificationService : mockNotificationService;
-export const userService = USE_FIREBASE ? firebaseUserService : mockUserService;
+export const userService = USE_FIREBASE_AUTH ? firebaseUserService : mockUserService;
+
+// Admin-managed truck/cargo type lists. Mock mode has no admin, so it
+// returns "nothing saved" and callers use their built-in defaults.
+const mockCatalogService = {
+    getCargoTypes: async () => null,
+    getTruckTypeOverrides: async () => ({}),
+};
+export const catalogService = USE_FIREBASE ? firebaseCatalogService : mockCatalogService;

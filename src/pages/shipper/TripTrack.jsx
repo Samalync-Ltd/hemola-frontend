@@ -66,7 +66,10 @@ export const TripTrack = () => {
         if (confirmMsg && !window.confirm(confirmMsg)) return;
         setIsCancelling(true);
         try {
-            await tripService.cancelTrip(trip.id, 'SHIPPER');
+            const updated = await tripService.cancelTrip(trip.id, 'SHIPPER');
+            if (updated.cancellationResult?.commission) {
+                alert(`تم إلغاء الرحلة — تم خصم عمولة إلغاء قدرها ${updated.cancellationResult.commission} ر.س`);
+            }
             fetchTrip();
         } catch (error) {
             alert(error.message);
@@ -120,7 +123,7 @@ export const TripTrack = () => {
           {deliveryCity}
         </h2>
         <span className="text-helper" style={{ fontSize: 14, marginTop: 8, display: 'inline-block' }}>
-          {shipment?.cargoType || 'غير محدد'} • {shipment?.loadingDate || new Date().toLocaleDateString('ar-SA')}
+          {shipment?.cargoType || 'غير محدد'} • {shipment?.loadingDate ? new Date(shipment.loadingDate).toLocaleDateString('ar-SA') : new Date().toLocaleDateString('ar-SA')}
         </span>
       </div>
 
@@ -244,41 +247,34 @@ export const TripTrack = () => {
 
       <h3 style={{ marginTop: 16, marginBottom: 8 }}>مستندات الإثبات</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 8 }}>
-        {(() => {
-          const stagesList2 = trip.stages || [];
-          const loadProof = stagesList2.find(s => s.stage === TripStageEnum.LOADED)?.proof;
-          const deliveryProof = stagesList2.find(s => s.stage === TripStageEnum.DELIVERED)?.proof;
-          return (<>
-            <Card>
-              <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>إثبات التحميل</div>
-              {loadProof ? <ProofPhotoCapture label="إثبات التحميل" existingPhoto={loadProof} /> : (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div className="text-helper" style={{ fontSize: 12 }}>بانتظار رفع الناقل</div>
-                  <Clock size={20} color="var(--color-text-muted)" />
-                </div>
-              )}
-            </Card>
-            <Card>
-              <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>إثبات التسليم</div>
-              {deliveryProof ? <ProofPhotoCapture label="إثبات التسليم" existingPhoto={deliveryProof} /> : (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div className="text-helper" style={{ fontSize: 12 }}>بانتظار رفع الناقل</div>
-                  <Clock size={20} color="var(--color-text-muted)" />
-                </div>
-              )}
-            </Card>
-          </>);
-        })()}
+        <Card>
+          <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>إثبات التحميل</div>
+          {trip.proofOfLoad ? <ProofPhotoCapture label="إثبات التحميل" existingPhoto={trip.proofOfLoad} /> : (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="text-helper" style={{ fontSize: 12 }}>بانتظار رفع الناقل</div>
+              <Clock size={20} color="var(--color-text-muted)" />
+            </div>
+          )}
+        </Card>
+        <Card>
+          <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>إثبات التسليم</div>
+          {trip.proofOfDelivery ? <ProofPhotoCapture label="إثبات التسليم" existingPhoto={trip.proofOfDelivery} /> : (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="text-helper" style={{ fontSize: 12 }}>بانتظار رفع الناقل</div>
+              <Clock size={20} color="var(--color-text-muted)" />
+            </div>
+          )}
+        </Card>
       </div>
 
       <h3 style={{ marginTop: 8, marginBottom: 8 }}>رسائل سريعة</h3>
       <Card>
-        <QuickMessagePanel role={UserRole.SHIPPER} messages={trip.messages} onSend={handleSendMessage} isSending={isSendingMessage} />
+        <QuickMessagePanel role={UserRole.SHIPPER} currentUserId={trip.shipperId} messages={trip.messages} onSend={handleSendMessage} isSending={isSendingMessage} />
       </Card>
 
       {isCancelled ? (
         <div style={{ padding: 16, backgroundColor: 'rgba(229,62,62,0.1)', color: 'var(--color-error)', borderRadius: 8, fontWeight: 'bold', textAlign: 'center' }}>
-          تم إلغاء هذه الرحلة — تم خصم عمولة إلغاء قدرها {trip.cancellation?.commission} ر.س
+          تم إلغاء هذه الرحلة
         </div>
       ) : !isDelivered && (
         tripService.cancellableStages.includes(trip.currentStage) ? (

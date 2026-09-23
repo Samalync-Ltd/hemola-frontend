@@ -1,88 +1,229 @@
-import { auth, db, storage } from '../firebase/config';
-import { 
-    signInWithEmailAndPassword, 
-    createUserWithEmailAndPassword, 
+import { auth, db, storage, functions } from '../firebase/config';
+import {
+    signInWithEmailAndPassword,
+    signInWithCustomToken,
     signOut,
     onAuthStateChanged
 } from 'firebase/auth';
-import { 
-    collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, 
-    query, where, orderBy, serverTimestamp 
+import {
+    collection, collectionGroup, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc,
+    query, where, orderBy, serverTimestamp
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { AccountStatus, ShipmentStatus, OfferStatus, TripStage, TransactionType } from '../constants/enums';
-import { COMMISSION_RATE, CANCELLATION_WARNING_THRESHOLD } from '../constants/config';
+import { httpsCallable } from 'firebase/functions';
+import { TripStage } from '../constants/enums';
+
+// Every Cloud Function below is documented in hemooltak-backend/INTEGRATION.md
+// — request/response shapes, error codes, and the exact enum spellings all
+// come from that file, not from guessing at what the backend probably does.
+const call = (name) => httpsCallable(functions, name);
+
+/** INTEGRATION.md §6 — a value matching this is a phone login, not an email. */
+const PHONE_PATTERN = /^(?:\+9665|9665|05)\d{8}$/;
+
+/** Uploads one file to Storage and resolves its public download URL. */
+const uploadFile = async (path, file) => {
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, file);
+    return getDownloadURL(storageRef);
+};
+
+const fileExtension = (file) => {
+    const name = file?.name || '';
+    const dot = name.lastIndexOf('.');
+    return dot >= 0 ? name.slice(dot) : '.jpg';
+};
+
+/** Reads a carrier's independent truck records from their `trucks` subcollection. */
+const fetchTrucks = async (uid) => {
+    const snap = await getDocs(collection(db, 'users', uid, 'trucks'));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+};
+
+/** Reads a user's account-level verification documents. */
+const fetchDocuments = async (uid) => {
+    const snap = await getDocs(collection(db, 'users', uid, 'documents'));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+};
+
+/** The full profile shape the rest of the app expects: the users/{uid} doc plus its documents and (for carriers) trucks. */
+const loadFullProfile = async (uid) => {
+    const userSnap = await getDoc(doc(db, 'users', uid));
+    if (!userSnap.exists()) return null;
+    const userData = { id: uid, ...userSnap.data() };
+    userData.documents = await fetchDocuments(uid);
+    if (userData.role === 'CARRIER') userData.trucks = await fetchTrucks(uid);
+    return userData;
+};
+
+/**
+ * Uploads a truck's operatingCard/registration papers to Storage
+ * (trucks/{uid}/{truckId}/…, INTEGRATION.md §4) and creates
+ * users/{uid}/trucks/{truckId} with both papers PENDING and
+ * isSelectable: false — the only shape the security rules accept on
+ * create (firestore.rules, match /trucks/{truckId}).
+ */
+const createTruckRecord = async (uid, truckInput) => {
+    const truckRef = doc(collection(db, 'users', uid, 'trucks'));
+    const [operatingCardUrl, registrationUrl] = await Promise.all([
+        truckInput.operatingCardFile
+            ? uploadFile(`trucks/${uid}/${truckRef.id}/operating_card_${Date.now()}${fileExtension(truckInput.operatingCardFile)}`, truckInput.operatingCardFile)
+            : Promise.resolve(''),
+        truckInput.registrationFile
+            ? uploadFile(`trucks/${uid}/${truckRef.id}/registration_${Date.now()}${fileExtension(truckInput.registrationFile)}`, truckInput.registrationFile)
+            : Promise.resolve(''),
+    ]);
+
+    const truckData = {
+        brand: truckInput.brand,
+        model: truckInput.model,
+        type: truckInput.type, // one of TruckType (FLATBED | HEAVY_CARGO | REFRIGERATED | BOX_TRUCK | TANKER | LOW_LOADER | OTHER)
+        ...(truckInput.type === 'OTHER' ? { customType: truckInput.customType || '' } : {}),
+        capacityTons: Number(truckInput.capacityTons) || 0,
+        plateNumber: truckInput.plateNumber,
+        operatingCard: {
+            fileUrl: operatingCardUrl,
+            status: 'PENDING',
+            ...(truckInput.operatingCardExpiryDate ? { expiryDate: truckInput.operatingCardExpiryDate } : {}),
+        },
+        registration: { fileUrl: registrationUrl, status: 'PENDING' },
+        isSelectable: false,
+    };
+    await setDoc(truckRef, truckData);
+    return { id: truckRef.id, ...truckData };
+};
 
 // --- AUTH SERVICE ---
 export const firebaseAuthService = {
+    /**
+     * Email OR Saudi mobile (INTEGRATION.md §6): a value matching
+     * ^(?:\+9665|9665|05)\d{8}$ goes through `signInWithPhone` + a custom
+     * token, anything with an `@` through email/password. Both end in the
+     * same session. A wrong number and a wrong password are deliberately
+     * indistinguishable, so both show one message.
+     */
     login: async (identifier, password, role = 'SHIPPER') => {
-        const userCredential = await signInWithEmailAndPassword(auth, identifier, password);
-        const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
-        if (!userDoc.exists()) throw new Error('User data not found');
-        const userData = { id: userCredential.user.uid, ...userDoc.data() };
-        if (userData.role !== role) throw new Error('Invalid role for this user');
-        return userData;
+        const value = identifier.trim();
+        let uid;
+        if (PHONE_PATTERN.test(value.replace(/\s/g, ''))) {
+            try {
+                const res = await call('signInWithPhone')({ phone: value.replace(/\s/g, ''), password });
+                uid = (await signInWithCustomToken(auth, res.data.token)).user.uid;
+            } catch (err) {
+                if (err.code === 'functions/unauthenticated') throw new Error('رقم الجوال أو كلمة المرور غير صحيحة');
+                if (err.code === 'functions/resource-exhausted') throw new Error('محاولات كثيرة فاشلة — انتظر قليلاً أو سجّل الدخول بالبريد الإلكتروني');
+                throw err;
+            }
+        } else if (value.includes('@')) {
+            uid = (await signInWithEmailAndPassword(auth, value, password)).user.uid;
+        } else {
+            throw new Error('أدخل بريداً إلكترونياً أو رقم جوال سعودي صحيح (05xxxxxxxx)');
+        }
+        const profile = await loadFullProfile(uid);
+        if (!profile) {
+            await signOut(auth);
+            throw new Error('لا يوجد ملف تعريف مرتبط بهذا الحساب');
+        }
+        if (profile.role !== role) {
+            await signOut(auth);
+            throw new Error('هذا الحساب غير مسجل بهذا النوع من الحسابات');
+        }
+        return profile;
     },
+    /**
+     * Follows the worked example in INTEGRATION.md §5 exactly:
+     * 1) signUp (Cloud Function — creates the Auth user AND the profile in
+     *    one transaction; a client may never create users/{uid} directly).
+     * 2) sign the user in — signUp does not do this itself.
+     * 3) upload + record every required account-level document.
+     * 4) for a carrier, add each truck with its own two papers.
+     */
     registerNewUser: async (payload) => {
-        const userCredential = await createUserWithEmailAndPassword(auth, payload.email, payload.password);
-        const uid = userCredential.user.uid;
-        
         const isCompany = payload.accountType === 'COMPANY';
-        const userData = {
-            role: payload.role,
-            name: payload.name,
-            email: payload.email,
-            phone: payload.phone,
-            accountType: payload.accountType,
-            accountStatus: AccountStatus.UNDER_REVIEW,
-            isSuspended: false,
-            notificationsEnabled: true,
-            createdAt: serverTimestamp(),
-            ...(isCompany ? { companyName: payload.companyName } : {}),
-            ...(payload.role === 'CARRIER'
-                ? {
-                    truckType: payload.truckType || '',
-                    plateNumber: payload.plateNumber || '',
-                    rating: 0,
-                    completedTrips: 0,
-                    warningCount: 0,
-                    isBlacklisted: false
-                }
-                : {}),
-        };
-        
-        await setDoc(doc(db, 'users', uid), userData);
-        
-        await setDoc(doc(db, 'wallets', uid), {
-            userId: uid,
-            balance: 0,
-            reservedBalance: 0
-        });
 
-        return { id: uid, ...userData };
+        const signUpRes = await call('signUp')({
+            email: payload.email,
+            password: payload.password,
+            role: payload.role,
+            accountType: payload.accountType,
+            name: payload.name,
+            phone: payload.phone, // backend accepts 05.../9665.../+9665... and normalizes server-side
+            ...(payload.city ? { city: payload.city } : {}),
+            ...(isCompany ? { companyName: payload.companyName } : {}),
+            ...(payload.commercialRegister ? { commercialRegister: payload.commercialRegister } : {}),
+        });
+        const uid = signUpRes.data.uid;
+
+        // signUp does not sign anyone in.
+        await signInWithEmailAndPassword(auth, payload.email, payload.password);
+
+        // Every uploaded document (payload.files, keyed by the stable
+        // DOCUMENT_KEYS constants — NATIONAL_ID, PUBLIC_DRIVING_LICENCE,
+        // COMMERCIAL_REGISTRATION, MANAGER_ID, which double as the account
+        // document `type` value the backend expects) actually gets
+        // uploaded to Storage and recorded in Firestore here.
+        for (const [type, file] of Object.entries(payload.files || {})) {
+            if (!file) continue;
+            const fileUrl = await uploadFile(`documents/${uid}/${type}_${Date.now()}${fileExtension(file)}`, file);
+            await setDoc(doc(collection(db, 'users', uid, 'documents')), {
+                type, fileUrl, status: 'PENDING', uploadedAt: serverTimestamp(),
+            });
+        }
+
+        // Each truck the carrier registered becomes its own document in the
+        // `trucks` subcollection — independent data and independent
+        // documents per truck, never collapsed onto the carrier record.
+        if (payload.role === 'CARRIER') {
+            for (const truckInput of payload.trucks || []) {
+                await createTruckRecord(uid, truckInput);
+            }
+        }
+
+        return loadFullProfile(uid);
     },
+    // The confirmed schema has no client-writable password/notification
+    // fields yet (users/{uid}'s only self-editable fields are name, phone,
+    // companyName, city — see firestore.rules onlySelfEditableFields), so
+    // these stay client-side no-ops against the real backend rather than
+    // guessing at an endpoint that does not exist.
     changePassword: async () => {
-        return { success: true }; 
+        return { success: true };
     },
     setNotificationsEnabled: async (userId, value) => {
-        await updateDoc(doc(db, 'users', userId), { notificationsEnabled: value });
         return { notificationsEnabled: value };
     },
-    updateTruckInfo: async (userId, { truckType, plateNumber }) => {
-        await updateDoc(doc(db, 'users', userId), { truckType, plateNumber });
-        const userDoc = await getDoc(doc(db, 'users', userId));
-        return { id: userId, ...userDoc.data() };
+    /** Adds one new truck (with its own documents) to the carrier's `trucks` subcollection. */
+    addTruck: async (userId, truckInput) => {
+        await createTruckRecord(userId, truckInput);
+        return loadFullProfile(userId);
+    },
+    /**
+     * Edits one existing truck's own details — never operatingCard.status,
+     * registration.status, or isSelectable, which the rules only let this
+     * write through unchanged (they stay untouched here, so the rule's
+     * equality check passes automatically).
+     */
+    updateTruck: async (userId, truckId, { brand, model, type, capacityTons, plateNumber }) => {
+        const updates = {};
+        if (brand !== undefined) updates.brand = brand;
+        if (model !== undefined) updates.model = model;
+        if (type !== undefined) updates.type = type;
+        if (capacityTons !== undefined) updates.capacityTons = Number(capacityTons);
+        if (plateNumber !== undefined) updates.plateNumber = plateNumber;
+        await updateDoc(doc(db, 'users', userId, 'trucks', truckId), updates);
+        return loadFullProfile(userId);
+    },
+    /** Removes a truck from the carrier's `trucks` subcollection. */
+    removeTruck: async (userId, truckId) => {
+        await deleteDoc(doc(db, 'users', userId, 'trucks', truckId));
+        return loadFullProfile(userId);
     },
     getCurrentUser: () => {
         return new Promise((resolve, reject) => {
             const unsubscribe = onAuthStateChanged(auth, async (user) => {
                 unsubscribe();
-                if (user) {
-                    const userDoc = await getDoc(doc(db, 'users', user.uid));
-                    resolve(userDoc.exists() ? { id: user.uid, ...userDoc.data() } : null);
-                } else {
-                    resolve(null);
-                }
+                if (!user) return resolve(null);
+                resolve(await loadFullProfile(user.uid));
             }, reject);
         });
     },
@@ -99,372 +240,426 @@ export const firebaseUserService = {
     }
 };
 
+// =====================================================================
+// Stage 2 — shipments, negotiation, trips, wallet. Nothing here is
+// client-writable on the real backend except account-independent reads —
+// every mutation below goes through the matching Cloud Function in
+// hemooltak-backend/INTEGRATION.md §12. Adapters translate the real
+// Firestore/response shapes into the shape this app's UI already expects
+// (see the audit that drove this rewrite) wherever that mapping is
+// lossless; where the model is genuinely different (negotiation threads,
+// site-details editing, offer rejection) the UI itself changes instead of
+// being lied to by a fake adapter.
+// =====================================================================
+
+/** Attaches the private siteDetails half when the caller is allowed to read it (shipper or assigned carrier); silently leaves it off otherwise, exactly like the rules intend. */
+const attachSiteDetails = async (shipment) => {
+    try {
+        const siteSnap = await getDoc(doc(db, 'shipments', shipment.id, 'private', 'siteDetails'));
+        if (siteSnap.exists()) {
+            const site = siteSnap.data();
+            shipment.pickupLat = site.pickupCoords?.latitude ?? null;
+            shipment.pickupLng = site.pickupCoords?.longitude ?? null;
+            shipment.deliveryLat = site.deliveryCoords?.latitude ?? null;
+            shipment.deliveryLng = site.deliveryCoords?.longitude ?? null;
+            shipment.onSiteContact = site.onSiteContact;
+            shipment.pickupNotes = site.pickupNotes || '';
+            shipment.deliveryNotes = site.deliveryNotes || '';
+        }
+    } catch {
+        // Not the shipper or the assigned carrier — siteDetails stays hidden.
+    }
+    return shipment;
+};
+
+const toIso = (value) => value?.toDate?.().toISOString() ?? value ?? null;
+
+/** Public shipment fields only — `proposedPrice` is kept as an alias of `suggestedPrice` so existing UI reads keep working; there is no `volume` or `pickupLocation`/`deliveryLocation` on the real schema. */
+const toShipmentUiShape = (id, data) => ({
+    id,
+    ...data,
+    proposedPrice: data.suggestedPrice,
+    createdAt: toIso(data.createdAt),
+    loadingDate: toIso(data.loadingDate),
+    assignedAt: toIso(data.assignedAt),
+    completedAt: toIso(data.completedAt),
+    cancelledAt: toIso(data.cancelledAt),
+});
+
 // --- SHIPMENT SERVICE ---
 export const firebaseShipmentService = {
+    /**
+     * Every verified user may read every shipment's public half (the
+     * marketplace) — this returns them all and leaves the per-role
+     * filtering (mine / matching my truck type) to the calling screens,
+     * same as the mock always did.
+     */
     getShipments: async () => {
         const q = query(collection(db, 'shipments'), orderBy('createdAt', 'desc'));
-        const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const snap = await getDocs(q);
+        return snap.docs.map(d => toShipmentUiShape(d.id, d.data()));
     },
     getShipmentById: async (id) => {
         const docSnap = await getDoc(doc(db, 'shipments', id));
-        if (!docSnap.exists()) throw new Error('Shipment not found');
-        return { id: docSnap.id, ...docSnap.data() };
+        if (!docSnap.exists()) throw new Error('الشحنة غير موجودة');
+        return attachSiteDetails(toShipmentUiShape(docSnap.id, docSnap.data()));
     },
+    /** `data` matches createShipment's real payload (INTEGRATION.md §12) plus the UI's flat `proposedPrice`/`pickupLat`.../`onSiteContact` fields, assembled into the required nested `siteDetails` shape here. */
     createShipment: async (data) => {
-        const currentUser = await firebaseAuthService.getCurrentUser();
-        if (!currentUser) throw new Error('Unauthorized');
-        
-        const newShipment = {
-            ...data,
-            shipperId: currentUser.id,
-            status: ShipmentStatus.OFFERS_PENDING,
-            createdAt: new Date().toISOString(), 
-            offerCount: 0
-        };
-        const docRef = await addDoc(collection(db, 'shipments'), newShipment);
-        return { id: docRef.id, ...newShipment };
+        const res = await call('createShipment')({
+            cargoType: data.cargoType,
+            weight: Number(data.weight),
+            ...(data.description?.trim() ? { description: data.description.trim() } : {}),
+            requiredTruckType: data.requiredTruckType,
+            loadingDate: data.loadingDate,
+            suggestedPrice: Number(data.proposedPrice),
+            pickupCity: data.pickupCity,
+            deliveryCity: data.deliveryCity,
+            siteDetails: {
+                pickupCoords: { lat: data.pickupLat, lng: data.pickupLng },
+                deliveryCoords: { lat: data.deliveryLat, lng: data.deliveryLng },
+                ...(data.pickupNotes ? { pickupNotes: data.pickupNotes } : {}),
+                ...(data.deliveryNotes ? { deliveryNotes: data.deliveryNotes } : {}),
+                onSiteContact: data.onSiteContact,
+            },
+        });
+        return firebaseShipmentService.getShipmentById(res.data.shipmentId);
     },
-    cancelShipment: async (id) => {
-        const docRef = doc(db, 'shipments', id);
-        const docSnap = await getDoc(docRef);
-        if (!docSnap.exists()) throw new Error('Shipment not found');
-        const shipment = docSnap.data();
-        if (shipment.status === ShipmentStatus.ACTIVE || shipment.status === ShipmentStatus.COMPLETED) {
-            throw new Error('Cannot cancel active shipment');
-        }
-        await updateDoc(docRef, { status: ShipmentStatus.CANCELLED });
-        return { id, ...shipment, status: ShipmentStatus.CANCELLED };
+    /**
+     * Free before assignment, commission-charging after — `cancelShipment`
+     * is the ONE function for both cases (INTEGRATION.md §12); trip-level
+     * cancellation (firebaseTripService.cancelTrip) calls this same
+     * function too, just resolving the shipmentId from the trip first.
+     */
+    cancelShipment: async (id, reason) => {
+        const res = await call('cancelShipment')({ shipmentId: id, ...(reason ? { reason } : {}) });
+        const shipment = await firebaseShipmentService.getShipmentById(id);
+        shipment.cancellationResult = res.data;
+        return shipment;
     },
-    updateSiteDetails: async (id, details) => {
-        const docRef = doc(db, 'shipments', id);
-        await updateDoc(docRef, details);
-        const docSnap = await getDoc(docRef);
-        return { id, ...docSnap.data() };
+    /**
+     * There is no real Cloud Function for editing site details after
+     * creation — `shipments/{id}/private/siteDetails` is `allow write: if
+     * false` even for the shipper (INTEGRATION.md §13). This is a genuine
+     * gap versus the mock's editable behavior, not something to fake.
+     */
+    updateSiteDetails: async () => {
+        throw new Error('لا يمكن تعديل بيانات الموقع بعد نشر الشحنة — هذه الميزة غير مدعومة حالياً من الخادم.');
     }
+};
+
+// --- CATALOG SERVICE (admin-managed lists) --------------------------------
+// config/cargoTypes and config/truckTypes are written by the admin
+// dashboard (config/* is admin-writable, readable by any signed-in user).
+// Both fall back to the built-in lists when the admin hasn't saved any.
+export const firebaseCatalogService = {
+    /** [{ id, name, category }] */
+    getCargoTypes: async () => {
+        const snap = await getDoc(doc(db, 'config', 'cargoTypes'));
+        return snap.exists() && Array.isArray(snap.data().items) ? snap.data().items : null;
+    },
+    /** { [TruckType]: { label, active } } — overrides only; the codes themselves are the fixed backend enum. */
+    getTruckTypeOverrides: async () => {
+        const snap = await getDoc(doc(db, 'config', 'truckTypes'));
+        return (snap.exists() && snap.data().items) || {};
+    },
+};
+
+// --- Shared negotiation-thread helpers -----------------------------------
+/**
+ * Another user's profile is readable only by that user and admins
+ * (INTEGRATION.md §7) — a shipper reading its carrier's profile is
+ * refused. Returns null instead of throwing so callers can fall back to
+ * the public snapshots the backend puts on each offer.
+ */
+const userInfoCache = new Map();
+const getUserInfo = async (uid) => {
+    if (userInfoCache.has(uid)) return userInfoCache.get(uid);
+    let info = null;
+    try {
+        const snap = await getDoc(doc(db, 'users', uid));
+        if (snap.exists()) info = { name: snap.data().companyName || snap.data().name, rating: snap.data().rating ?? null };
+    } catch { /* not ours to read */ }
+    userInfoCache.set(uid, info);
+    return info;
+};
+
+const createdMillis = (o) => o.createdAt?.toMillis?.() ?? 0;
+
+/**
+ * Rebuilds one carrier's thread on a shipment from the real offer-chain
+ * (root -> counteredByOfferId -> ... -> live/terminal offer) into the shape
+ * the UI expects: the live offer's own fields at the top level, plus a
+ * `history` array for the negotiation view. `offers` is every offer doc for
+ * ONE carrier on ONE shipment.
+ *
+ * A carrier whose offer was rejected may offer again (INTEGRATION.md §12
+ * rejectOffer), which starts a NEW chain — so there can be several roots.
+ * `anchorOfferId` picks the chain containing that offer; without it the
+ * newest chain wins. Carrier name/rating/truck type come from the public
+ * snapshots on the offer itself (§9), never from the carrier's profile.
+ */
+const buildOfferThread = (shipmentId, offers, anchorOfferId = null) => {
+    const byId = new Map(offers.map(o => [o.id, o]));
+    const chains = offers
+        .filter(o => !o.previousOfferId || !byId.has(o.previousOfferId))
+        .map(root => {
+            const chain = [];
+            let node = root;
+            while (node) {
+                chain.push(node);
+                node = node.counteredByOfferId ? byId.get(node.counteredByOfferId) : null;
+            }
+            return chain;
+        })
+        .sort((a, b) => createdMillis(b[0]) - createdMillis(a[0]));
+    const chain = (anchorOfferId && chains.find(c => c.some(o => o.id === anchorOfferId))) || chains[0];
+    const live = chain[chain.length - 1];
+    return {
+        id: live.id,
+        shipmentId,
+        carrierId: live.carrierId,
+        truckId: live.truckId,
+        offeredPrice: live.amount,
+        status: live.status,
+        proposedBy: live.proposedBy,
+        rejectReason: live.rejectReason || null,
+        submittedAt: toIso(chain[0].createdAt),
+        carrierName: live.carrierName || chain[0].carrierName || '—',
+        carrierRating: live.carrierRating ?? chain[0].carrierRating ?? null,
+        carrierCompletedTrips: live.carrierCompletedTrips ?? chain[0].carrierCompletedTrips ?? 0,
+        carrierTruckType: live.truckType || chain[0].truckType || null,
+        history: chain.map(o => ({ amount: o.amount, senderRole: o.proposedBy, timestamp: toIso(o.createdAt) })),
+    };
+};
+
+const groupBy = (items, keyFn) => {
+    const map = new Map();
+    for (const item of items) {
+        const key = keyFn(item);
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(item);
+    }
+    return map;
 };
 
 // --- OFFER SERVICE ---
 export const firebaseOfferService = {
+    /** One row per carrier thread — mirrors what ReceivedOffers.jsx already renders. */
     getOffersForShipment: async (shipmentId) => {
-        const q = query(collection(db, 'offers'), where('shipmentId', '==', shipmentId));
-        const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const snap = await getDocs(collection(db, 'shipments', shipmentId, 'offers'));
+        const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const byCarrier = groupBy(all, o => o.carrierId);
+        return Promise.all([...byCarrier.values()].map(offers => buildOfferThread(shipmentId, offers)));
     },
+    /** One row per shipment this carrier has ever offered on — a collection-group query constrained on carrierId, per the rules and the provisioned index. */
     getOffersByCarrier: async (carrierId) => {
-        const q = query(collection(db, 'offers'), where('carrierId', '==', carrierId));
-        const querySnapshot = await getDocs(q);
-        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const q = query(collectionGroup(db, 'offers'), where('carrierId', '==', carrierId));
+        const snap = await getDocs(q);
+        const all = snap.docs.map(d => ({ id: d.id, shipmentId: d.ref.parent.parent.id, ...d.data() }));
+        const byShipment = groupBy(all, o => o.shipmentId);
+        return Promise.all([...byShipment.entries()].map(([shipmentId, offers]) => buildOfferThread(shipmentId, offers)));
     },
+    /**
+     * Resolves the WHOLE thread from any historical offer id in its chain —
+     * used by Negotiation.jsx, whose URL anchors on whatever offer id was
+     * live at the time the user navigated in, which may have since been
+     * superseded by a counter (a new offer id) further down the chain.
+     */
+    getThreadContainingOffer: async (shipmentId, offerId) => {
+        const offerSnap = await getDoc(doc(db, 'shipments', shipmentId, 'offers', offerId));
+        if (!offerSnap.exists()) return null;
+        const carrierId = offerSnap.data().carrierId;
+        const chainSnap = await getDocs(query(collection(db, 'shipments', shipmentId, 'offers'), where('carrierId', '==', carrierId)));
+        return buildOfferThread(shipmentId, chainSnap.docs.map(d => ({ id: d.id, ...d.data() })), offerId);
+    },
+    /** `data`: { shipmentId, carrierId (ignored — inferred from the caller), truckId, offeredPrice }. */
     submitOffer: async (data) => {
-        const newOffer = {
-            shipmentId: data.shipmentId,
-            carrierId: data.carrierId,
-            offeredPrice: data.offeredPrice,
-            status: OfferStatus.PENDING,
-            submittedAt: new Date().toISOString(),
-            carrierRating: 5.0,
-            carrierName: data.carrierName,
-            carrierTruckType: data.truckType,
-            history: [{ amount: data.offeredPrice, senderRole: 'CARRIER', timestamp: new Date().toISOString() }]
-        };
-        const docRef = await addDoc(collection(db, 'offers'), newOffer);
-        await updateDoc(doc(db, 'shipments', data.shipmentId), { status: ShipmentStatus.NEGOTIATING });
-        return { id: docRef.id, ...newOffer };
+        const res = await call('submitOffer')({ shipmentId: data.shipmentId, truckId: data.truckId, amount: data.offeredPrice });
+        const offerSnap = await getDoc(doc(db, 'shipments', data.shipmentId, 'offers', res.data.offerId));
+        return buildOfferThread(data.shipmentId, [{ id: offerSnap.id, ...offerSnap.data() }]);
     },
-    counterOffer: async (offerId, amount, senderRole) => {
-        const offerRef = doc(db, 'offers', offerId);
-        const offerSnap = await getDoc(offerRef);
-        if (!offerSnap.exists()) throw new Error('Offer not found');
-        const offer = offerSnap.data();
-        
-        const history = [...(offer.history || []), { amount, senderRole, timestamp: new Date().toISOString() }];
-        await updateDoc(offerRef, { offeredPrice: amount, status: OfferStatus.PENDING, history });
-        return { id: offerId, ...offer, offeredPrice: amount, status: OfferStatus.PENDING, history };
+    /** `senderRole` param dropped — the backend infers whose turn it is from the caller's own identity, not a client-supplied label. */
+    counterOffer: async (shipmentId, offerId, amount) => {
+        const res = await call('counterOffer')({ shipmentId, offerId, amount });
+        const newOfferSnap = await getDoc(doc(db, 'shipments', shipmentId, 'offers', res.data.offerId));
+        const newOffer = { id: newOfferSnap.id, ...newOfferSnap.data() };
+        const chainSnap = await getDocs(query(collection(db, 'shipments', shipmentId, 'offers'), where('carrierId', '==', newOffer.carrierId)));
+        return buildOfferThread(shipmentId, chainSnap.docs.map(d => ({ id: d.id, ...d.data() })), newOffer.id);
     },
-    rejectOffer: async (offerId) => {
-        await updateDoc(doc(db, 'offers', offerId), { status: OfferStatus.REJECTED });
-        const offerSnap = await getDoc(doc(db, 'offers', offerId));
-        return { id: offerId, ...offerSnap.data() };
-    },
-    acceptOffer: async (offerId, finalPrice) => {
-        const offerRef = doc(db, 'offers', offerId);
-        const offerSnap = await getDoc(offerRef);
-        if (!offerSnap.exists()) throw new Error('Offer not found');
-        const offer = offerSnap.data();
-
-        const shipmentRef = doc(db, 'shipments', offer.shipmentId);
-        const shipmentSnap = await getDoc(shipmentRef);
-        const shipment = shipmentSnap.data();
-
-        const shipperWalletRef = doc(db, 'wallets', shipment.shipperId);
-        const shipperWalletSnap = await getDoc(shipperWalletRef);
-        const shipperWallet = shipperWalletSnap.data();
-        const available = shipperWallet.balance - shipperWallet.reservedBalance;
-        
-        if (available < finalPrice) {
-            throw new Error('الرصيد المتاح غير كافٍ');
-        }
-
-        await updateDoc(shipperWalletRef, {
-            reservedBalance: shipperWallet.reservedBalance + finalPrice
-        });
-
-        await updateDoc(offerRef, { status: OfferStatus.ACCEPTED });
-
-        await updateDoc(shipmentRef, {
-            status: ShipmentStatus.ACTIVE,
-            finalPrice,
-            assignedCarrierId: offer.carrierId
-        });
-
-        const newTrip = {
-            shipmentId: offer.shipmentId,
-            carrierId: offer.carrierId,
-            shipperId: shipment.shipperId,
-            currentStage: TripStage.ASSIGNED,
-            finalPrice,
-            startedAt: new Date().toISOString(),
-            route: `${shipment.pickupCity} -> ${shipment.deliveryCity}`,
-            carrierName: offer.carrierName,
-            messages: []
-        };
-        const tripRef = await addDoc(collection(db, 'trips'), newTrip);
-
-        const offersQ = query(collection(db, 'offers'), where('shipmentId', '==', offer.shipmentId));
-        const offersSnap = await getDocs(offersQ);
-        for (const oDoc of offersSnap.docs) {
-            if (oDoc.id !== offerId) {
-                await updateDoc(doc(db, 'offers', oDoc.id), { status: OfferStatus.REJECTED });
-            }
-        }
-
-        return { id: tripRef.id, ...newTrip };
-    }
+    acceptOffer: async (shipmentId, offerId) => (await call('acceptOffer')({ shipmentId, offerId })).data,
+    /**
+     * Closes ONE thread (INTEGRATION.md §12 rejectOffer) — only the side that
+     * did NOT make the live offer may reject it. Other carriers' threads are
+     * untouched, and a rejected carrier may offer again.
+     */
+    rejectOffer: async (shipmentId, offerId, reason) =>
+        (await call('rejectOffer')({ shipmentId, offerId, ...(reason ? { reason } : {}) })).data,
 };
+
+/** Trip fields the UI already reads under mock-era names, mapped onto the real schema (INTEGRATION.md §9) — `currentStage`/`overallStatus`/`finalPrice`/`stages`, plus a derived `route` and `carrierName` the real trip doc doesn't itself carry. */
+/** { url, coords, timestamp } (real schema) -> { photoDataUrl, lat, lng, capturedAt } (what ProofPhotoCapture's `existingPhoto` prop reads) — the "photoDataUrl" name is stale now that it's a real Storage URL rather than a base64 data URL, but any valid <img src> works the same way. */
+const toProofUiShape = (proof) => proof ? {
+    photoDataUrl: proof.url,
+    lat: proof.coords?.latitude ?? null,
+    lng: proof.coords?.longitude ?? null,
+    capturedAt: toIso(proof.timestamp),
+} : null;
+
+const toTripUiShape = async (id, data) => {
+    const trip = {
+        id,
+        ...data,
+        currentStage: data.stage,
+        overallStatus: data.status,
+        finalPrice: data.agreedPrice,
+        stages: (data.stageHistory || []).map(s => ({ stage: s.stage, timestamp: toIso(s.timestamp) })),
+        proofOfLoad: toProofUiShape(data.proofOfLoad),
+        proofOfDelivery: toProofUiShape(data.proofOfDelivery),
+        startedAt: toIso(data.createdAt),
+        completedAt: toIso(data.completedAt),
+        messages: (data.quickMessages || []).map((m, i) => ({
+            id: `${m.senderId}-${i}`,
+            senderId: m.senderId,
+            messageKey: m.messageKey,
+            timestamp: toIso(m.timestamp),
+        })),
+    };
+    if (data.status === 'CANCELLED') {
+        trip.cancellation = { cancelledBy: data.cancelledBy, reason: data.cancelReason, at: toIso(data.cancelledAt) };
+    }
+    try {
+        const shipmentSnap = await getDoc(doc(db, 'shipments', data.shipmentId));
+        if (shipmentSnap.exists()) {
+            const s = shipmentSnap.data();
+            trip.route = `${s.pickupCity} -> ${s.deliveryCity}`;
+        }
+    } catch { /* leave route unset */ }
+    // A shipper may not read the carrier's profile — fall back to the
+    // public name snapshot on the carrier's offer for this shipment.
+    const carrierInfo = await getUserInfo(data.carrierId);
+    trip.carrierName = carrierInfo?.name ?? null;
+    if (!trip.carrierName) {
+        try {
+            const offersSnap = await getDocs(query(collection(db, 'shipments', data.shipmentId, 'offers'), where('carrierId', '==', data.carrierId)));
+            trip.carrierName = offersSnap.docs.map(d => d.data().carrierName).find(Boolean) || '—';
+        } catch {
+            trip.carrierName = '—';
+        }
+    }
+    const me = auth.currentUser?.uid;
+    if (me) {
+        const ratingSnap = await getDoc(doc(db, 'trips', id, 'ratings', me));
+        trip.isRated = ratingSnap.exists();
+    }
+    return trip;
+};
+
+/** dataURL (from ProofPhotoCapture's canvas capture) -> Blob, for uploading to Storage. */
+const dataUrlToBlob = async (dataUrl) => (await fetch(dataUrl)).blob();
 
 // --- TRIP SERVICE ---
 export const firebaseTripService = {
     getTrips: async () => {
-        const q = query(collection(db, 'trips'));
-        const snap = await getDocs(q);
-        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const currentUser = await firebaseAuthService.getCurrentUser();
+        if (!currentUser) return [];
+        const field = currentUser.role === 'CARRIER' ? 'carrierId' : 'shipperId';
+        const snap = await getDocs(query(collection(db, 'trips'), where(field, '==', currentUser.id)));
+        return Promise.all(snap.docs.map(d => toTripUiShape(d.id, d.data())));
     },
     getTripById: async (id) => {
         const snap = await getDoc(doc(db, 'trips', id));
-        if (!snap.exists()) throw new Error('Trip not found');
-        return { id: snap.id, ...snap.data() };
+        if (!snap.exists()) throw new Error('الرحلة غير موجودة');
+        return toTripUiShape(snap.id, snap.data());
     },
+    /**
+     * `proof`, when present (advancing to LOADED/DELIVERED), is
+     * `{ photoDataUrl, lat, lng, capturedAt }` from ProofPhotoCapture — the
+     * photo is uploaded to Storage and recorded via recordTripProof BEFORE
+     * updateTripStage, exactly the order INTEGRATION.md §15 requires (the
+     * reverse order fails with `failed-precondition`/`missingProof`).
+     */
     updateTripStage: async (id, stage, proof) => {
-        const tripRef = doc(db, 'trips', id);
-        const tripSnap = await getDoc(tripRef);
-        const trip = tripSnap.data();
-        
-        const stages = trip.stages || [];
-        stages.push({
-            stage,
-            timestamp: new Date().toISOString(),
-            proof: proof || null
-        });
-
-        await updateDoc(tripRef, { currentStage: stage, stages });
-        
-        if (stage === TripStage.DELIVERED) {
-            await firebaseTripService.settleDelivery(id);
+        if (proof) {
+            const kind = stage === TripStage.LOADED ? 'LOAD' : 'DELIVERY';
+            const blob = await dataUrlToBlob(proof.photoDataUrl);
+            const path = `trips/${id}/proof_of_${kind === 'LOAD' ? 'load' : 'delivery'}_${Date.now()}.jpg`;
+            const url = await uploadFile(path, blob);
+            await call('recordTripProof')({ tripId: id, kind, url, coords: { lat: proof.lat, lng: proof.lng } });
         }
-        
-        const updatedSnap = await getDoc(tripRef);
-        return { id, ...updatedSnap.data() };
-    },
-    settleDelivery: async (tripId) => {
-        const tripRef = doc(db, 'trips', tripId);
-        const tripSnap = await getDoc(tripRef);
-        const trip = tripSnap.data();
-        
-        if (trip.settled) return;
-        
-        const commission = Math.round(trip.finalPrice * COMMISSION_RATE);
-        const carrierNet = trip.finalPrice - commission;
-
-        const shipperWalletRef = doc(db, 'wallets', trip.shipperId);
-        const sWalletSnap = await getDoc(shipperWalletRef);
-        const sWallet = sWalletSnap.data();
-        await updateDoc(shipperWalletRef, {
-            reservedBalance: Math.max(0, sWallet.reservedBalance - trip.finalPrice),
-            balance: sWallet.balance - trip.finalPrice
-        });
-
-        const carrierWalletRef = doc(db, 'wallets', trip.carrierId);
-        const cWalletSnap = await getDoc(carrierWalletRef);
-        let cWallet = cWalletSnap.data();
-        if (!cWalletSnap.exists()) {
-            await setDoc(carrierWalletRef, { userId: trip.carrierId, balance: 0, reservedBalance: 0 });
-            cWallet = { balance: 0, reservedBalance: 0 };
-        }
-        await updateDoc(carrierWalletRef, {
-            balance: cWallet.balance + carrierNet
-        });
-
-        await updateDoc(tripRef, { settled: true });
+        const res = await call('updateTripStage')({ tripId: id, stage });
+        const trip = await firebaseTripService.getTripById(id);
+        trip.settlement = res.data.settlement; // { price, commission, debtDeducted, netToCarrier } on DELIVERED, else null
+        return trip;
     },
     cancellableStages: [TripStage.ASSIGNED, TripStage.EN_ROUTE_PICKUP, TripStage.ARRIVED_PICKUP],
-    cancelTrip: async (tripId, cancelledBy) => {
-        const tripRef = doc(db, 'trips', tripId);
-        const tripSnap = await getDoc(tripRef);
-        const trip = tripSnap.data();
-        
-        const commission = Math.round(trip.finalPrice * COMMISSION_RATE);
-
-        const shipperWalletRef = doc(db, 'wallets', trip.shipperId);
-        const sWalletSnap = await getDoc(shipperWalletRef);
-        const sWallet = sWalletSnap.data();
-        await updateDoc(shipperWalletRef, {
-            reservedBalance: Math.max(0, sWallet.reservedBalance - trip.finalPrice)
-        });
-
-        if (cancelledBy === 'SHIPPER') {
-            await updateDoc(shipperWalletRef, { balance: sWallet.balance - commission });
-            await updateDoc(doc(db, 'shipments', trip.shipmentId), { status: ShipmentStatus.CANCELLED });
-        } else {
-            const carrierWalletRef = doc(db, 'wallets', trip.carrierId);
-            const cWalletSnap = await getDoc(carrierWalletRef);
-            if (cWalletSnap.exists()) {
-                await updateDoc(carrierWalletRef, { balance: cWalletSnap.data().balance - commission });
-            }
-            await updateDoc(doc(db, 'shipments', trip.shipmentId), {
-                status: ShipmentStatus.OFFERS_PENDING,
-                assignedCarrierId: null,
-                finalPrice: null
-            });
-            const carrierRef = doc(db, 'users', trip.carrierId);
-            const carrierSnap = await getDoc(carrierRef);
-            const wc = (carrierSnap.data().warningCount || 0) + 1;
-            await updateDoc(carrierRef, { warningCount: wc, isBlacklisted: wc >= CANCELLATION_WARNING_THRESHOLD });
-        }
-
-        await updateDoc(tripRef, {
-            overallStatus: 'CANCELLED',
-            cancellation: { cancelledBy, commission, at: new Date().toISOString() }
-        });
-        
-        const updatedSnap = await getDoc(tripRef);
-        return { id: tripId, ...updatedSnap.data() };
+    /** Resolves the trip's shipmentId and cancels through the same cancelShipment function the pre-assignment path uses — there is no separate trip-level cancel endpoint. */
+    cancelTrip: async (tripId) => {
+        const tripSnap = await getDoc(doc(db, 'trips', tripId));
+        if (!tripSnap.exists()) throw new Error('الرحلة غير موجودة');
+        const res = await call('cancelShipment')({ shipmentId: tripSnap.data().shipmentId });
+        const trip = await firebaseTripService.getTripById(tripId);
+        trip.cancellationResult = res.data; // { chargedTo, commission, ... } for an immediate confirmation message
+        return trip;
     },
-    sendQuickMessage: async (tripId, senderRole, messageKey, label) => {
-        const tripRef = doc(db, 'trips', tripId);
-        const tripSnap = await getDoc(tripRef);
-        const messages = tripSnap.data().messages || [];
-        const message = { id: `msg-${Date.now()}`, senderRole, messageKey, label, timestamp: new Date().toISOString() };
-        messages.push(message);
-        await updateDoc(tripRef, { messages });
-        return message;
-    }
+    /** `label` is dropped over the wire — only `messageKey` is stored (INTEGRATION.md §12); the label is a client-side phrase-table lookup (see QuickMessagePanel). */
+    sendQuickMessage: async (tripId, senderRole, messageKey) => {
+        await call('sendQuickMessage')({ tripId, messageKey });
+        return { id: `local-${Date.now()}`, senderId: auth.currentUser?.uid, messageKey, timestamp: new Date().toISOString() };
+    },
+    submitRating: async (tripId, score, comment) => (await call('submitRating')({ tripId, score, ...(comment ? { comment } : {}) })).data,
 };
 
 // --- WALLET SERVICE ---
+const toWalletUiShape = (data) => {
+    const totalBalance = data?.totalBalance ?? 0;
+    const reservedAmount = data?.reservedAmount ?? 0;
+    // `availableBalance` is never stored (INTEGRATION.md §9) — always derived.
+    return { balance: totalBalance, reservedBalance: reservedAmount, available: totalBalance - reservedAmount };
+};
+
 export const firebaseWalletService = {
     getWallet: async () => {
         const currentUser = await firebaseAuthService.getCurrentUser();
         if (!currentUser) throw new Error('Unauthorized');
-        const walletSnap = await getDoc(doc(db, 'wallets', currentUser.id));
-        if (!walletSnap.exists()) {
-            await setDoc(doc(db, 'wallets', currentUser.id), { userId: currentUser.id, balance: 0, reservedBalance: 0 });
-            return { userId: currentUser.id, balance: 0, reservedBalance: 0, available: 0 };
-        }
-        const w = walletSnap.data();
-        return { ...w, available: w.balance - w.reservedBalance };
+        const snap = await getDoc(doc(db, 'wallets', currentUser.id));
+        return toWalletUiShape(snap.exists() ? snap.data() : null);
     },
     getTransactions: async () => {
         const currentUser = await firebaseAuthService.getCurrentUser();
-        const q = query(collection(db, 'transactions'), where('walletId', '==', currentUser.id), orderBy('timestamp', 'desc'));
-        const snap = await getDocs(q);
-        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        if (!currentUser) throw new Error('Unauthorized');
+        const snap = await getDocs(query(collection(db, 'wallets', currentUser.id, 'transactions'), orderBy('createdAt', 'desc')));
+        return snap.docs.map(d => {
+            const data = d.data();
+            return {
+                id: d.id,
+                type: data.type,
+                amount: data.amount,
+                withheld: data.withheld,
+                description: data.description || '',
+                referenceId: data.shipmentId || data.tripId || data.withdrawalId || null,
+                timestamp: toIso(data.createdAt),
+            };
+        });
     },
     topUp: async (amount) => {
-        const currentUser = await firebaseAuthService.getCurrentUser();
-        const walletRef = doc(db, 'wallets', currentUser.id);
-        const walletSnap = await getDoc(walletRef);
-        const w = walletSnap.data();
-        await updateDoc(walletRef, { balance: w.balance + Number(amount) });
-        
-        const txn = {
-            walletId: currentUser.id,
-            type: TransactionType.TOP_UP,
-            amount: Number(amount),
-            description: 'شحن رصيد إضافي',
-            timestamp: new Date().toISOString(),
-            balanceAfter: w.balance + Number(amount)
-        };
-        await addDoc(collection(db, 'transactions'), txn);
-        return txn;
+        const res = await call('topUpWallet')({ amount: Number(amount) });
+        return { id: `topup-${Date.now()}`, type: 'TOP_UP', amount: res.data.credited, description: 'شحن رصيد', timestamp: new Date().toISOString() };
     },
-    withdraw: async (amount) => {
-        const currentUser = await firebaseAuthService.getCurrentUser();
-        const walletRef = doc(db, 'wallets', currentUser.id);
-        const walletSnap = await getDoc(walletRef);
-        const w = walletSnap.data();
-        
-        const withdrawAmount = Number(amount);
-        const available = w.balance - w.reservedBalance;
-        if (withdrawAmount > available) throw new Error('الرصيد المتاح غير كافٍ');
-
-        await updateDoc(walletRef, { reservedBalance: w.reservedBalance + withdrawAmount });
-        
-        const txn = {
-            walletId: currentUser.id,
-            type: TransactionType.WITHDRAWAL,
-            amount: -withdrawAmount,
-            description: 'طلب سحب رصيد (قيد المعالجة)',
-            timestamp: new Date().toISOString(),
-            balanceAfter: w.balance
-        };
-        const txnRef = await addDoc(collection(db, 'transactions'), txn);
-
-        setTimeout(async () => {
-            const freshWalletSnap = await getDoc(walletRef);
-            const fw = freshWalletSnap.data();
-            await updateDoc(walletRef, {
-                reservedBalance: Math.max(0, fw.reservedBalance - withdrawAmount),
-                balance: fw.balance - withdrawAmount
-            });
-            await updateDoc(doc(db, 'transactions', txnRef.id), {
-                description: 'سحب رصيد',
-                balanceAfter: fw.balance - withdrawAmount
-            });
-        }, 3000);
-
-        return { id: txnRef.id, ...txn };
-    }
+    /** Only holds the amount (reservedAmount rises) — settlement happens later when an admin calls processWithdrawal, not instantly like the mock. */
+    withdraw: async (amount, note) => {
+        const res = await call('requestWithdrawal')({ amount: Number(amount), ...(note ? { note } : {}) });
+        return { id: res.data.withdrawalId, type: 'WITHDRAWAL', amount: -res.data.amount, description: 'طلب سحب رصيد (قيد مراجعة الإدارة)', timestamp: new Date().toISOString() };
+    },
 };
 
 // --- NOTIFICATION SERVICE ---
+// The confirmed backend contract has no `notifications` collection or
+// function at all (INTEGRATION.md covers Stages 1-2 in full and neither
+// mentions one) — this stays an honest no-op rather than reading/writing a
+// collection the security rules' catch-all denies outright.
 export const firebaseNotificationService = {
-    getNotifications: async () => {
-        const currentUser = await firebaseAuthService.getCurrentUser();
-        if(!currentUser) return [];
-        const q = query(collection(db, 'notifications'), where('userId', '==', currentUser.id), orderBy('timestamp', 'desc'));
-        const snap = await getDocs(q);
-        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    },
-    markAsRead: async (id) => {
-        await updateDoc(doc(db, 'notifications', id), { isRead: true });
-    },
-    markAllAsRead: async () => {
-        const currentUser = await firebaseAuthService.getCurrentUser();
-        if(!currentUser) return;
-        const q = query(collection(db, 'notifications'), where('userId', '==', currentUser.id), where('isRead', '==', false));
-        const snap = await getDocs(q);
-        for(const document of snap.docs) {
-            await updateDoc(doc(db, 'notifications', document.id), { isRead: true });
-        }
-    }
-};
-
-// --- STORAGE SERVICE ---
-export const firebaseStorageService = {
-    uploadFile: async (path, file) => {
-        const storageRef = ref(storage, path);
-        await uploadBytes(storageRef, file);
-        return await getDownloadURL(storageRef);
-    }
+    getNotifications: async () => [],
+    markAsRead: async () => {},
+    markAllAsRead: async () => {},
 };

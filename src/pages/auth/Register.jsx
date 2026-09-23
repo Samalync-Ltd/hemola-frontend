@@ -5,7 +5,9 @@ import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { isValidSaudiPhone, normalizeSaudiPhone } from '../../utils/validators';
 import { markFreshAccount } from '../../utils/freshAccount';
-import { authService } from '../../services/api';
+import { authService, USE_FIREBASE_AUTH } from '../../services/api';
+import { DOCUMENT_KEYS } from '../../constants/documentKeys';
+import { TRUCK_TYPE_OPTIONS, TruckTypeAr } from '../../constants/enums';
 
 export const Register = () => {
     const navigate = useNavigate();
@@ -58,26 +60,30 @@ export const Register = () => {
             if (!formData.password.trim()) { newErrors.password = 'هذا الحقل مطلوب'; isValid = false; }
         } else if (step === 4) {
             if (role === 'SHIPPER') {
-                if (accountType === 'INDIVIDUAL' && !files.nationalId) { newErrors.nationalId = 'هذا الحقل مطلوب'; isValid = false; }
+                if (accountType === 'INDIVIDUAL' && !files[DOCUMENT_KEYS.NATIONAL_ID]) { newErrors[DOCUMENT_KEYS.NATIONAL_ID] = 'هذا الحقل مطلوب'; isValid = false; }
                 if (accountType === 'COMPANY') {
-                    if (!files.commercialRegistration) { newErrors.commercialRegistration = 'هذا الحقل مطلوب'; isValid = false; }
-                    if (!files.managerId) { newErrors.managerId = 'هذا الحقل مطلوب'; isValid = false; }
+                    if (!files[DOCUMENT_KEYS.COMMERCIAL_REGISTRATION]) { newErrors[DOCUMENT_KEYS.COMMERCIAL_REGISTRATION] = 'هذا الحقل مطلوب'; isValid = false; }
+                    if (!files[DOCUMENT_KEYS.MANAGER_ID]) { newErrors[DOCUMENT_KEYS.MANAGER_ID] = 'هذا الحقل مطلوب'; isValid = false; }
                 }
             } else if (role === 'CARRIER') {
                 if (accountType === 'INDIVIDUAL') {
-                    if (!files.nationalId) { newErrors.nationalId = 'هذا الحقل مطلوب'; isValid = false; }
-                    if (!files.publicDrivingLicense) { newErrors.publicDrivingLicense = 'هذا الحقل مطلوب'; isValid = false; }
+                    if (!files[DOCUMENT_KEYS.NATIONAL_ID]) { newErrors[DOCUMENT_KEYS.NATIONAL_ID] = 'هذا الحقل مطلوب'; isValid = false; }
+                    if (!files[DOCUMENT_KEYS.PUBLIC_DRIVING_LICENCE]) { newErrors[DOCUMENT_KEYS.PUBLIC_DRIVING_LICENCE] = 'هذا الحقل مطلوب'; isValid = false; }
                 }
                 if (accountType === 'COMPANY') {
-                    if (!files.commercialRegistration) { newErrors.commercialRegistration = 'هذا الحقل مطلوب'; isValid = false; }
-                    if (!files.managerId) { newErrors.managerId = 'هذا الحقل مطلوب'; isValid = false; }
+                    if (!files[DOCUMENT_KEYS.COMMERCIAL_REGISTRATION]) { newErrors[DOCUMENT_KEYS.COMMERCIAL_REGISTRATION] = 'هذا الحقل مطلوب'; isValid = false; }
+                    if (!files[DOCUMENT_KEYS.MANAGER_ID]) { newErrors[DOCUMENT_KEYS.MANAGER_ID] = 'هذا الحقل مطلوب'; isValid = false; }
                 }
             }
         } else if (step === 5 && role === 'CARRIER') {
-            if (!formData.truckType?.trim()) { newErrors.truckType = 'يرجى إدخال نوع الشاحنة'; isValid = false; }
+            if (!formData.brand?.trim()) { newErrors.brand = 'هذا الحقل مطلوب'; isValid = false; }
+            if (!formData.model?.trim()) { newErrors.model = 'هذا الحقل مطلوب'; isValid = false; }
+            if (!formData.truckType?.trim()) { newErrors.truckType = 'يرجى اختيار نوع الشاحنة'; isValid = false; }
+            if (formData.truckType === 'OTHER' && !formData.customType?.trim()) { newErrors.customType = 'يرجى تحديد نوع الشاحنة'; isValid = false; }
+            if (!formData.capacityTons || Number(formData.capacityTons) <= 0) { newErrors.capacityTons = 'يرجى إدخال حمولة صحيحة'; isValid = false; }
             if (!formData.plateNumber?.trim()) { newErrors.plateNumber = 'هذا الحقل مطلوب'; isValid = false; }
-            if (!files.vehicleOperatingCard) { newErrors.vehicleOperatingCard = 'هذا الحقل مطلوب'; isValid = false; }
-            if (!files.vehicleRegistration) { newErrors.vehicleRegistration = 'هذا الحقل مطلوب'; isValid = false; }
+            if (!files.operatingCard) { newErrors.operatingCard = 'هذا الحقل مطلوب'; isValid = false; }
+            if (!files.registration) { newErrors.registration = 'هذا الحقل مطلوب'; isValid = false; }
         }
 
         setErrors(newErrors);
@@ -100,7 +106,22 @@ export const Register = () => {
     const handleRegister = async () => {
         setIsLoading(true);
         try {
-            await authService.registerNewUser({ role, accountType, files, ...formData });
+            const payload = {
+                role, accountType, files, ...formData,
+                ...(role === 'CARRIER' ? {
+                    trucks: [{
+                        brand: formData.brand,
+                        model: formData.model,
+                        type: formData.truckType,
+                        ...(formData.truckType === 'OTHER' ? { customType: formData.customType } : {}),
+                        capacityTons: formData.capacityTons,
+                        plateNumber: formData.plateNumber,
+                        operatingCardFile: files.operatingCard,
+                        registrationFile: files.registration,
+                    }],
+                } : {}),
+            };
+            await authService.registerNewUser(payload);
             markFreshAccount();
             setIsLoading(false);
             setStep(role === 'CARRIER' ? 6 : 5); // Review step
@@ -128,6 +149,13 @@ export const Register = () => {
         // would re-execute those modules from scratch and silently discard
         // the user record just created above.
         navigate('/app');
+    };
+
+    // Real backend: the admin approves from the dashboard; the user signs in
+    // again afterwards (Login routes on accountStatus).
+    const returnToLogin = async () => {
+        await authService.logout();
+        navigate('/login');
     };
 
     return (<div className={styles.container}>
@@ -188,30 +216,48 @@ export const Register = () => {
           {step === 4 && role === 'SHIPPER' && (<>
               <h2 style={{ textAlign: 'center', marginBottom: 24 }}>المستندات</h2>
               {accountType === 'INDIVIDUAL' ? (
-                  <Input name="nationalId" type="file" label="الهوية الوطنية / الإقامة" onChange={handleFileChange} error={errors.nationalId} />
+                  <Input name={DOCUMENT_KEYS.NATIONAL_ID} type="file" label="الهوية الوطنية / الإقامة" onChange={handleFileChange} error={errors[DOCUMENT_KEYS.NATIONAL_ID]} />
               ) : (<>
-                  <Input name="commercialRegistration" type="file" label="السجل التجاري" onChange={handleFileChange} error={errors.commercialRegistration} />
-                  <Input name="managerId" type="file" label="هوية المسؤول" onChange={handleFileChange} error={errors.managerId} />
+                  <Input name={DOCUMENT_KEYS.COMMERCIAL_REGISTRATION} type="file" label="السجل التجاري" onChange={handleFileChange} error={errors[DOCUMENT_KEYS.COMMERCIAL_REGISTRATION]} />
+                  <Input name={DOCUMENT_KEYS.MANAGER_ID} type="file" label="هوية المسؤول" onChange={handleFileChange} error={errors[DOCUMENT_KEYS.MANAGER_ID]} />
                 </>)}
             </>)}
 
           {step === 4 && role === 'CARRIER' && (<>
               <h2 style={{ textAlign: 'center', marginBottom: 24 }}>المستندات الأساسية</h2>
               {accountType === 'INDIVIDUAL' ? (<>
-                  <Input name="nationalId" type="file" label="الهوية الوطنية / الإقامة" onChange={handleFileChange} error={errors.nationalId} />
-                  <Input name="publicDrivingLicense" type="file" label="رخصة قيادة عمومي" onChange={handleFileChange} error={errors.publicDrivingLicense} />
+                  <Input name={DOCUMENT_KEYS.NATIONAL_ID} type="file" label="الهوية الوطنية / الإقامة" onChange={handleFileChange} error={errors[DOCUMENT_KEYS.NATIONAL_ID]} />
+                  <Input name={DOCUMENT_KEYS.PUBLIC_DRIVING_LICENCE} type="file" label="رخصة قيادة عمومي" onChange={handleFileChange} error={errors[DOCUMENT_KEYS.PUBLIC_DRIVING_LICENCE]} />
               </>) : (<>
-                  <Input name="commercialRegistration" type="file" label="السجل التجاري" onChange={handleFileChange} error={errors.commercialRegistration} />
-                  <Input name="managerId" type="file" label="هوية المسؤول" onChange={handleFileChange} error={errors.managerId} />
+                  <Input name={DOCUMENT_KEYS.COMMERCIAL_REGISTRATION} type="file" label="السجل التجاري" onChange={handleFileChange} error={errors[DOCUMENT_KEYS.COMMERCIAL_REGISTRATION]} />
+                  <Input name={DOCUMENT_KEYS.MANAGER_ID} type="file" label="هوية المسؤول" onChange={handleFileChange} error={errors[DOCUMENT_KEYS.MANAGER_ID]} />
                 </>)}
             </>)}
 
           {step === 5 && role === 'CARRIER' && (<>
               <h2 style={{ textAlign: 'center', marginBottom: 24 }}>بيانات الشاحنة</h2>
-              <Input name="truckType" label="نوع الشاحنة (تريلا، دينا...)" value={formData.truckType || ''} onChange={handleTextChange} error={errors.truckType} />
+              <Input name="brand" label="الشركة المصنّعة" value={formData.brand || ''} onChange={handleTextChange} error={errors.brand} />
+              <Input name="model" label="الطراز" value={formData.model || ''} onChange={handleTextChange} error={errors.model} />
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>نوع الشاحنة</label>
+                <select
+                    name="truckType"
+                    value={formData.truckType || ''}
+                    onChange={handleTextChange}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border)' }}
+                >
+                    <option value="" disabled>اختر نوع الشاحنة</option>
+                    {TRUCK_TYPE_OPTIONS.map(t => <option key={t} value={t}>{TruckTypeAr[t] || t}</option>)}
+                </select>
+                {errors.truckType && <span style={{ color: 'var(--color-error)', fontSize: 13 }}>{errors.truckType}</span>}
+              </div>
+              {formData.truckType === 'OTHER' && (
+                  <Input name="customType" label="حدد نوع الشاحنة" value={formData.customType || ''} onChange={handleTextChange} error={errors.customType} />
+              )}
+              <Input name="capacityTons" type="number" min="0" label="الحمولة القصوى (طن)" value={formData.capacityTons || ''} onChange={handleTextChange} error={errors.capacityTons} />
               <Input name="plateNumber" label="رقم اللوحة" value={formData.plateNumber || ''} onChange={handleTextChange} error={errors.plateNumber} />
-              <Input name="vehicleOperatingCard" type="file" label="بطاقة تشغيل مركبة" onChange={handleFileChange} error={errors.vehicleOperatingCard} />
-              <Input name="vehicleRegistration" type="file" label="الاستمارة (رخصة السير)" onChange={handleFileChange} error={errors.vehicleRegistration} />
+              <Input name="operatingCard" type="file" label="بطاقة تشغيل مركبة" onChange={handleFileChange} error={errors.operatingCard} />
+              <Input name="registration" type="file" label="الاستمارة (رخصة السير)" onChange={handleFileChange} error={errors.registration} />
             </>)}
 
           {( (step === 5 && role === 'SHIPPER') || (step === 6 && role === 'CARRIER') ) && (<div style={{ textAlign: 'center' }}>
@@ -223,12 +269,18 @@ export const Register = () => {
                 بانتظار موافقة الإدارة لتفعيل الحساب.
               </p>
               
+              {USE_FIREBASE_AUTH ? (
+                <Button type="button" onClick={returnToLogin} variant="outline" style={{ width: '100%' }}>
+                  العودة لتسجيل الدخول
+                </Button>
+              ) : (
               <div style={{ padding: 16, backgroundColor: '#f0f9ff', borderRadius: 8, border: '1px dashed #3b82f6' }}>
                 <p style={{ fontSize: 13, marginBottom: 8 }}>لأغراض العرض التوضيحي (Demo):</p>
                 <Button type="button" onClick={simulateAdminApproval} variant="outline" style={{ width: '100%' }}>
                   محاكاة موافقة الإدارة والدخول
                 </Button>
               </div>
+              )}
             </div>)}
 
           <div style={{ display: 'flex', gap: 16, marginTop: 32 }}>

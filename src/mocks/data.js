@@ -1,5 +1,6 @@
-import { ShipmentStatus, OfferStatus, TripStage, UserRole, AccountType, AccountStatus, TransactionType } from '../constants/enums';
+import { ShipmentStatus, OfferStatus, TripStage, UserRole, AccountType, AccountStatus, DocumentStatus, TransactionType } from '../constants/enums';
 import { hydrateMockStore } from './persistence';
+import { createTruck } from '../models';
 
 export const mockUsers = [
     {
@@ -24,7 +25,19 @@ export const mockUsers = [
         accountStatus: AccountStatus.VERIFIED,
         rating: 4.8,
         completedTrips: 120,
-        truckType: 'شاحنة نقل ثقيل (تريلا)'
+        warnings: 0,
+        trucks: [
+            createTruck({
+                id: 'truck-carrier-1-a',
+                brand: 'Mercedes-Benz',
+                model: 'Actros',
+                type: 'شاحنة نقل ثقيل (تريلا)',
+                capacityTons: 24,
+                plateNumber: 'ا ب ج 1234',
+                operatingCard: { fileUrl: 'mock-upload://operating-card-1.pdf', status: DocumentStatus.APPROVED, expiryDate: '2026-06-30' },
+                registration: { fileUrl: 'mock-upload://registration-1.pdf', status: DocumentStatus.APPROVED },
+            }),
+        ],
     },
     {
         id: 'user-carrier-2',
@@ -36,7 +49,19 @@ export const mockUsers = [
         accountStatus: AccountStatus.VERIFIED,
         rating: 4.5,
         completedTrips: 340,
-        truckType: 'تريلا مسطحة'
+        warnings: 0,
+        trucks: [
+            createTruck({
+                id: 'truck-carrier-2-a',
+                brand: 'Volvo',
+                model: 'FH16',
+                type: 'تريلا مسطحة',
+                capacityTons: 30,
+                plateNumber: 'د هـ و 5678',
+                operatingCard: { fileUrl: 'mock-upload://operating-card-2.pdf', status: DocumentStatus.APPROVED, expiryDate: '2026-09-15' },
+                registration: { fileUrl: 'mock-upload://registration-2.pdf', status: DocumentStatus.APPROVED },
+            }),
+        ],
     },
     {
         id: 'user-admin-1',
@@ -64,7 +89,7 @@ export const mockShipments = [
         loadingDate: '2024-03-15',
         loadingTime: '08:00 AM',
         proposedPrice: 4200,
-        status: ShipmentStatus.OFFERS_PENDING,
+        status: ShipmentStatus.PENDING_OFFERS,
         createdAt: '2024-03-10T10:00:00Z',
         offerCount: 2
     },
@@ -142,7 +167,7 @@ export const mockShipments = [
         loadingDate: '2024-03-20',
         loadingTime: '07:00 AM',
         proposedPrice: 3900,
-        status: ShipmentStatus.OFFERS_PENDING,
+        status: ShipmentStatus.PENDING_OFFERS,
         createdAt: '2024-03-14T09:00:00Z',
         offerCount: 0
     },
@@ -162,7 +187,7 @@ export const mockShipments = [
         loadingDate: '2024-03-21',
         loadingTime: '05:00 AM',
         proposedPrice: 4500,
-        status: ShipmentStatus.OFFERS_PENDING,
+        status: ShipmentStatus.PENDING_OFFERS,
         createdAt: '2024-03-15T08:00:00Z',
         offerCount: 1
     },
@@ -182,7 +207,7 @@ export const mockShipments = [
         loadingDate: '2024-03-22',
         loadingTime: '09:00 AM',
         proposedPrice: 2700,
-        status: ShipmentStatus.OFFERS_PENDING,
+        status: ShipmentStatus.PENDING_OFFERS,
         createdAt: '2024-03-15T11:00:00Z',
         offerCount: 0
     },
@@ -222,7 +247,7 @@ export const mockShipments = [
         loadingDate: '2024-03-19',
         loadingTime: '07:00 AM',
         proposedPrice: 2200,
-        status: ShipmentStatus.SELECTION_AWAITING,
+        status: ShipmentStatus.NEGOTIATING,
         createdAt: '2024-03-12T10:00:00Z',
         offerCount: 3
     },

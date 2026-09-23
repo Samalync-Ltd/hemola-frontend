@@ -6,7 +6,7 @@ import { Button } from '../../components/common/Button';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { DataTable } from '../../components/common/DataTable';
-import { shipmentService, tripService, walletService, authService, offerService } from '../../services/api';
+import { shipmentService, tripService, walletService, authService, offerService, USE_FIREBASE } from '../../services/api';
 import { ShipmentStatus, OfferStatus } from '../../constants/enums';
 import { WithdrawModal } from '../../components/wallet/WithdrawModal';
 import { DEMO_MODE } from '../../constants/config';
@@ -37,13 +37,13 @@ export const CarrierDashboard = () => {
             ]);
 
             // For a carrier, available shipments are those pending offers or
-            // negotiating, matching the truck type on their account.
+            // negotiating, matching one of the truck types on their account.
             const available = sh.filter(s =>
-                (s.status === ShipmentStatus.OFFERS_PENDING || s.status === ShipmentStatus.NEGOTIATING) &&
-                (!currentUser?.truckType || !s.requiredTruckType || s.requiredTruckType === currentUser.truckType)
+                (s.status === ShipmentStatus.PENDING_OFFERS || s.status === ShipmentStatus.NEGOTIATING) &&
+                (!currentUser?.trucks?.length || !s.requiredTruckType || currentUser.trucks.some(t => t.type === s.requiredTruckType))
             );
             setAvailableShipments(available);
-            if (DEMO_MODE && available.length === 0) setShouldTrickle(true);
+            if (DEMO_MODE && !USE_FIREBASE && available.length === 0) setShouldTrickle(true);
 
             setTrips(tr.filter(t => t.carrierId === currentUser.id));
             setWallet(wa);
@@ -61,7 +61,7 @@ export const CarrierDashboard = () => {
     // dashboard's own "شحنات متاحة حديثاً" preview reads the same store, so
     // it needs the same empty-then-trickle behavior regardless of which of
     // the two screens the carrier happens to be looking at.
-    useDemoShipmentTrickle(shouldTrickle, user?.truckType, (injected) => {
+    useDemoShipmentTrickle(shouldTrickle, user?.trucks?.[0]?.type, (injected) => {
         setAvailableShipments(prev => [injected, ...prev]);
     });
 

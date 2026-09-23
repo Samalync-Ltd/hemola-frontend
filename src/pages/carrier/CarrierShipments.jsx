@@ -4,7 +4,7 @@ import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { DataTable } from '../../components/common/DataTable';
 import { PriceBlock } from '../../components/common/PriceBlock';
-import { shipmentService, authService, walletService, offerService, isCarrierBusy } from '../../services/api';
+import { shipmentService, authService, walletService, offerService, isCarrierBusy, USE_FIREBASE } from '../../services/api';
 import { ShipmentStatus } from '../../constants/enums';
 import { getCurrentPositionSafe, haversineKm, lookupCityCoordinates } from '../../utils/geo';
 import { DEMO_MODE } from '../../constants/config';
@@ -42,10 +42,10 @@ export const CarrierShipments = () => {
             setWallet(w);
 
             // Carriers can only browse shipments that are looking for offers
-            // and match the truck type registered on their account.
+            // and match one of the truck types registered on their account.
             const available = data.filter(s =>
-                (s.status === ShipmentStatus.OFFERS_PENDING || s.status === ShipmentStatus.NEGOTIATING) &&
-                (!user?.truckType || !s.requiredTruckType || s.requiredTruckType === user.truckType)
+                (s.status === ShipmentStatus.PENDING_OFFERS || s.status === ShipmentStatus.NEGOTIATING) &&
+                (!user?.trucks?.length || !s.requiredTruckType || user.trucks.some(t => t.type === s.requiredTruckType))
             );
             setShipments(available);
             setIsLoading(false);
@@ -62,11 +62,11 @@ export const CarrierShipments = () => {
             // (rather than requiring the account to have come through the
             // registration wizard specifically) means it works no matter how
             // the account got here, including a stale/partial session.
-            if (DEMO_MODE && available.length === 0) setShouldTrickle(true);
+            if (DEMO_MODE && !USE_FIREBASE && available.length === 0) setShouldTrickle(true);
         });
     }, []);
 
-    useDemoShipmentTrickle(shouldTrickle, carrier?.truckType, (injected) => {
+    useDemoShipmentTrickle(shouldTrickle, carrier?.trucks?.[0]?.type, (injected) => {
         setShipments(prev => [injected, ...prev]);
     });
 
@@ -100,9 +100,9 @@ export const CarrierShipments = () => {
         return list;
     }, [shipments, sortOrder, position]);
 
-    // A blacklisted carrier — or one owing cancellation commission — can't
+    // A suspended carrier — or one owing cancellation commission — can't
     // browse or bid on shipments. Mirrors mobile's shipments_screen.dart gate.
-    if (!isLoading && carrier?.isBlacklisted) {
+    if (!isLoading && carrier?.isSuspended) {
         return (
             <Card>
                 <h3 style={{ marginBottom: 8 }}>الحساب موقوف</h3>
@@ -129,7 +129,7 @@ export const CarrierShipments = () => {
     // this screen shows — so here it only changes what the carrier can DO
     // with each row, never what they can see. The full marketplace stays
     // visible; only the action is disabled with an explanatory notice.
-    const busy = !!(carrier && isCarrierBusy(carrier.id));
+    const busy = !!(carrier && isCarrierBusy(carrier));
 
     const columns = [
         { key: 'route', header: 'المسار', render: (s) => `${s.pickupCity} -> ${s.deliveryCity}` },

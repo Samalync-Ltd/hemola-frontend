@@ -67,7 +67,8 @@ export const WithdrawModal = ({ isOpen, onClose, onConfirm, isLoading, currentBa
                     {status === 'success' ? (
                         <div style={{ textAlign: 'center', padding: '24px 0' }}>
                             <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: 'var(--color-success)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>✓</div>
-                            <h4 style={{ margin: 0, color: 'var(--color-success)' }}>تمت الموافقة على طلب السحب</h4>
+                            <h4 style={{ margin: 0, color: 'var(--color-success)' }}>تم إرسال طلب السحب</h4>
+                            <p className="text-helper" style={{ marginTop: 8 }}>سيتم تحويل المبلغ بعد مراجعة الإدارة للطلب.</p>
                         </div>
                     ) : (
                         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -90,7 +91,7 @@ export const WithdrawModal = ({ isOpen, onClose, onConfirm, isLoading, currentBa
                             </div>
                             
                             <p style={{ fontSize: 12, color: 'var(--color-text-muted)', margin: '0' }}>
-                                هذه عملية تجريبية في نسخة المعاينة ولا يتم تحويل أموال حقيقية.
+                                سيتم حجز المبلغ فوراً وتحويله بعد موافقة الإدارة على الطلب.
                             </p>
 
                             <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>

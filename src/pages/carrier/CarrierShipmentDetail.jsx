@@ -6,7 +6,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { Input } from '../../components/common/Input';
 import { shipmentService, offerService, isCarrierBusy } from '../../services/api';
-import { OfferStatus, ShipmentStatus } from '../../constants/enums';
+import { OfferStatus, ShipmentStatus, TruckTypeAr } from '../../constants/enums';
 import { lookupCityCoordinates } from '../../utils/geo';
 import { MapThumbnail } from '../../components/map/MapThumbnail';
 
@@ -21,6 +21,7 @@ export const CarrierShipmentDetail = ({ user }) => {
 
     // Offer form state
     const [offerPrice, setOfferPrice] = useState('');
+    const [selectedTruckId, setSelectedTruckId] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isAccepting, setIsAccepting] = useState(false);
 
@@ -42,6 +43,17 @@ export const CarrierShipmentDetail = ({ user }) => {
         }
     }, [shipmentId, user]);
 
+    // Only a truck of the required type with both papers already APPROVED
+    // may be offered (INTEGRATION.md §14) — the backend rejects anything
+    // else anyway, so this is filtered here rather than left for the
+    // server to refuse.
+    const eligibleTrucks = (user?.trucks || []).filter(t => t.isSelectable && t.type === shipment?.requiredTruckType);
+
+    useEffect(() => {
+        if (!selectedTruckId && eligibleTrucks.length > 0) setSelectedTruckId(eligibleTrucks[0].id);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [eligibleTrucks.length]);
+
     const handleSubmitOffer = async (e) => {
         e.preventDefault();
         setSubmitError('');
@@ -49,10 +61,8 @@ export const CarrierShipmentDetail = ({ user }) => {
         try {
             const newOffer = await offerService.submitOffer({
                 shipmentId,
-                carrierId: user.id,
+                truckId: selectedTruckId,
                 offeredPrice: Number(offerPrice),
-                carrierName: user.name || user.companyName,
-                truckType: 'شاحنة نقل' // demo default
             });
             setMyOffer(newOffer);
         } catch (err) {
@@ -62,29 +72,21 @@ export const CarrierShipmentDetail = ({ user }) => {
         }
     };
 
-    // Directly accepts the shipper's currently-posted price without the
-    // detour of typing a matching counter-value: creates the initial offer
-    // at that exact price and finalizes it in one step, same end state as
-    // "submit a matching offer, then accept it in the negotiation thread"
-    // but as the single click a real Accept action should be.
+    // Offers exactly the shipper's posted price. The posted price is not an
+    // offer the carrier can accept — acceptOffer only lets the side that did
+    // NOT make an offer accept it (INTEGRATION.md §12) — so this sends an
+    // offer at that price and the shipper confirms it with one click.
     const handleAcceptPostedPrice = async () => {
-        // Funds are reserved (not deducted) from the shipper's available
-        // balance the moment this finalizes — surface that plainly before
-        // committing, same as the negotiation-thread Accept action.
-        if (!window.confirm(`سيتم حجز ${shipment.proposedPrice} ر.س من رصيد صاحب الشحنة المتاح عند تأكيد هذا السعر. هل تريد المتابعة؟`)) return;
+        if (!window.confirm(`سيتم إرسال عرض بالسعر المطروح (${shipment.proposedPrice} ر.س) إلى صاحب الشحنة، وتُسند إليك الشحنة عند موافقته. متابعة؟`)) return;
         setSubmitError('');
         setIsAccepting(true);
         try {
             const newOffer = await offerService.submitOffer({
                 shipmentId,
-                carrierId: user.id,
+                truckId: selectedTruckId,
                 offeredPrice: shipment.proposedPrice,
-                carrierName: user.name || user.companyName,
-                truckType: 'شاحنة نقل' // demo default
             });
-            await offerService.acceptOffer(newOffer.id, shipment.proposedPrice);
-            alert(`تم قبول السعر المطروح — ${shipment.proposedPrice} ر.س\nتم تأكيد وإسناد الشحنة إليك`);
-            navigate('/app');
+            setMyOffer(newOffer);
         } catch (err) {
             setSubmitError(err.message);
         } finally {
@@ -95,7 +97,8 @@ export const CarrierShipmentDetail = ({ user }) => {
     if (isLoading) return <div>جاري التحميل...</div>;
     if (error || !shipment) return <div>{error || 'الشحنة غير موجودة'}</div>;
 
-    const busy = user && isCarrierBusy(user.id);
+    const busy = user && isCarrierBusy(user);
+    const hasEligibleTruck = eligibleTrucks.length > 0;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -127,28 +130,28 @@ export const CarrierShipmentDetail = ({ user }) => {
                         })()}
                         <div className="responsive-two-col-even">
                             <div>
-                                <div className="text-helper">موقع التحميل</div>
-                                <div style={{ fontWeight: 700 }}>{shipment.pickupCity} - {shipment.pickupLocation}</div>
+                                <div className="text-helper">مدينة التحميل</div>
+                                <div style={{ fontWeight: 700 }}>{shipment.pickupCity}</div>
                             </div>
                             <div>
-                                <div className="text-helper">موقع التسليم</div>
-                                <div style={{ fontWeight: 700 }}>{shipment.deliveryCity} - {shipment.deliveryLocation}</div>
+                                <div className="text-helper">مدينة التسليم</div>
+                                <div style={{ fontWeight: 700 }}>{shipment.deliveryCity}</div>
                             </div>
                             <div>
                                 <div className="text-helper">نوع البضاعة</div>
                                 <div style={{ fontWeight: 700 }}>{shipment.cargoType}</div>
                             </div>
                             <div>
-                                <div className="text-helper">الوزن / الحجم</div>
-                                <div style={{ fontWeight: 700 }}>{shipment.weight} طن / {shipment.volume} م³</div>
+                                <div className="text-helper">الوزن</div>
+                                <div style={{ fontWeight: 700 }}>{shipment.weight} طن</div>
                             </div>
                             <div>
                                 <div className="text-helper">نوع الشاحنة المطلوبة</div>
-                                <div style={{ fontWeight: 700 }}>{shipment.requiredTruckType}</div>
+                                <div style={{ fontWeight: 700 }}>{TruckTypeAr[shipment.requiredTruckType] || shipment.requiredTruckType}</div>
                             </div>
                             <div>
                                 <div className="text-helper">تاريخ ووقت التحميل</div>
-                                <div style={{ fontWeight: 700 }}>{shipment.loadingDate} - {shipment.loadingTime}</div>
+                                <div style={{ fontWeight: 700 }}>{shipment.loadingDate ? new Date(shipment.loadingDate).toLocaleString('ar-SA') : '—'}</div>
                             </div>
                         </div>
                         {shipment.description && (
@@ -182,8 +185,10 @@ export const CarrierShipmentDetail = ({ user }) => {
                                     }}>
                                         حالة العرض: {
                                             myOffer.status === OfferStatus.PENDING ? 'قيد الانتظار' :
-                                            myOffer.status === OfferStatus.ACCEPTED ? 'مقبول — بانتظار تأكيد صاحب الشحنة' :
-                                            myOffer.status === OfferStatus.REJECTED ? 'مرفوض' :
+                                            myOffer.status === OfferStatus.PENDING && myOffer.proposedBy === 'CARRIER' ? 'بانتظار رد صاحب الشحنة' :
+                                            myOffer.status === OfferStatus.PENDING ? 'عرض مضاد من صاحب الشحنة — دورك للرد' :
+                                            myOffer.status === OfferStatus.ACCEPTED ? 'مقبول' :
+                                            myOffer.status === OfferStatus.REJECTED ? `مرفوض${myOffer.rejectReason ? ` — ${myOffer.rejectReason}` : ''}` :
                                             myOffer.status === OfferStatus.COUNTERED ? 'تم الرد بعرض مضاد' : myOffer.status
                                         }
                                     </span>
@@ -192,7 +197,14 @@ export const CarrierShipmentDetail = ({ user }) => {
                                     <div style={{ padding: 12, backgroundColor: 'rgba(39, 174, 96, 0.1)', color: 'var(--color-success)', borderRadius: 8, fontWeight: 'bold', textAlign: 'center' }}>
                                         ✓ تم إسناد الشحنة إليك — راجع صفحة الرحلات لمتابعتها
                                     </div>
-                                ) : myOffer.status !== OfferStatus.REJECTED && (
+                                ) : myOffer.status === OfferStatus.REJECTED ? (
+                                    // A rejection closes the offer, not the door (INTEGRATION.md §12).
+                                    (shipment.status === ShipmentStatus.PENDING_OFFERS || shipment.status === ShipmentStatus.NEGOTIATING) && (
+                                        <Button style={{ width: '100%' }} variant="outline" onClick={() => { setMyOffer(null); setOfferPrice(''); }}>
+                                            تقديم عرض جديد
+                                        </Button>
+                                    )
+                                ) : (
                                     <Button style={{ width: '100%' }} onClick={() => navigate(`/app/shipments/${shipment.id}/negotiation/${myOffer.id}`)}>
                                         فتح التفاوض
                                     </Button>
@@ -210,14 +222,33 @@ export const CarrierShipmentDetail = ({ user }) => {
                                         لديك شحنة نشطة حالياً — أكملها أو ألغِها قبل تقديم عروض على شحنات أخرى.
                                     </div>
                                 )}
+                                {!hasEligibleTruck && (
+                                    <div style={{ padding: 12, marginBottom: 16, borderRadius: 8, backgroundColor: 'rgba(245,158,11,0.08)', color: 'var(--color-warning)', fontSize: 13 }}>
+                                        لا تملك شاحنة من النوع المطلوب ({TruckTypeAr[shipment.requiredTruckType] || shipment.requiredTruckType}) بأوراق موثّقة بالكامل — لا يمكنك تقديم عرض حتى تضيف واحدة وتتم الموافقة على بطاقة التشغيل والاستمارة.
+                                    </div>
+                                )}
+                                {hasEligibleTruck && eligibleTrucks.length > 1 && (
+                                    <div style={{ marginBottom: 16 }}>
+                                        <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>الشاحنة المستخدمة لهذا العرض</label>
+                                        <select
+                                            value={selectedTruckId}
+                                            onChange={e => setSelectedTruckId(e.target.value)}
+                                            style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border)' }}
+                                        >
+                                            {eligibleTrucks.map(t => (
+                                                <option key={t.id} value={t.id}>{t.brand} {t.model} — {t.plateNumber}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
                                 <Button
                                     variant="secondary"
                                     onClick={handleAcceptPostedPrice}
                                     isLoading={isAccepting}
-                                    disabled={busy || isSubmitting}
+                                    disabled={busy || isSubmitting || !hasEligibleTruck}
                                     style={{ width: '100%', marginBottom: 16 }}
                                 >
-                                    قبول السعر المطروح ({shipment.proposedPrice} ر.س)
+                                    عرض بالسعر المطروح ({shipment.proposedPrice} ر.س)
                                 </Button>
 
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0', color: 'var(--color-text-muted)', fontSize: 13 }}>
@@ -235,13 +266,13 @@ export const CarrierShipmentDetail = ({ user }) => {
                                             onChange={(e) => setOfferPrice(e.target.value)}
                                             required
                                             min="1"
-                                            disabled={busy}
+                                            disabled={busy || !hasEligibleTruck}
                                         />
                                         <p className="text-helper" style={{ fontSize: 12, marginTop: 8 }}>
                                             بتقديمك لهذا العرض، أنت توافق على شروط النقل في حال القبول.
                                         </p>
                                     </div>
-                                    <Button type="submit" isLoading={isSubmitting} disabled={busy || isAccepting} style={{ width: '100%' }}>
+                                    <Button type="submit" isLoading={isSubmitting} disabled={busy || isAccepting || !hasEligibleTruck} style={{ width: '100%' }}>
                                         تقديم العرض
                                     </Button>
                                 </form>

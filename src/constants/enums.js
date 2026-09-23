@@ -1,16 +1,14 @@
 export var ShipmentStatus;
 (function (ShipmentStatus) {
-    ShipmentStatus["OFFERS_PENDING"] = "OFFERS_PENDING";
+    ShipmentStatus["PENDING_OFFERS"] = "PENDING_OFFERS";
     ShipmentStatus["NEGOTIATING"] = "NEGOTIATING";
-    ShipmentStatus["SELECTION_AWAITING"] = "SELECTION_AWAITING";
     ShipmentStatus["ACTIVE"] = "ACTIVE";
     ShipmentStatus["COMPLETED"] = "COMPLETED";
     ShipmentStatus["CANCELLED"] = "CANCELLED";
 })(ShipmentStatus || (ShipmentStatus = {}));
 export const ShipmentStatusAr = {
-    [ShipmentStatus.OFFERS_PENDING]: 'بانتظار العروض',
+    [ShipmentStatus.PENDING_OFFERS]: 'بانتظار العروض',
     [ShipmentStatus.NEGOTIATING]: 'قيد التفاوض',
-    [ShipmentStatus.SELECTION_AWAITING]: 'بانتظار اختيار ناقل',
     [ShipmentStatus.ACTIVE]: 'قيد التنفيذ',
     [ShipmentStatus.COMPLETED]: 'مكتملة',
     [ShipmentStatus.CANCELLED]: 'ملغاة'
@@ -28,6 +26,14 @@ export const OfferStatusAr = {
     [OfferStatus.ACCEPTED]: 'مقبول',
     [OfferStatus.REJECTED]: 'مرفوض'
 };
+// Whoever proposed the current live (PENDING) offer in a negotiation
+// thread — the OTHER side is the one who may accept or counter it. The
+// single most important field in the negotiation flow (INTEGRATION.md §9).
+export var ProposedBy;
+(function (ProposedBy) {
+    ProposedBy["SHIPPER"] = "SHIPPER";
+    ProposedBy["CARRIER"] = "CARRIER";
+})(ProposedBy || (ProposedBy = {}));
 export var TripStage;
 (function (TripStage) {
     TripStage["ASSIGNED"] = "ASSIGNED";
@@ -45,6 +51,15 @@ export const TripStageAr = {
     [TripStage.EN_ROUTE_DELIVERY]: 'في الطريق للتسليم',
     [TripStage.DELIVERED]: 'تم التسليم'
 };
+// A field separate from `stage` — TripStage has no cancelled member, so a
+// cancelled trip keeps whatever stage it died at; ALWAYS read `status`
+// before `stage` (INTEGRATION.md §8).
+export var TripStatus;
+(function (TripStatus) {
+    TripStatus["ACTIVE"] = "ACTIVE";
+    TripStatus["COMPLETED"] = "COMPLETED";
+    TripStatus["CANCELLED"] = "CANCELLED";
+})(TripStatus || (TripStatus = {}));
 export var UserRole;
 (function (UserRole) {
     UserRole["SHIPPER"] = "SHIPPER";
@@ -68,14 +83,52 @@ export var DocumentStatus;
     DocumentStatus["APPROVED"] = "APPROVED";
     DocumentStatus["REJECTED"] = "REJECTED";
 })(DocumentStatus || (DocumentStatus = {}));
+// Truck type enum — matches hemooltak-backend/INTEGRATION.md §1 exactly.
+export var TruckType;
+(function (TruckType) {
+    TruckType["FLATBED"] = "FLATBED";
+    TruckType["HEAVY_CARGO"] = "HEAVY_CARGO";
+    TruckType["REFRIGERATED"] = "REFRIGERATED";
+    TruckType["BOX_TRUCK"] = "BOX_TRUCK";
+    TruckType["TANKER"] = "TANKER";
+    TruckType["LOW_LOADER"] = "LOW_LOADER";
+    TruckType["OTHER"] = "OTHER";
+})(TruckType || (TruckType = {}));
+export const TruckTypeAr = {
+    [TruckType.FLATBED]: 'مسطحة',
+    [TruckType.HEAVY_CARGO]: 'شحن ثقيل',
+    [TruckType.REFRIGERATED]: 'مبردة',
+    [TruckType.BOX_TRUCK]: 'صندوق مغلق',
+    [TruckType.TANKER]: 'صهريج',
+    [TruckType.LOW_LOADER]: 'لودر منخفض',
+    [TruckType.OTHER]: 'أخرى',
+};
+export const TRUCK_TYPE_OPTIONS = Object.values(TruckType);
+// Matches hemooltak-backend/INTEGRATION.md §8 exactly. FEE_DEDUCTION is
+// only debt recovered; a payout is WITHDRAWAL and an admin write-off is
+// DEBT_FORGIVENESS (amount 0 — nothing moves, only the debt shrinks).
 export var TransactionType;
 (function (TransactionType) {
-    TransactionType["COMMISSION_DEDUCTION"] = "COMMISSION_DEDUCTION";
     TransactionType["TOP_UP"] = "TOP_UP";
-    TransactionType["FEE_DEDUCTION"] = "FEE_DEDUCTION";
+    TransactionType["COMMISSION_DEDUCTION"] = "COMMISSION_DEDUCTION";
     TransactionType["TRIP_SETTLEMENT"] = "TRIP_SETTLEMENT";
-    // Matches mobile's WalletTransactionType.withdrawal — previously a raw
-    // 'WITHDRAWAL' string literal in services/api.js instead of a real enum
-    // member; kept as one canonical value here now.
     TransactionType["WITHDRAWAL"] = "WITHDRAWAL";
+    TransactionType["DEBT_FORGIVENESS"] = "DEBT_FORGIVENESS";
+    TransactionType["FEE_DEDUCTION"] = "FEE_DEDUCTION";
 })(TransactionType || (TransactionType = {}));
+
+export var WithdrawalStatus;
+(function (WithdrawalStatus) {
+    WithdrawalStatus["PENDING"] = "PENDING";
+    WithdrawalStatus["PAID"] = "PAID";
+    WithdrawalStatus["REJECTED"] = "REJECTED";
+})(WithdrawalStatus || (WithdrawalStatus = {}));
+
+// adminCancelTrip's chargeTo — not used by this app directly (admin-only),
+// kept here so the wire vocabulary is documented in one place.
+export var ChargeTo;
+(function (ChargeTo) {
+    ChargeTo["SHIPPER"] = "SHIPPER";
+    ChargeTo["CARRIER"] = "CARRIER";
+    ChargeTo["NONE"] = "NONE";
+})(ChargeTo || (ChargeTo = {}));

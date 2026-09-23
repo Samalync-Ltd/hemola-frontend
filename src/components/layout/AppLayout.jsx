@@ -7,6 +7,7 @@ import { authService } from '../../services/api';
 
 const AppLayout = () => {
     const [isLoading, setIsLoading] = useState(true);
+    const [accountStatus, setAccountStatus] = useState(null);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
@@ -16,6 +17,11 @@ const AppLayout = () => {
             if (!user) {
                 navigate('/login');
             } else {
+                // A logged-in session (persisted by Firebase Auth) can outlive
+                // the login-time check — a direct URL/refresh must not let an
+                // UNDER_REVIEW or REJECTED account reach the app either. See
+                // hemooltak-backend/INTEGRATION.md §6.
+                setAccountStatus(user.accountStatus ?? 'VERIFIED');
                 setIsLoading(false);
             }
         });
@@ -25,6 +31,27 @@ const AppLayout = () => {
     useEffect(() => { setIsMenuOpen(false); }, [location.pathname]);
 
     if (isLoading) return <div>جاري التحميل...</div>;
+
+    if (accountStatus === 'UNDER_REVIEW') {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 24, textAlign: 'center' }}>
+                <div>
+                    <h2>حسابك قيد المراجعة</h2>
+                    <p className="text-helper">بانتظار موافقة الإدارة لتفعيل الحساب.</p>
+                </div>
+            </div>
+        );
+    }
+    if (accountStatus === 'REJECTED') {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 24, textAlign: 'center' }}>
+                <div>
+                    <h2>تم رفض الحساب</h2>
+                    <p className="text-helper">يرجى التواصل مع دعم المنصة لمزيد من التفاصيل.</p>
+                </div>
+            </div>
+        );
+    }
 
     return (<div className={styles.layout}>
       <AppSidebar isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />

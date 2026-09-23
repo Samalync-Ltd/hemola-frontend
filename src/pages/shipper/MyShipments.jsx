@@ -43,7 +43,7 @@ export const MyShipments = () => {
             key: 'actions',
             header: 'الإجراء',
             render: (s) => {
-                if (s.status === ShipmentStatus.OFFERS_PENDING || s.status === ShipmentStatus.NEGOTIATING || s.status === ShipmentStatus.SELECTION_AWAITING) {
+                if (s.status === ShipmentStatus.PENDING_OFFERS || s.status === ShipmentStatus.NEGOTIATING) {
                     return <Button size="sm" variant="outline" onClick={() => navigate(`/app/shipments/${s.id}/offers`)}>عرض العروض</Button>;
                 }
                 if (s.status === ShipmentStatus.ACTIVE) {
