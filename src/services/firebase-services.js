@@ -647,9 +647,41 @@ export const firebaseWalletService = {
         return { id: `topup-${Date.now()}`, type: 'TOP_UP', amount: res.data.credited, description: 'شحن رصيد', timestamp: new Date().toISOString() };
     },
     /** Only holds the amount (reservedAmount rises) — settlement happens later when an admin calls processWithdrawal, not instantly like the mock. */
+    /**
+     * Saves the carrier's IBAN + account name on their profile through
+     * updateBankDetails (INTEGRATION.md §12) — not client-writable directly,
+     * because the backend verifies the IBAN's check digits.
+     */
+    saveBankDetails: async (iban, bankAccountName) => {
+        try {
+            return (await call('updateBankDetails')({ iban, bankAccountName })).data;
+        } catch (err) {
+            if (err.code === 'functions/invalid-argument') {
+                throw new Error(/bankAccountName/.test(err.message)
+                    ? 'اسم صاحب الحساب مطلوب (100 حرف كحد أقصى).'
+                    : 'رقم الآيبان غير صحيح — تأكد من كتابته (SA متبوعاً بـ 22 خانة).');
+            }
+            throw err;
+        }
+    },
+    /** The backend snapshots the carrier's saved bank details onto the withdrawal and echoes them back. */
     withdraw: async (amount, note) => {
-        const res = await call('requestWithdrawal')({ amount: Number(amount), ...(note ? { note } : {}) });
-        return { id: res.data.withdrawalId, type: 'WITHDRAWAL', amount: -res.data.amount, description: 'طلب سحب رصيد (قيد مراجعة الإدارة)', timestamp: new Date().toISOString() };
+        try {
+            const res = await call('requestWithdrawal')({ amount: Number(amount), ...(note ? { note } : {}) });
+            return {
+                id: res.data.withdrawalId, type: 'WITHDRAWAL', amount: -res.data.amount,
+                iban: res.data.iban, bankAccountName: res.data.bankAccountName,
+                description: 'طلب سحب رصيد (قيد مراجعة الإدارة)', timestamp: new Date().toISOString(),
+            };
+        } catch (err) {
+            if (err.code === 'functions/failed-precondition') {
+                if (err.details?.missing) throw new Error('يرجى إضافة بيانات الحساب البنكي قبل طلب السحب.');
+                if (err.details?.availableBalance !== undefined) throw new Error(`الرصيد المتاح غير كافٍ (المتاح: ${err.details.availableBalance} ر.س).`);
+                if (/you owe/i.test(err.message)) throw new Error('لا يمكن السحب قبل سداد المديونية المستحقة.');
+                if (/verified/i.test(err.message)) throw new Error('حسابك غير موثّق بعد.');
+            }
+            throw err;
+        }
     },
 };
 

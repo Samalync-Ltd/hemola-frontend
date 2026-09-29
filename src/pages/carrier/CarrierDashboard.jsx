@@ -21,7 +21,6 @@ export const CarrierDashboard = () => {
     const [wallet, setWallet] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
-    const [isWithdrawing, setIsWithdrawing] = useState(false);
     const [shouldTrickle, setShouldTrickle] = useState(false);
 
     const fetchData = async () => {
@@ -65,17 +64,9 @@ export const CarrierDashboard = () => {
         setAvailableShipments(prev => [injected, ...prev]);
     });
 
-    const handleWithdraw = async (amount) => {
-        setIsWithdrawing(true);
-        try {
-            await walletService.withdraw(amount);
-            await fetchData();
-            setIsWithdrawOpen(false);
-        } catch (error) {
-            console.error('Failed to withdraw', error);
-        } finally {
-            setIsWithdrawing(false);
-        }
+    const handleWithdrawCompleted = async () => {
+        await fetchData();
+        setIsWithdrawOpen(false);
     };
 
     if (isLoading) {
@@ -166,9 +157,9 @@ export const CarrierDashboard = () => {
         <WithdrawModal
             isOpen={isWithdrawOpen}
             onClose={() => setIsWithdrawOpen(false)}
-            onConfirm={handleWithdraw}
-            isLoading={isWithdrawing}
+            onCompleted={handleWithdrawCompleted}
             currentBalance={wallet.available}
+            savedBankDetails={user ? { iban: user.iban || '', bankAccountName: user.bankAccountName || '' } : null}
         />
       )}
     </div>);

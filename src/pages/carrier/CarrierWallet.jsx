@@ -34,8 +34,8 @@ export const CarrierWallet = () => {
     // backend represents debt, unlike the old mock's shortcut.
     const [outstandingDebt, setOutstandingDebt] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
+    const [bankDetails, setBankDetails] = useState(null);
     const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
-    const [isWithdrawing, setIsWithdrawing] = useState(false);
     const [isTopUpOpen, setIsTopUpOpen] = useState(false);
     const [isToppingUp, setIsToppingUp] = useState(false);
 
@@ -52,21 +52,14 @@ export const CarrierWallet = () => {
         // the same idea as a negative wallet balance instead, so fall back
         // to that when the real field isn't present.
         setOutstandingDebt(user?.outstandingDebt || (w.balance < 0 ? Math.abs(w.balance) : 0));
+        setBankDetails(user ? { iban: user.iban || '', bankAccountName: user.bankAccountName || '' } : null);
     }).finally(() => setIsLoading(false));
 
     useEffect(() => { fetchData(); }, []);
 
-    const handleWithdraw = async (amount) => {
-        setIsWithdrawing(true);
-        try {
-            await walletService.withdraw(amount);
-            await fetchData();
-            setIsWithdrawOpen(false);
-        } catch (error) {
-            alert(error.message);
-        } finally {
-            setIsWithdrawing(false);
-        }
+    const handleWithdrawCompleted = async () => {
+        await fetchData();
+        setIsWithdrawOpen(false);
     };
 
     const handleTopUp = async (amount) => {
@@ -143,9 +136,9 @@ export const CarrierWallet = () => {
       <WithdrawModal
         isOpen={isWithdrawOpen}
         onClose={() => setIsWithdrawOpen(false)}
-        onConfirm={handleWithdraw}
-        isLoading={isWithdrawing}
+        onCompleted={handleWithdrawCompleted}
         currentBalance={wallet.available}
+        savedBankDetails={bankDetails}
       />
 
       <TopUpModal

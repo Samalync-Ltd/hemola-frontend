@@ -2,7 +2,7 @@ import { mockShipments, mockOffers, mockTrips, mockWallets, mockTransactions, mo
 import { persistMockStore } from '../mocks/persistence';
 import { ShipmentStatus, OfferStatus, TripStage, TransactionType, AccountStatus, DocumentStatus } from '../constants/enums';
 import { COMMISSION_RATE, CANCELLATION_WARNING_THRESHOLD } from '../constants/config';
-import { normalizeSaudiPhone } from '../utils/validators';
+import { normalizeSaudiPhone, isValidSaudiIban, normalizeIban } from '../utils/validators';
 import { createTruck } from '../models';
 import { DOCUMENT_KEYS } from '../constants/documentKeys';
 import { 
@@ -684,10 +684,22 @@ const mockWalletService = withAutoPersist({
      * also be withdrawn) and settles it a moment later, simulating admin
      * processing. Matches mobile's hold → settle withdrawal flow.
      */
+    saveBankDetails: async (iban, bankAccountName) => {
+        await delay(300);
+        const user = await authService.getCurrentUser();
+        if (!user) throw new Error('Unauthorized');
+        if (!isValidSaudiIban(iban)) throw new Error('رقم الآيبان غير صحيح — تأكد من كتابته (SA متبوعاً بـ 22 خانة).');
+        const stored = mockUsers.find(u => u.id === user.id) || user;
+        stored.iban = normalizeIban(iban);
+        stored.bankAccountName = bankAccountName.trim();
+        return { uid: user.id, iban: stored.iban, bankAccountName: stored.bankAccountName };
+    },
     withdraw: async (amount) => {
         await delay();
         const user = await authService.getCurrentUser();
         if (!user) throw new Error('Unauthorized');
+        // Same rule as the real requestWithdrawal: no saved bank details, no withdrawal.
+        if (!user.iban || !user.bankAccountName) throw new Error('يرجى إضافة بيانات الحساب البنكي قبل طلب السحب.');
         const wallet = findOrCreateWallet(user.id);
 
         const withdrawAmount = Number(amount);
