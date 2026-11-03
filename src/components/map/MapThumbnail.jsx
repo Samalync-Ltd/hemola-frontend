@@ -25,7 +25,7 @@ export const MapThumbnail = ({ pickup, delivery, height = 160, title = 'الخر
                 role="button"
                 aria-label="اضغط لتكبير الخريطة"
             >
-                {/* pointerEvents: 'none' keeps the thumbnail's own Leaflet gesture
+                {/* pointerEvents: 'none' keeps the thumbnail's own map gesture
                     layer from swallowing the click meant for the wrapper above. */}
                 <div style={{ pointerEvents: 'none' }}>
                     <TripMap pickup={pickup} delivery={delivery} height={height} interactive={false} />

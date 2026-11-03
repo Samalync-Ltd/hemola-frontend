@@ -1,22 +1,15 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { Map, AdvancedMarker } from '@vis.gl/react-google-maps';
 import { Button } from '../common/Button';
-import { createPinIcon } from '../../utils/mapIcons';
+import { MapPin } from './MapPin';
+import { GOOGLE_MAPS_MAP_ID, toLatLng } from './googleMaps';
 import { lookupCityCoordinates } from '../../utils/geo';
-
-const pickIcon = createPinIcon('#E53E3E', '📍');
-
-const ClickHandler = ({ onPick }) => {
-    useMapEvents({ click: (e) => onPick([e.latlng.lat, e.latlng.lng]) });
-    return null;
-};
 
 /**
  * Full-screen-ish map picker for pinning a precise pickup/delivery location.
  * Additive to the existing directions/contact text fields — this is stored
- * alongside them, not instead of them. Uses OpenStreetMap tiles (no API key),
- * matching mobile's flutter_map picker exactly.
+ * alongside them, not instead of them. Uses Google Maps (see googleMaps.js).
  */
 export const MapPickerModal = ({ isOpen, onClose, onConfirm, title, cityName, initialPoint }) => {
     const cityCenter = cityName ? lookupCityCoordinates(cityName) : null;
@@ -34,14 +27,17 @@ export const MapPickerModal = ({ isOpen, onClose, onConfirm, title, cityName, in
                     <Button variant="outline" size="sm" onClick={onClose}>إغلاق</Button>
                 </div>
                 <div style={{ flex: 1, position: 'relative' }}>
-                    <MapContainer center={center} zoom={12} style={{ height: '100%', width: '100%' }}>
-                        <TileLayer
-                            url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-                            attribution="© OpenStreetMap"
-                        />
-                        <ClickHandler onPick={setPoint} />
-                        {point && <Marker position={point} icon={pickIcon} />}
-                    </MapContainer>
+                    <Map
+                        mapId={GOOGLE_MAPS_MAP_ID}
+                        defaultCenter={toLatLng(center)}
+                        defaultZoom={12}
+                        style={{ height: '100%', width: '100%' }}
+                        gestureHandling="greedy"
+                        clickableIcons={false}
+                        onClick={(e) => e.detail.latLng && setPoint([e.detail.latLng.lat, e.detail.latLng.lng])}
+                    >
+                        {point && <AdvancedMarker position={toLatLng(point)}><MapPin color="#E53E3E" /></AdvancedMarker>}
+                    </Map>
                     <div style={{
                         position: 'absolute', top: 10, left: 10, right: 10, zIndex: 1000,
                         backgroundColor: 'white', borderRadius: 8, padding: '8px 12px',
