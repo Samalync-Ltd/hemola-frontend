@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ShipmentDetail as ShipperShipmentDetail } from '../shipper/ShipmentDetail';
 import { CarrierShipmentDetail } from '../carrier/CarrierShipmentDetail';
 import { authService } from '../../services/api';
+import { Loader } from '../../components/common/Loader';
 
 export const ShipmentDetailWrapper = () => {
     const [user, setUser] = useState(null);
@@ -13,7 +14,7 @@ export const ShipmentDetailWrapper = () => {
             .finally(() => setIsLoading(false));
     }, []);
 
-    if (isLoading) return <div>جاري التحميل...</div>;
+    if (isLoading) return <Loader />;
     if (!user) return <div>لم يتم تسجيل الدخول</div>;
 
     if (user.role === 'CARRIER') {

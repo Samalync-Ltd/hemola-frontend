@@ -10,6 +10,7 @@ import { OfferStatus, ShipmentStatus, TruckTypeAr } from '../../constants/enums'
 import { lookupCityCoordinates } from '../../utils/geo';
 import { MapThumbnail } from '../../components/map/MapThumbnail';
 import { toArabicError } from '../../utils/errors';
+import { Loader } from '../../components/common/Loader';
 
 export const CarrierShipmentDetail = ({ user }) => {
     const { shipmentId } = useParams();
@@ -95,7 +96,7 @@ export const CarrierShipmentDetail = ({ user }) => {
         }
     };
 
-    if (isLoading) return <div>جاري التحميل...</div>;
+    if (isLoading) return <Loader label="جاري تحميل الشحنة" />;
     if (error || !shipment) return <div>{error || 'الشحنة غير موجودة'}</div>;
 
     const busy = user && isCarrierBusy(user);

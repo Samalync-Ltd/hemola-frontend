@@ -222,7 +222,10 @@ export const CreateShipment = () => {
                 title="تحديد موقع التحميل"
                 cityName={formData.pickupCity}
                 initialPoint={formData.pickupLat ? [formData.pickupLat, formData.pickupLng] : null}
-                onConfirm={([lat, lng]) => setFormData(f => ({ ...f, pickupLat: lat, pickupLng: lng }))}
+                onConfirm={([lat, lng], city) => {
+                  setFormData(f => ({ ...f, pickupLat: lat, pickupLng: lng, pickupCity: city || f.pickupCity }));
+                  setErrors(e => ({ ...e, pickupPin: null, ...(city ? { pickupCity: null } : {}) }));
+                }}
               />
               <MapPickerModal
                 isOpen={pickerOpen === 'delivery'}
@@ -230,7 +233,10 @@ export const CreateShipment = () => {
                 title="تحديد موقع التسليم"
                 cityName={formData.deliveryCity}
                 initialPoint={formData.deliveryLat ? [formData.deliveryLat, formData.deliveryLng] : null}
-                onConfirm={([lat, lng]) => setFormData(f => ({ ...f, deliveryLat: lat, deliveryLng: lng }))}
+                onConfirm={([lat, lng], city) => {
+                  setFormData(f => ({ ...f, deliveryLat: lat, deliveryLng: lng, deliveryCity: city || f.deliveryCity }));
+                  setErrors(e => ({ ...e, deliveryPin: null, ...(city ? { deliveryCity: null } : {}) }));
+                }}
               />
             </div>)}
 

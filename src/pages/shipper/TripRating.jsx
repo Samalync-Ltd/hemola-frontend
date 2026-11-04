@@ -5,6 +5,7 @@ import { Card } from '../../components/common/Card';
 import { Input } from '../../components/common/Input';
 import { tripService } from '../../services/api';
 import { toArabicError } from '../../utils/errors';
+import { Loader } from '../../components/common/Loader';
 export const TripRating = () => {
     const { tripId } = useParams();
     const navigate = useNavigate();
@@ -19,7 +20,7 @@ export const TripRating = () => {
         }
     }, [tripId]);
     if (!trip)
-        return <div>جاري التحميل...</div>;
+        return <Loader label="جاري تحميل الرحلة" />;
     const handleSubmit = async () => {
         if (rating === 0) {
             alert('الرجاء اختيار التقييم أولاً');

@@ -75,7 +75,7 @@ export const TopUpModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
                             {error && <div role="alert" style={{ color: 'var(--color-error)', fontSize: 13 }}>{error}</div>}
                             <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
                                 <Button type="submit" disabled={isLoading || status === 'processing' || !amount || Number(amount) <= 0} style={{ flex: 1 }} isLoading={isLoading || status === 'processing'}>
-                                    {status === 'processing' ? 'جاري شحن الرصيد...' : 'تأكيد شحن الرصيد'}
+                                    {status === 'processing' ? 'جاري شحن الرصيد' : 'تأكيد شحن الرصيد'}
                                 </Button>
                                 <Button type="button" variant="outline" onClick={onClose} disabled={isLoading || status === 'processing'} style={{ flex: 1 }}>
                                     إلغاء

@@ -7,6 +7,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { shipmentService, offerService } from '../../services/api';
 import { OfferStatus } from '../../constants/enums';
+import { Loader } from '../../components/common/Loader';
 
 export const ReceivedOffers = () => {
     const { shipmentId } = useParams();
@@ -29,7 +30,7 @@ export const ReceivedOffers = () => {
     }, [shipmentId]);
 
     if (isLoading)
-        return <div>جاري التحميل...</div>;
+        return <Loader label="جاري تحميل العروض" />;
     if (!shipment)
         return <div>الشحنة غير موجودة</div>;
     const columns = [

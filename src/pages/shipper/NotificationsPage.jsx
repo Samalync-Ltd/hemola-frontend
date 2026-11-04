@@ -4,6 +4,7 @@ import { Button } from '../../components/common/Button';
 import { notificationService } from '../../services/api';
 import { Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Loader } from '../../components/common/Loader';
 
 export const NotificationsPage = () => {
     const [notifications, setNotifications] = useState([]);
@@ -41,7 +42,7 @@ export const NotificationsPage = () => {
         }
     };
 
-    if (isLoading) return <div>جاري التحميل...</div>;
+    if (isLoading) return <Loader label="جاري تحميل الإشعارات" />;
 
     const unreadCount = notifications.filter(n => !n.isRead).length;
 

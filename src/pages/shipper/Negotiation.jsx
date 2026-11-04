@@ -8,6 +8,7 @@ import { shipmentService, offerService } from '../../services/api';
 import { UserRole, OfferStatus, TruckTypeAr } from '../../constants/enums';
 import { formatTime, formatDate } from '../../utils/format';
 import { toArabicError } from '../../utils/errors';
+import { Loader } from '../../components/common/Loader';
 
 /**
  * One shipper↔carrier negotiation thread — shared by both roles (see
@@ -114,7 +115,7 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
         }
     };
 
-    if (isLoading) return <div>جاري التحميل...</div>;
+    if (isLoading) return <Loader label="جاري تحميل التفاوض" />;
     if (!shipment || !offer) return <div>البيانات غير موجودة</div>;
 
     const history = offer.history && offer.history.length > 0

@@ -9,6 +9,7 @@ import { DataTable } from '../../components/common/DataTable';
 import { shipmentService, tripService, walletService, authService } from '../../services/api';
 import { ShipmentStatus } from '../../constants/enums';
 import { TopUpModal } from '../../components/wallet/TopUpModal';
+import { Loader } from '../../components/common/Loader';
 export const Dashboard = () => {
     const navigate = useNavigate();
     const [shipments, setShipments] = useState([]);
@@ -54,7 +55,7 @@ export const Dashboard = () => {
     };
 
     if (isLoading) {
-        return <div>جاري التحميل...</div>;
+        return <Loader label="جاري تحميل لوحة التحكم" />;
     }
     const pendingShipments = shipments.filter(s => s.status === ShipmentStatus.PENDING_OFFERS ||
         s.status === ShipmentStatus.NEGOTIATING);

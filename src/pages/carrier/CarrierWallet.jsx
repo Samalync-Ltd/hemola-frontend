@@ -7,6 +7,7 @@ import { WithdrawModal } from '../../components/wallet/WithdrawModal';
 import { TopUpModal } from '../../components/wallet/TopUpModal';
 import { walletService, authService } from '../../services/api';
 import { TransactionType } from '../../constants/enums';
+import { Loader } from '../../components/common/Loader';
 
 // INTEGRATION.md §8/§9. Rows with amount 0 and a `withheld` figure
 // (commission, debt recovered) explain money taken before it reached the
@@ -71,7 +72,7 @@ export const CarrierWallet = () => {
         }
     };
 
-    if (isLoading) return <div>جاري التحميل...</div>;
+    if (isLoading) return <Loader label="جاري تحميل المحفظة" />;
     if (!wallet) return <div>لا توجد بيانات للمحفظة</div>;
 
     const columns = [

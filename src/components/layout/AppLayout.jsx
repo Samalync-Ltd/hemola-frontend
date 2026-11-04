@@ -4,6 +4,7 @@ import { AppSidebar } from './AppSidebar';
 import { Topbar } from './Topbar';
 import styles from './Layout.module.css';
 import { authService } from '../../services/api';
+import { Loader } from '../common/Loader';
 
 const AppLayout = () => {
     const [isLoading, setIsLoading] = useState(true);
@@ -30,7 +31,7 @@ const AppLayout = () => {
     // Close the mobile drawer automatically whenever the route changes.
     useEffect(() => { setIsMenuOpen(false); }, [location.pathname]);
 
-    if (isLoading) return <div>جاري التحميل...</div>;
+    if (isLoading) return <Loader variant="screen" label="جاري تحميل حسابك" />;
 
     if (accountStatus === 'UNDER_REVIEW') {
         return (

@@ -6,6 +6,7 @@ import { DataTable } from '../../components/common/DataTable';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { tripService, authService } from '../../services/api';
+import { SkeletonRows } from '../../components/common/Loader';
 export const TripsList = () => {
     const navigate = useNavigate();
     const [trips, setTrips] = useState([]);
@@ -43,7 +44,7 @@ export const TripsList = () => {
       </div>
 
       <Card>
-        {isLoading ? (<div>جاري التحميل...</div>) : (<DataTable data={trips} columns={columns} keyExtractor={(t) => t.id} emptyMessage="لا توجد رحلات حالياً"/>)}
+        {isLoading ? (<SkeletonRows rows={6} columns={5} label="جاري تحميل الرحلات" />) : (<DataTable data={trips} columns={columns} keyExtractor={(t) => t.id} emptyMessage="لا توجد رحلات حالياً"/>)}
       </Card>
     </div>);
 };

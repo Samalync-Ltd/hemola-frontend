@@ -7,6 +7,7 @@ import { PriceBlock } from '../../components/common/PriceBlock';
 import { shipmentService } from '../../services/api';
 import { ShipmentStatus, TruckTypeAr } from '../../constants/enums';
 import { toArabicError } from '../../utils/errors';
+import { Loader } from '../../components/common/Loader';
 export const ShipmentDetail = () => {
     const { shipmentId } = useParams();
     const navigate = useNavigate();
@@ -23,7 +24,7 @@ export const ShipmentDetail = () => {
         }
     }, [shipmentId]);
     if (isLoading)
-        return <div>جاري التحميل...</div>;
+        return <Loader label="جاري تحميل الشحنة" />;
     if (error || !shipment)
         return <div>{error || 'الشحنة غير موجودة'}</div>;
 

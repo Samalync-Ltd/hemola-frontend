@@ -7,6 +7,7 @@ import { PriceBlock } from '../../components/common/PriceBlock';
 import { shipmentService, authService, walletService, offerService, isCarrierBusy } from '../../services/api';
 import { ShipmentStatus } from '../../constants/enums';
 import { getCurrentPositionSafe, haversineKm, lookupCityCoordinates } from '../../utils/geo';
+import { SkeletonRows } from '../../components/common/Loader';
 
 const SORT_OPTIONS = [
     { value: 'newest', label: 'الأحدث' },
@@ -168,7 +169,7 @@ export const CarrierShipments = () => {
 
             <Card>
                 {isLoading ? (
-                    <div>جاري التحميل...</div>
+                    <SkeletonRows rows={4} columns={3} label="جاري تحميل الشحنات المتاحة" />
                 ) : (
                     <DataTable
                         data={sortedShipments}

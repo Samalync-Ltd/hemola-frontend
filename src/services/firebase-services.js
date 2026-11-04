@@ -16,6 +16,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { httpsCallable } from 'firebase/functions';
 import { TripStage } from '../constants/enums';
 import { normalizeSaudiPhone } from '../utils/validators';
+import { notificationDisplayText } from '../utils/notificationText';
 
 // Every Cloud Function below is documented in hemooltak-backend/INTEGRATION.md
 // — request/response shapes, error codes, and the exact enum spellings all
@@ -766,11 +767,12 @@ export const firebaseNotificationService = {
         return snap.docs.map((d) => {
             const n = d.data();
             const type = n.type || n.data?.type;
+            const text = notificationDisplayText(type, n.title || '', n.body || '');
             return {
                 id: d.id,
                 type,
-                title: n.title || '',
-                message: n.body || '',
+                title: text.title,
+                message: text.body,
                 timestamp: n.createdAt?.toDate?.().toISOString() ?? null,
                 isRead: !!n.read,
                 linkTo: notificationLink(type, n.data),

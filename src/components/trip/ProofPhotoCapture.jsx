@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '../common/Button';
+import { Loader } from '../common/Loader';
 
 /**
  * Required proof-of-load / proof-of-delivery capture: browser camera
@@ -125,7 +126,7 @@ export const ProofPhotoCapture = ({ label, onCaptured, existingPhoto }) => {
                     </div>
                 </div>
             ) : isLocating ? (
-                <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>جارِ تحديد الموقع...</div>
+                <Loader variant="inline" label="جاري تحديد موقعك" />
             ) : (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                     <Button variant="outline" size="sm" onClick={openCamera}>{label}</Button>

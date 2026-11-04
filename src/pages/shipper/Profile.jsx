@@ -9,6 +9,7 @@ import { TruckDetailsModal } from '../../components/profile/TruckDetailsModal';
 import { isValidSaudiPhone } from '../../utils/validators';
 import { PROFILE_UPDATED_EVENT } from '../../constants/config';
 import { toArabicError } from '../../utils/errors';
+import { Loader } from '../../components/common/Loader';
 export const Profile = () => {
     const [user, setUser] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
@@ -40,7 +41,7 @@ export const Profile = () => {
         }).catch(() => setIsLoading(false));
     }, []);
     if (isLoading)
-        return <div>جاري التحميل...</div>;
+        return <Loader label="جاري تحميل بيانات الحساب" />;
     if (!user)
         return <div>حدث خطأ</div>;
     const startEditing = () => {

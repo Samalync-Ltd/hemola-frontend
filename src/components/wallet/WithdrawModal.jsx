@@ -170,7 +170,7 @@ export const WithdrawModal = ({ isOpen, onClose, onCompleted, currentBalance, sa
 
                             <div style={{ display: 'flex', gap: 12 }}>
                                 <Button type="submit" disabled={busy} style={{ flex: 1 }} isLoading={busy}>
-                                    {busy ? 'جاري الإرسال...' : 'تأكيد سحب الرصيد'}
+                                    {busy ? 'جاري الإرسال' : 'تأكيد سحب الرصيد'}
                                 </Button>
                                 <Button type="button" variant="outline" onClick={onClose} disabled={busy} style={{ flex: 1 }}>
                                     إلغاء

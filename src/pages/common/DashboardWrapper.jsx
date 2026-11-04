@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Dashboard as ShipperDashboard } from '../shipper/Dashboard';
 import { CarrierDashboard } from '../carrier/CarrierDashboard';
 import { authService } from '../../services/api';
+import { Loader } from '../../components/common/Loader';
 
 export const DashboardWrapper = () => {
     const [user, setUser] = useState(null);
@@ -13,7 +14,7 @@ export const DashboardWrapper = () => {
             .finally(() => setIsLoading(false));
     }, []);
 
-    if (isLoading) return <div>جاري التحميل...</div>;
+    if (isLoading) return <Loader />;
     if (!user) return <div>لم يتم تسجيل الدخول</div>;
 
     if (user.role === 'CARRIER') {

@@ -10,6 +10,7 @@ import { openInMaps } from '../../components/map/TripMap';
 import { MapThumbnail } from '../../components/map/MapThumbnail';
 import { CallButton } from '../../components/trip/CallButton';
 import { toArabicError } from '../../utils/errors';
+import { Loader } from '../../components/common/Loader';
 
 const stageOrder = [
     TripStageEnum.ASSIGNED,
@@ -56,7 +57,7 @@ export const CarrierTripTrack = () => {
         fetchTrip();
     }, [tripId]);
 
-    if (isLoading) return <div>جاري التحميل...</div>;
+    if (isLoading) return <Loader label="جاري تحميل الرحلة" />;
     if (!trip) return <div>الرحلة غير موجودة</div>;
 
     const isCancelled = trip.overallStatus === 'CANCELLED';

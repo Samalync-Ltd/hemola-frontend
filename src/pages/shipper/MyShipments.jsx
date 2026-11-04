@@ -7,6 +7,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { shipmentService, authService } from '../../services/api';
 import { ShipmentStatus, ShipmentStatusAr } from '../../constants/enums';
+import { SkeletonRows } from '../../components/common/Loader';
 export const MyShipments = () => {
     const navigate = useNavigate();
     const [shipments, setShipments] = useState([]);
@@ -86,7 +87,7 @@ export const MyShipments = () => {
             </button>))}
         </div>
 
-        {isLoading ? (<div>جاري التحميل...</div>) : (<DataTable data={filteredShipments} columns={columns} keyExtractor={(s) => s.id} emptyMessage="لا توجد شحنات حالياً"/>)}
+        {isLoading ? (<SkeletonRows rows={6} columns={5} label="جاري تحميل الشحنات" />) : (<DataTable data={filteredShipments} columns={columns} keyExtractor={(s) => s.id} emptyMessage="لا توجد شحنات حالياً"/>)}
       </Card>
     </div>);
 };

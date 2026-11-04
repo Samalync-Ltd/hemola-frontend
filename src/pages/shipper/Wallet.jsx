@@ -6,6 +6,7 @@ import { PriceBlock } from '../../components/common/PriceBlock';
 import { DataTable } from '../../components/common/DataTable';
 import { TopUpModal } from '../../components/wallet/TopUpModal';
 import { TransactionType } from '../../constants/enums';
+import { Loader } from '../../components/common/Loader';
 
 // Withdrawals are carrier-only (INTEGRATION.md §12 requestWithdrawal), so a
 // shipper's statement never shows WITHDRAWAL.
@@ -53,7 +54,7 @@ export const WalletPage = () => {
     };
 
     if (isLoading)
-        return <div>جاري التحميل...</div>;
+        return <Loader label="جاري تحميل المحفظة" />;
     if (!wallet)
         return <div>لا توجد بيانات للمحفظة</div>;
     const columns = [

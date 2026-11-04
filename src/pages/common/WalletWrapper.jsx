@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { WalletPage as ShipperWallet } from '../shipper/Wallet';
 import { CarrierWallet } from '../carrier/CarrierWallet';
 import { authService } from '../../services/api';
+import { Loader } from '../../components/common/Loader';
 
 export const WalletWrapper = () => {
     const [user, setUser] = useState(null);
@@ -13,7 +14,7 @@ export const WalletWrapper = () => {
             .finally(() => setIsLoading(false));
     }, []);
 
-    if (isLoading) return <div>جاري التحميل...</div>;
+    if (isLoading) return <Loader />;
     if (!user) return <div>لم يتم تسجيل الدخول</div>;
 
     if (user.role === 'CARRIER') {

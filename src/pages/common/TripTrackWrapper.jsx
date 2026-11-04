@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { TripTrack as ShipperTripTrack } from '../shipper/TripTrack';
 import { CarrierTripTrack } from '../carrier/CarrierTripTrack';
 import { authService } from '../../services/api';
+import { Loader } from '../../components/common/Loader';
 
 export const TripTrackWrapper = () => {
     const [user, setUser] = useState(null);
@@ -13,7 +14,7 @@ export const TripTrackWrapper = () => {
             .finally(() => setIsLoading(false));
     }, []);
 
-    if (isLoading) return <div>جاري التحميل...</div>;
+    if (isLoading) return <Loader />;
     if (!user) return <div>لم يتم تسجيل الدخول</div>;
 
     if (user.role === 'CARRIER') {

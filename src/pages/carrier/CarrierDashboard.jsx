@@ -9,6 +9,7 @@ import { DataTable } from '../../components/common/DataTable';
 import { shipmentService, tripService, walletService, authService, offerService } from '../../services/api';
 import { ShipmentStatus, OfferStatus } from '../../constants/enums';
 import { WithdrawModal } from '../../components/wallet/WithdrawModal';
+import { Loader } from '../../components/common/Loader';
 
 export const CarrierDashboard = () => {
     const navigate = useNavigate();
@@ -58,7 +59,7 @@ export const CarrierDashboard = () => {
     };
 
     if (isLoading) {
-        return <div>جاري التحميل...</div>;
+        return <Loader label="جاري تحميل لوحة التحكم" />;
     }
 
     const activeTrips = trips.filter(t => t.currentStage !== 'DELIVERED');
