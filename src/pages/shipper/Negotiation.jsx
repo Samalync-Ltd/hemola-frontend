@@ -7,6 +7,7 @@ import { PriceBlock } from '../../components/common/PriceBlock';
 import { shipmentService, offerService } from '../../services/api';
 import { UserRole, OfferStatus, TruckTypeAr } from '../../constants/enums';
 import { formatTime, formatDate } from '../../utils/format';
+import { toArabicError } from '../../utils/errors';
 
 /**
  * One shipper↔carrier negotiation thread — shared by both roles (see
@@ -69,7 +70,7 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
             setOffer(updated);
             setCounterAmount('');
         } catch (err) {
-            setError(err.message);
+            setError(toArabicError(err));
         } finally {
             setIsSubmitting(false);
         }
@@ -92,7 +93,7 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
         } catch (err) {
             // Insufficient available balance — mirrors mobile's
             // AcceptOfferOutcome.insufficientBalance: nothing changes.
-            setError(err.message);
+            setError(toArabicError(err));
             setIsSubmitting(false);
         }
     };
@@ -108,7 +109,7 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
             await offerService.rejectOffer(shipmentId, offer.id, reason.trim());
             navigate(backPath);
         } catch (err) {
-            setError(err.message);
+            setError(toArabicError(err));
             setIsSubmitting(false);
         }
     };

@@ -4,11 +4,9 @@ import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { DataTable } from '../../components/common/DataTable';
 import { PriceBlock } from '../../components/common/PriceBlock';
-import { shipmentService, authService, walletService, offerService, isCarrierBusy, USE_FIREBASE } from '../../services/api';
+import { shipmentService, authService, walletService, offerService, isCarrierBusy } from '../../services/api';
 import { ShipmentStatus } from '../../constants/enums';
 import { getCurrentPositionSafe, haversineKm, lookupCityCoordinates } from '../../utils/geo';
-import { DEMO_MODE } from '../../constants/config';
-import { useDemoShipmentTrickle } from '../../hooks/useDemoShipmentTrickle';
 
 const SORT_OPTIONS = [
     { value: 'newest', label: 'الأحدث' },
@@ -28,9 +26,6 @@ export const CarrierShipments = () => {
     // (shipmentId -> offer), so the list can send them straight back into
     // that negotiation instead of only ever offering "submit a new offer".
     const [myOffersByShipment, setMyOffersByShipment] = useState({});
-    // Gates the demo-trickle effect below — only known once the real fetch
-    // resolves, so it's state rather than derived inline.
-    const [shouldTrickle, setShouldTrickle] = useState(false);
 
     useEffect(() => {
         Promise.all([
@@ -55,20 +50,8 @@ export const CarrierShipments = () => {
                 offers.forEach(o => { map[o.shipmentId] = o; });
                 setMyOffersByShipment(map);
             });
-
-            // The demo trickle only ever matters when the real list is
-            // genuinely empty — whether that's a brand-new account or just
-            // no current matches for this truck type. Gating on that alone
-            // (rather than requiring the account to have come through the
-            // registration wizard specifically) means it works no matter how
-            // the account got here, including a stale/partial session.
-            if (DEMO_MODE && !USE_FIREBASE && available.length === 0) setShouldTrickle(true);
         });
     }, []);
-
-    useDemoShipmentTrickle(shouldTrickle, carrier?.trucks?.[0]?.type, (injected) => {
-        setShipments(prev => [injected, ...prev]);
-    });
 
     // Fetched once; if denied/unavailable this stays null and "nearest" just
     // falls back to the incoming order — see sortedShipments below.

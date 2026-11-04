@@ -40,14 +40,13 @@ export const WalletPage = () => {
         fetchData();
     }, []);
 
+    // Errors propagate to TopUpModal, which shows them and only reports
+    // success once the backend has actually credited the wallet.
     const handleTopUp = async (amount) => {
         setIsToppingUp(true);
         try {
             await walletService.topUp(amount);
             await fetchData();
-            setIsTopUpOpen(false);
-        } catch (error) {
-            console.error('Failed to top up', error);
         } finally {
             setIsToppingUp(false);
         }

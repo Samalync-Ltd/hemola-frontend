@@ -3,29 +3,19 @@ import { useNavigate, Link } from 'react-router-dom';
 import styles from './Auth.module.css';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
-import { authService, USE_FIREBASE_AUTH } from '../../services/api';
-
-// Demo credentials — pre-fill for one-click client testing. They only exist
-// in the mock store, so against the real backend the form starts empty.
-const DEMO_CREDENTIALS = USE_FIREBASE_AUTH
-    ? { SHIPPER: { email: '', password: '' }, CARRIER: { email: '', password: '' } }
-    : {
-        SHIPPER: { email: 'info@alnokhba.sa', password: '123456' },
-        CARRIER: { email: 'ahmed@example.com', password: '123456' },
-    };
+import { authService } from '../../services/api';
+import { toArabicError } from '../../utils/errors';
 
 export const Login = () => {
     const navigate = useNavigate();
     const [role, setRole] = useState('SHIPPER');
-    const [email, setEmail] = useState(DEMO_CREDENTIALS.SHIPPER.email);
-    const [password, setPassword] = useState(DEMO_CREDENTIALS.SHIPPER.password);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
     const handleRoleChange = (newRole) => {
         setRole(newRole);
-        setEmail(DEMO_CREDENTIALS[newRole].email);
-        setPassword(DEMO_CREDENTIALS[newRole].password);
         setError('');
     };
 
@@ -73,7 +63,8 @@ export const Login = () => {
             }
         }
         catch (err) {
-            setError(err.message || 'بيانات تسجيل الدخول غير صحيحة');
+            // Never show Firebase's raw English ("Firebase: Error (auth/…)").
+            setError(toArabicError(err, 'تعذّر تسجيل الدخول، حاول مرة أخرى'));
         }
         finally {
             setIsLoading(false);

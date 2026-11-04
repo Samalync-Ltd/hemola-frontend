@@ -4,8 +4,8 @@ import styles from './Auth.module.css';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { isValidSaudiPhone, normalizeSaudiPhone } from '../../utils/validators';
-import { markFreshAccount } from '../../utils/freshAccount';
-import { authService, USE_FIREBASE_AUTH } from '../../services/api';
+import { authService } from '../../services/api';
+import { toArabicError } from '../../utils/errors';
 import { DOCUMENT_KEYS } from '../../constants/documentKeys';
 import { TRUCK_TYPE_OPTIONS, TruckTypeAr } from '../../constants/enums';
 
@@ -26,7 +26,7 @@ export const Register = () => {
         password: ''
     });
     
-    // Step 4/5 files (mock just keeping track of if they have a value)
+    // Step 4/5 files, keyed by document type — uploaded on submit
     const [files, setFiles] = useState({});
     
     const [errors, setErrors] = useState({});
@@ -122,12 +122,11 @@ export const Register = () => {
                 } : {}),
             };
             await authService.registerNewUser(payload);
-            markFreshAccount();
             setIsLoading(false);
             setStep(role === 'CARRIER' ? 6 : 5); // Review step
         } catch (err) {
             setIsLoading(false);
-            alert('حدث خطأ أثناء التسجيل: ' + err.message);
+            setErrors({ form: toArabicError(err, 'حدث خطأ أثناء التسجيل، حاول مرة أخرى') });
         }
     };
 
@@ -142,16 +141,7 @@ export const Register = () => {
         }
     };
 
-    const simulateAdminApproval = () => {
-        // A client-side transition, not a hard reload: mockUsers/mockShipments
-        // etc. are plain in-memory module state (see src/mocks/data.js) with
-        // no persistence layer under them — a full page load (window.location)
-        // would re-execute those modules from scratch and silently discard
-        // the user record just created above.
-        navigate('/app');
-    };
-
-    // Real backend: the admin approves from the dashboard; the user signs in
+    // The admin approves from the dashboard; the user signs in
     // again afterwards (Login routes on accountStatus).
     const returnToLogin = async () => {
         await authService.logout();
@@ -269,19 +259,16 @@ export const Register = () => {
                 بانتظار موافقة الإدارة لتفعيل الحساب.
               </p>
               
-              {USE_FIREBASE_AUTH ? (
-                <Button type="button" onClick={returnToLogin} variant="outline" style={{ width: '100%' }}>
-                  العودة لتسجيل الدخول
-                </Button>
-              ) : (
-              <div style={{ padding: 16, backgroundColor: '#f0f9ff', borderRadius: 8, border: '1px dashed #3b82f6' }}>
-                <p style={{ fontSize: 13, marginBottom: 8 }}>لأغراض العرض التوضيحي (Demo):</p>
-                <Button type="button" onClick={simulateAdminApproval} variant="outline" style={{ width: '100%' }}>
-                  محاكاة موافقة الإدارة والدخول
-                </Button>
-              </div>
-              )}
+              <Button type="button" onClick={returnToLogin} variant="outline" style={{ width: '100%' }}>
+                العودة لتسجيل الدخول
+              </Button>
             </div>)}
+
+          {errors.form && (
+            <div role="alert" style={{ marginTop: 24, padding: '12px 16px', borderRadius: 8, color: 'var(--color-error)', backgroundColor: 'rgba(239, 68, 68, 0.08)', border: '1px solid var(--color-error)' }}>
+              {errors.form}
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: 16, marginTop: 32 }}>
             {step > 1 && !( (step === 5 && role === 'SHIPPER') || (step === 6 && role === 'CARRIER') ) && (<Button type="button" variant="outline" onClick={prevStep} style={{ flex: 1 }}>

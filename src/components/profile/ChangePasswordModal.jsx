@@ -4,8 +4,9 @@ import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { authService } from '../../services/api';
+import { toArabicError } from '../../utils/errors';
 
-/** Verifies the current password and sets the new one (Firebase Auth; mock mode just reports success). */
+/** Verifies the current password and sets the new one (Firebase Auth). */
 export const ChangePasswordModal = ({ isOpen, onClose }) => {
     const [current, setCurrent] = useState('');
     const [next, setNext] = useState('');
@@ -38,7 +39,7 @@ export const ChangePasswordModal = ({ isOpen, onClose }) => {
             await authService.changePassword(current, next);
             setIsDone(true);
         } catch (err) {
-            setError(err.message || 'تعذّر تغيير كلمة المرور، حاول مرة أخرى');
+            setError(toArabicError(err, 'تعذّر تغيير كلمة المرور، حاول مرة أخرى'));
         } finally {
             setIsSubmitting(false);
         }

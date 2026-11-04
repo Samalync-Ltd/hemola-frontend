@@ -6,6 +6,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { shipmentService } from '../../services/api';
 import { ShipmentStatus, TruckTypeAr } from '../../constants/enums';
+import { toArabicError } from '../../utils/errors';
 export const ShipmentDetail = () => {
     const { shipmentId } = useParams();
     const navigate = useNavigate();
@@ -17,7 +18,7 @@ export const ShipmentDetail = () => {
         if (shipmentId) {
             shipmentService.getShipmentById(shipmentId)
                 .then(setShipment)
-                .catch(err => setError(err.message))
+                .catch(err => setError(toArabicError(err)))
                 .finally(() => setIsLoading(false));
         }
     }, [shipmentId]);
@@ -38,7 +39,7 @@ export const ShipmentDetail = () => {
             const updated = await shipmentService.cancelShipment(shipment.id);
             setShipment(updated);
         } catch (err) {
-            alert(err.message);
+            alert(toArabicError(err));
         } finally {
             setIsCancelling(false);
         }

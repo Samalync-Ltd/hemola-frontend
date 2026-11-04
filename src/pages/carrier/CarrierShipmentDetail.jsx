@@ -9,6 +9,7 @@ import { shipmentService, offerService, isCarrierBusy } from '../../services/api
 import { OfferStatus, ShipmentStatus, TruckTypeAr } from '../../constants/enums';
 import { lookupCityCoordinates } from '../../utils/geo';
 import { MapThumbnail } from '../../components/map/MapThumbnail';
+import { toArabicError } from '../../utils/errors';
 
 export const CarrierShipmentDetail = ({ user }) => {
     const { shipmentId } = useParams();
@@ -38,7 +39,7 @@ export const CarrierShipmentDetail = ({ user }) => {
                     setMyOffer(existingOffer);
                 }
             })
-            .catch(err => setError(err.message))
+            .catch(err => setError(toArabicError(err)))
             .finally(() => setIsLoading(false));
         }
     }, [shipmentId, user]);
@@ -66,7 +67,7 @@ export const CarrierShipmentDetail = ({ user }) => {
             });
             setMyOffer(newOffer);
         } catch (err) {
-            setSubmitError(err.message);
+            setSubmitError(toArabicError(err));
         } finally {
             setIsSubmitting(false);
         }
@@ -88,7 +89,7 @@ export const CarrierShipmentDetail = ({ user }) => {
             });
             setMyOffer(newOffer);
         } catch (err) {
-            setSubmitError(err.message);
+            setSubmitError(toArabicError(err));
         } finally {
             setIsAccepting(false);
         }

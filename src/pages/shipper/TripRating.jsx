@@ -4,6 +4,7 @@ import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { Input } from '../../components/common/Input';
 import { tripService } from '../../services/api';
+import { toArabicError } from '../../utils/errors';
 export const TripRating = () => {
     const { tripId } = useParams();
     const navigate = useNavigate();
@@ -31,7 +32,7 @@ export const TripRating = () => {
             alert('تم إرسال التقييم بنجاح. شكراً لك!');
             navigate('/app/trips');
         } catch (err) {
-            setError(err.message || 'حدث خطأ أثناء إرسال التقييم');
+            setError(toArabicError(err, 'حدث خطأ أثناء إرسال التقييم'));
         } finally {
             setIsLoading(false);
         }

@@ -6,11 +6,9 @@ import { Button } from '../../components/common/Button';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { DataTable } from '../../components/common/DataTable';
-import { shipmentService, tripService, walletService, authService, offerService, USE_FIREBASE } from '../../services/api';
+import { shipmentService, tripService, walletService, authService, offerService } from '../../services/api';
 import { ShipmentStatus, OfferStatus } from '../../constants/enums';
 import { WithdrawModal } from '../../components/wallet/WithdrawModal';
-import { DEMO_MODE } from '../../constants/config';
-import { useDemoShipmentTrickle } from '../../hooks/useDemoShipmentTrickle';
 
 export const CarrierDashboard = () => {
     const navigate = useNavigate();
@@ -21,7 +19,6 @@ export const CarrierDashboard = () => {
     const [wallet, setWallet] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
-    const [shouldTrickle, setShouldTrickle] = useState(false);
 
     const fetchData = async () => {
         try {
@@ -42,7 +39,6 @@ export const CarrierDashboard = () => {
                 (!currentUser?.trucks?.length || !s.requiredTruckType || currentUser.trucks.some(t => t.type === s.requiredTruckType))
             );
             setAvailableShipments(available);
-            if (DEMO_MODE && !USE_FIREBASE && available.length === 0) setShouldTrickle(true);
 
             setTrips(tr.filter(t => t.carrierId === currentUser.id));
             setWallet(wa);
@@ -55,14 +51,6 @@ export const CarrierDashboard = () => {
     useEffect(() => {
         fetchData();
     }, []);
-
-    // Same simulated marketplace trickle as CarrierShipments.jsx — this
-    // dashboard's own "شحنات متاحة حديثاً" preview reads the same store, so
-    // it needs the same empty-then-trickle behavior regardless of which of
-    // the two screens the carrier happens to be looking at.
-    useDemoShipmentTrickle(shouldTrickle, user?.trucks?.[0]?.type, (injected) => {
-        setAvailableShipments(prev => [injected, ...prev]);
-    });
 
     const handleWithdrawCompleted = async () => {
         await fetchData();

@@ -8,6 +8,7 @@ import { shipmentService, catalogService } from '../../services/api';
 import { MapPickerModal } from '../../components/map/MapPickerModal';
 import { TRUCK_TYPE_OPTIONS, TruckTypeAr } from '../../constants/enums';
 import { isValidSaudiPhone } from '../../utils/validators';
+import { toArabicError } from '../../utils/errors';
 const DEFAULT_CARGO_NAMES = ['مواد غذائية', 'أجهزة كهربائية', 'مواد بناء', 'بضائع عامة'];
 const steps = [
     'المواقع',
@@ -136,7 +137,7 @@ export const CreateShipment = () => {
         }
         catch (err) {
             console.error(err);
-            setPublishError(err.message || 'حدث خطأ أثناء نشر الشحنة');
+            setPublishError(toArabicError(err, 'حدث خطأ أثناء نشر الشحنة'));
         }
         finally {
             setIsLoading(false);

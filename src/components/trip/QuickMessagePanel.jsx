@@ -27,9 +27,8 @@ const LABEL_BY_KEY = Object.fromEntries(
 
 /**
  * A trip's shared quick-message timeline, closed-set buttons filtered by
- * role. `currentUserId` decides which bubbles are "mine" against the real
- * backend's `senderId` field; `role` is used as a fallback for the mock,
- * which still stamps messages with `senderRole` instead.
+ * role. `currentUserId` decides which bubbles are "mine" via the backend's
+ * `senderId` field; `role` is a fallback for messages without one.
  */
 export const QuickMessagePanel = ({ role, currentUserId, messages = [], onSend, isSending }) => {
     const options = QUICK_MESSAGES[role] || [];

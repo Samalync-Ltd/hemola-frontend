@@ -1,17 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '../common/Button';
-import { USE_FIREBASE } from '../../services/api';
 
 /**
  * Required proof-of-load / proof-of-delivery capture: browser camera
  * (getUserMedia) + geolocation, timestamped, matching mobile's requirement
  * at the LOADED and DELIVERED stages exactly (see trips_provider.dart).
  *
- * `onCaptured` fires as soon as the photo + GPS fix are in hand. In mock
- * mode the "upload" is then simulated (same 2200ms delay / ~35% first-try
- * failure / 6s auto-retry timing mobile uses); against the real backend the
- * caller uploads it before advancing the stage. A file picker is offered
- * next to the camera for devices without one.
+ * `onCaptured` fires as soon as the photo + GPS fix are in hand; the caller
+ * uploads it (tripService.updateTripStage) before advancing the stage. A
+ * file picker is offered next to the camera for devices without one.
  */
 export const ProofPhotoCapture = ({ label, onCaptured, existingPhoto }) => {
     const videoRef = useRef(null);
@@ -20,7 +17,6 @@ export const ProofPhotoCapture = ({ label, onCaptured, existingPhoto }) => {
     const [isCameraOpen, setIsCameraOpen] = useState(false);
     const [isLocating, setIsLocating] = useState(false);
     const [error, setError] = useState('');
-    const [uploadStatus, setUploadStatus] = useState(existingPhoto ? 'uploaded' : null);
 
     useEffect(() => () => stopCamera(), []);
 
@@ -53,19 +49,6 @@ export const ProofPhotoCapture = ({ label, onCaptured, existingPhoto }) => {
         );
     });
 
-    const simulateUpload = () => {
-        setUploadStatus('uploading');
-        setTimeout(() => {
-            const failed = Math.random() < 0.35;
-            if (failed) {
-                setUploadStatus('retrying');
-                setTimeout(() => setUploadStatus('uploaded'), 6000);
-            } else {
-                setUploadStatus('uploaded');
-            }
-        }, 2200);
-    };
-
     // Shared by the camera and the file picker. Against the real backend the
     // GPS fix is mandatory (recordTripProof rejects missing coords) and the
     // upload happens for real inside tripService.updateTripStage, so there
@@ -75,13 +58,12 @@ export const ProofPhotoCapture = ({ label, onCaptured, existingPhoto }) => {
         setIsLocating(true);
         const location = await getLocation();
         setIsLocating(false);
-        if (USE_FIREBASE && !location) {
+        if (!location) {
             setError('تعذّر تحديد موقعك — اسمح للمتصفح بالوصول إلى الموقع ثم أعد المحاولة.');
             return;
         }
         const capturedAt = new Date().toISOString();
         onCaptured({ photoDataUrl, lat: location?.lat ?? null, lng: location?.lng ?? null, capturedAt });
-        if (!USE_FIREBASE) simulateUpload();
     };
 
     const capture = async () => {
@@ -116,12 +98,6 @@ export const ProofPhotoCapture = ({ label, onCaptured, existingPhoto }) => {
         reader.readAsDataURL(file);
     };
 
-    const uploadStatusLabel = {
-        uploading: 'جارِ الرفع...',
-        retrying: 'فشل الرفع — إعادة المحاولة تلقائياً...',
-        uploaded: 'تم الرفع بنجاح',
-    };
-
     if (existingPhoto) {
         return (
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -130,11 +106,6 @@ export const ProofPhotoCapture = ({ label, onCaptured, existingPhoto }) => {
                     <div>{new Date(existingPhoto.capturedAt).toLocaleString('ar-SA')}</div>
                     {existingPhoto.lat != null && (
                         <div dir="ltr">{existingPhoto.lat.toFixed(5)}, {existingPhoto.lng.toFixed(5)}</div>
-                    )}
-                    {uploadStatus && uploadStatus !== 'uploaded' && (
-                        <div style={{ color: uploadStatus === 'retrying' ? 'var(--color-error)' : 'var(--color-text-muted)' }}>
-                            {uploadStatusLabel[uploadStatus]}
-                        </div>
                     )}
                 </div>
             </div>

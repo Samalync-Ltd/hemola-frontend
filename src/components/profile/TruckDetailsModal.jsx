@@ -6,6 +6,7 @@ import { Input } from '../common/Input';
 import { StatusBadge } from '../common/StatusBadge';
 import { authService } from '../../services/api';
 import { TRUCK_TYPE_OPTIONS, TruckTypeAr } from '../../constants/enums';
+import { toArabicError } from '../../utils/errors';
 
 /**
  * Detail/edit view for ONE truck in the carrier's fleet (see
@@ -58,7 +59,7 @@ export const TruckDetailsModal = ({ isOpen, onClose, user, truck, onSaved, onDel
             onSaved?.(updatedUser);
             if (isNew) onClose(); else setIsEditing(false);
         } catch (err) {
-            setError(err.message);
+            setError(toArabicError(err));
         } finally {
             setIsSaving(false);
         }
@@ -105,7 +106,7 @@ export const TruckDetailsModal = ({ isOpen, onClose, user, truck, onSaved, onDel
                                     onChange={handleFieldChange}
                                     style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border)' }}
                                 >
-                                    {/* A pre-existing truck (e.g. mock-seeded data) may hold a value
+                                    {/* An older truck record may hold a value
                                         outside the enum — keep it selectable instead of silently
                                         swapping it for the first option in the list. */}
                                     {form.type && !TRUCK_TYPE_OPTIONS.includes(form.type) && (
@@ -138,7 +139,7 @@ export const TruckDetailsModal = ({ isOpen, onClose, user, truck, onSaved, onDel
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <span className="text-helper">نوع الشاحنة</span>
-                                {/* Older mock-seeded trucks may still carry a raw Arabic label
+                                {/* Older truck records may still carry a raw Arabic label
                                     instead of one of the real TruckType enum keys — fall back to
                                     showing it as-is rather than losing the information. */}
                                 <strong>{(truck.type === 'OTHER' ? truck.customType : TruckTypeAr[truck.type]) || truck.type || '—'}</strong>

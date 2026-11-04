@@ -30,8 +30,8 @@ export const CarrierWallet = () => {
     const [wallet, setWallet] = useState(null);
     const [transactions, setTransactions] = useState([]);
     // outstandingDebt lives on the carrier's own profile (users/{uid}), not
-    // on the wallet doc — a negative wallet balance is not how the real
-    // backend represents debt, unlike the old mock's shortcut.
+    // on the wallet doc — a negative wallet balance is not how the backend
+    // represents debt.
     const [outstandingDebt, setOutstandingDebt] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
     const [bankDetails, setBankDetails] = useState(null);
@@ -48,10 +48,7 @@ export const CarrierWallet = () => {
         // Carrier earnings come only from trip settlements — filter out any
         // stray transaction types that don't apply to this role.
         setTransactions(t.filter(txn => txn.type in TRANSACTION_LABELS));
-        // The mock has no outstandingDebt field of its own — it represents
-        // the same idea as a negative wallet balance instead, so fall back
-        // to that when the real field isn't present.
-        setOutstandingDebt(user?.outstandingDebt || (w.balance < 0 ? Math.abs(w.balance) : 0));
+        setOutstandingDebt(user?.outstandingDebt ?? 0);
         setBankDetails(user ? { iban: user.iban || '', bankAccountName: user.bankAccountName || '' } : null);
     }).finally(() => setIsLoading(false));
 
@@ -62,14 +59,13 @@ export const CarrierWallet = () => {
         setIsWithdrawOpen(false);
     };
 
+    // Errors propagate to TopUpModal, which shows them and only reports
+    // success once the backend has actually credited the wallet.
     const handleTopUp = async (amount) => {
         setIsToppingUp(true);
         try {
             await walletService.topUp(amount);
             await fetchData();
-            setIsTopUpOpen(false);
-        } catch (error) {
-            alert(error.message);
         } finally {
             setIsToppingUp(false);
         }

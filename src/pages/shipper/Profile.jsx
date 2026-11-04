@@ -5,16 +5,15 @@ import { Button } from '../../components/common/Button';
 import { authService } from '../../services/api';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { ChangePasswordModal } from '../../components/profile/ChangePasswordModal';
-import { NotificationSettingsModal } from '../../components/profile/NotificationSettingsModal';
 import { TruckDetailsModal } from '../../components/profile/TruckDetailsModal';
 import { isValidSaudiPhone } from '../../utils/validators';
 import { PROFILE_UPDATED_EVENT } from '../../constants/config';
+import { toArabicError } from '../../utils/errors';
 export const Profile = () => {
     const [user, setUser] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isPasswordOpen, setIsPasswordOpen] = useState(false);
-    const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [isTruckOpen, setIsTruckOpen] = useState(false);
     const [selectedTruck, setSelectedTruck] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -74,7 +73,7 @@ export const Profile = () => {
             setSaveMessage('تم حفظ التغييرات بنجاح');
             window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT, { detail: updated }));
         } catch (err) {
-            setSaveError(err.message || 'تعذّر حفظ التغييرات، حاول مرة أخرى');
+            setSaveError(toArabicError(err, 'تعذّر حفظ التغييرات، حاول مرة أخرى'));
         } finally {
             setIsSaving(false);
         }
@@ -156,19 +155,12 @@ export const Profile = () => {
       )}
 
       <Card>
-        <h3 style={{ marginBottom: 16 }}>الأمان والإشعارات</h3>
+        <h3 style={{ marginBottom: 16 }}>الأمان</h3>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid var(--color-border)' }}>
           <div>
             <strong>تغيير كلمة المرور</strong>
           </div>
           <Button variant="outline" onClick={() => setIsPasswordOpen(true)}>تغيير</Button>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid var(--color-border)' }}>
-          <div>
-            <strong>إعدادات الإشعارات</strong>
-            <div className="text-helper">{(user.notificationsEnabled ?? true) ? 'مُفعّلة' : 'مُعطّلة'}</div>
-          </div>
-          <Button variant="outline" onClick={() => setIsNotificationsOpen(true)}>إدارة</Button>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0' }}>
           <div>
@@ -183,12 +175,6 @@ export const Profile = () => {
       </Card>
 
       <ChangePasswordModal isOpen={isPasswordOpen} onClose={() => setIsPasswordOpen(false)} />
-      <NotificationSettingsModal
-          isOpen={isNotificationsOpen}
-          onClose={() => setIsNotificationsOpen(false)}
-          user={user}
-          onUpdated={(enabled) => setUser(u => ({ ...u, notificationsEnabled: enabled }))}
-      />
       {user.role === 'CARRIER' && (
           <TruckDetailsModal
               isOpen={isTruckOpen}

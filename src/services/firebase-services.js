@@ -10,7 +10,7 @@ import {
 } from 'firebase/auth';
 import {
     collection, collectionGroup, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc,
-    query, where, orderBy, serverTimestamp
+    query, where, orderBy, limit, serverTimestamp
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { httpsCallable } from 'firebase/functions';
@@ -240,11 +240,6 @@ export const firebaseAuthService = {
             throw new Error('تعذّر تغيير كلمة المرور، حاول مرة أخرى');
         }
         return { success: true };
-    },
-    // No client-writable notification preference exists in the confirmed
-    // schema yet, so this stays a client-side no-op against the real backend.
-    setNotificationsEnabled: async (userId, value) => {
-        return { notificationsEnabled: value };
     },
     /** Adds one new truck (with its own documents) to the carrier's `trucks` subcollection. */
     addTruck: async (userId, truckInput) => {
@@ -740,12 +735,52 @@ export const firebaseWalletService = {
 };
 
 // --- NOTIFICATION SERVICE ---
-// The confirmed backend contract has no `notifications` collection or
-// function at all (INTEGRATION.md covers Stages 1-2 in full and neither
-// mentions one) — this stays an honest no-op rather than reading/writing a
-// collection the security rules' catch-all denies outright.
+// The backend writes every notification to users/{uid}/notifications with
+// its Arabic title/body already rendered (INTEGRATION.md §17); that inbox
+// is what the bell reads. Read state only moves through the two callables —
+// the rules deny any direct client write.
+// Type names as the backend emits them (functions/src/constants.ts NotificationType).
+const WALLET_TYPES = ['SETTLEMENT_CREDITED', 'DEBT_FORGIVEN', 'WITHDRAWAL_PAID', 'WITHDRAWAL_REJECTED'];
+const ACCOUNT_TYPES = ['ACCOUNT_APPROVED', 'ACCOUNT_REJECTED', 'ACCOUNT_SUSPENDED', 'SUSPENSION_LIFTED', 'WARNING_ISSUED', 'DOCUMENT_REJECTED', 'TRUCK_DOC_APPROVED', 'TRUCK_DOC_REJECTED'];
+
+/** Where tapping a notification should take the user, from its routing data. */
+const notificationLink = (type, data = {}) => {
+    if (data.tripId) return `/app/trips/${data.tripId}/track`;
+    if (data.offerId && data.shipmentId) return `/app/shipments/${data.shipmentId}/negotiation/${data.offerId}`;
+    if (data.shipmentId) return `/app/shipments/${data.shipmentId}`;
+    if (data.truckId || ACCOUNT_TYPES.includes(type)) return '/app/account';
+    if (WALLET_TYPES.includes(type)) return '/app/wallet';
+    return null;
+};
+
 export const firebaseNotificationService = {
-    getNotifications: async () => [],
-    markAsRead: async () => {},
-    markAllAsRead: async () => {},
+    getNotifications: async () => {
+        await auth.authStateReady();
+        const uid = auth.currentUser?.uid;
+        if (!uid) return [];
+        const snap = await getDocs(query(
+            collection(db, 'users', uid, 'notifications'),
+            orderBy('createdAt', 'desc'),
+            limit(50),
+        ));
+        return snap.docs.map((d) => {
+            const n = d.data();
+            const type = n.type || n.data?.type;
+            return {
+                id: d.id,
+                type,
+                title: n.title || '',
+                message: n.body || '',
+                timestamp: n.createdAt?.toDate?.().toISOString() ?? null,
+                isRead: !!n.read,
+                linkTo: notificationLink(type, n.data),
+            };
+        });
+    },
+    markAsRead: async (notificationId) => {
+        await call('markNotificationRead')({ notificationId });
+    },
+    markAllAsRead: async () => {
+        await call('markAllNotificationsRead')({});
+    },
 };

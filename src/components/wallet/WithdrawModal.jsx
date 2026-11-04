@@ -5,6 +5,7 @@ import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { walletService } from '../../services/api';
 import { isValidSaudiIban, normalizeIban, formatIban, BANK_ACCOUNT_NAME_MAX } from '../../utils/validators';
+import { toArabicError } from '../../utils/errors';
 
 /**
  * Withdrawal request with the carrier's bank details (IBAN + account holder
@@ -74,7 +75,7 @@ export const WithdrawModal = ({ isOpen, onClose, onCompleted, currentBalance, sa
             setTimeout(() => onCompleted?.(), 1800);
         } catch (err) {
             setStatus('idle');
-            setErrors({ form: err.message || 'حدث خطأ أثناء إرسال طلب السحب' });
+            setErrors({ form: toArabicError(err, 'حدث خطأ أثناء إرسال طلب السحب') });
         }
     };
 

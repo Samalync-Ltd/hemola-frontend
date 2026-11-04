@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Truck } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { tripService, shipmentService, userService } from '../../services/api';
@@ -10,6 +9,7 @@ import { QuickMessagePanel } from '../../components/trip/QuickMessagePanel';
 import { openInMaps } from '../../components/map/TripMap';
 import { MapThumbnail } from '../../components/map/MapThumbnail';
 import { CallButton } from '../../components/trip/CallButton';
+import { toArabicError } from '../../utils/errors';
 
 const stageOrder = [
     TripStageEnum.ASSIGNED,
@@ -65,10 +65,11 @@ export const CarrierTripTrack = () => {
     const nextStage = !isDelivered && !isCancelled && currentStageIndex + 1 < stageOrder.length ? stageOrder[currentStageIndex + 1] : null;
     const nextStageNeedsProof = nextStage && PROOF_REQUIRED_STAGES.includes(nextStage);
 
-    // Safely generate stages if they don't exist in mock data
-    const stagesList = trip.stages || stageOrder.map((stage) => ({
+    // Every stage in order, stamped with when it actually happened
+    // (trip.stages comes from the backend's stageHistory).
+    const stagesList = stageOrder.map((stage) => ({
         stage,
-        timestamp: stageOrder.indexOf(stage) <= currentStageIndex ? trip.startedAt : null
+        timestamp: (trip.stages || []).find((s) => s.stage === stage)?.timestamp ?? null,
     }));
 
     const advanceStage = async (stage, proof) => {
@@ -83,7 +84,7 @@ export const CarrierTripTrack = () => {
             fetchTrip();
         } catch (error) {
             console.error('Failed to update trip stage', error);
-            alert(error.message || 'حدث خطأ أثناء تحديث حالة الرحلة');
+            alert(toArabicError(error, 'حدث خطأ أثناء تحديث حالة الرحلة'));
         } finally {
             setIsUpdating(false);
         }
@@ -104,7 +105,7 @@ export const CarrierTripTrack = () => {
             }
             fetchTrip();
         } catch (error) {
-            alert(error.message);
+            alert(toArabicError(error));
         } finally {
             setIsCancelling(false);
         }
@@ -123,20 +124,7 @@ export const CarrierTripTrack = () => {
     const [pickupCity, deliveryCity] = trip.route.split(' -> ');
     const canCancel = !isCancelled && !isDelivered && tripService.cancellableStages.includes(trip.currentStage);
 
-    // Mock Map Position logic
-    const getTruckPos = (stage) => {
-        switch (stage) {
-            case TripStageEnum.ASSIGNED: return { right: '15%', top: '20%' };
-            case TripStageEnum.EN_ROUTE_PICKUP: return { right: '25%', top: '28%' };
-            case TripStageEnum.ARRIVED_PICKUP: return { right: '35%', top: '37%' };
-            case TripStageEnum.LOADED: return { right: '35%', top: '37%' };
-            case TripStageEnum.EN_ROUTE_DELIVERY: return { right: '60%', top: '60%' };
-            case TripStageEnum.DELIVERED: return { right: '85%', top: '80%' };
-            default: return { right: '15%', top: '20%' };
-        }
-    };
-    const truckPos = getTruckPos(trip.currentStage);
-    const loadProof = trip.proofOfLoad;
+   const loadProof = trip.proofOfLoad;
     const deliveryProof = trip.proofOfDelivery;
 
     return (<div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 600, margin: '0 auto' }}>
@@ -184,42 +172,6 @@ export const CarrierTripTrack = () => {
           تم إلغاء هذه الرحلة
         </div>
       ) : (<>
-      <h3 style={{ margin: '8px 0 0' }}>الموقع الحالي</h3>
-      <div style={{ height: 250, backgroundColor: 'var(--color-primary)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--color-border)', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, opacity: 0.1, backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
-
-        {/* SVG Route Line (RTL approximation) */}
-        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', transform: 'scaleX(-1)' }}>
-          <line x1="15%" y1="20%" x2="85%" y2="80%" stroke="var(--color-border)" strokeWidth="3" strokeDasharray="6,6" />
-        </svg>
-
-        {/* Pickup Marker */}
-        <div style={{ position: 'absolute', right: '15%', top: '20%', transform: 'translate(50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div style={{ width: 24, height: 24, backgroundColor: 'var(--color-surface)', border: '2px solid var(--color-text)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
-            <img src="/logos/1.png" alt="Start" style={{ width: 14, height: 14, objectFit: 'contain' }} />
-          </div>
-          <span style={{ color: 'white', fontSize: 12, marginTop: 4, fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>التحميل</span>
-        </div>
-
-        {/* Truck Marker */}
-        <div style={{ position: 'absolute', right: truckPos.right, top: truckPos.top, transform: 'translate(50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', transition: 'all 1s ease' }}>
-          <div style={{ width: 32, height: 32, backgroundColor: 'var(--color-accent)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, boxShadow: '0 4px 12px rgba(255,122,41,0.4)' }}>
-            <Truck size={16} color="white" />
-          </div>
-          <span style={{ color: 'var(--color-accent)', fontSize: 12, marginTop: 4, fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>الشاحنة الآن</span>
-        </div>
-
-        {/* Delivery Marker */}
-        <div style={{ position: 'absolute', right: '85%', top: '80%', transform: 'translate(50%, -50%)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div style={{ width: 24, height: 24, backgroundColor: 'var(--color-surface)', border: '2px solid var(--color-text)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
-            <img src="/logos/1.png" alt="End" style={{ width: 14, height: 14, objectFit: 'contain', filter: 'grayscale(100%)' }} />
-          </div>
-          <span style={{ color: 'white', fontSize: 12, marginTop: 4, fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>التسليم</span>
-        </div>
-
-        <span style={{ color: 'rgba(255,255,255,0.7)', zIndex: 1, backgroundColor: 'rgba(0,0,0,0.5)', padding: '4px 12px', borderRadius: 16, fontSize: 12, position: 'absolute', bottom: 16, left: 16 }}>موقع تجريبي</span>
-      </div>
-
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
         <h3 style={{ margin: 0 }}>حالة الرحلة</h3>
         {!isDelivered && nextStage && !nextStageNeedsProof && (
