@@ -174,6 +174,18 @@ const mockAuthService = withAutoPersist({
         localStorage.setItem('demo_user_id', user.id);
         return user;
     },
+    /** Saves name/companyName/phone onto the mock user (persisted by withAutoPersist). */
+    updateProfile: async (userId, { name, companyName, phone }) => {
+        await delay(300);
+        const user = mockUsers.find(u => u.id === userId);
+        if (!user) throw new Error('المستخدم غير موجود');
+        const nextPhone = phone !== undefined ? normalizeSaudiPhone(phone) : user.phone;
+        if (mockUsers.some(u => u.id !== userId && u.phone === nextPhone)) throw new Error('رقم الجوال مستخدم في حساب آخر');
+        if (name !== undefined) user.name = name.trim();
+        if (companyName !== undefined && user.accountType === 'COMPANY') user.companyName = companyName.trim();
+        user.phone = nextPhone;
+        return user;
+    },
     /** Mock-only: no real password check, just reports success like a real flow would. */
     changePassword: async () => {
         await delay(500);

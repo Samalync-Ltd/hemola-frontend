@@ -3,7 +3,10 @@ import {
     signInWithEmailAndPassword,
     signInWithCustomToken,
     signOut,
-    onAuthStateChanged
+    onAuthStateChanged,
+    EmailAuthProvider,
+    reauthenticateWithCredential,
+    updatePassword,
 } from 'firebase/auth';
 import {
     collection, collectionGroup, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc,
@@ -12,6 +15,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { httpsCallable } from 'firebase/functions';
 import { TripStage } from '../constants/enums';
+import { normalizeSaudiPhone } from '../utils/validators';
 
 // Every Cloud Function below is documented in hemooltak-backend/INTEGRATION.md
 // — request/response shapes, error codes, and the exact enum spellings all
@@ -181,14 +185,64 @@ export const firebaseAuthService = {
 
         return loadFullProfile(uid);
     },
-    // The confirmed schema has no client-writable password/notification
-    // fields yet (users/{uid}'s only self-editable fields are name, phone,
-    // companyName, city — see firestore.rules onlySelfEditableFields), so
-    // these stay client-side no-ops against the real backend rather than
-    // guessing at an endpoint that does not exist.
-    changePassword: async () => {
+    /**
+     * Saves the account owner's own profile edits. `name`/`companyName` are
+     * the self-editable fields (firestore.rules onlySelfEditableFields) and
+     * are written directly; `phone` is a login identifier with a uniqueness
+     * reservation, so it only changes through `updatePhoneNumber`
+     * (INTEGRATION.md §3). The phone goes first: if the number is taken,
+     * nothing is saved and the user keeps a consistent profile.
+     */
+    updateProfile: async (userId, { name, companyName, phone }) => {
+        const current = (await getDoc(doc(db, 'users', userId))).data() || {};
+
+        if (phone !== undefined && normalizeSaudiPhone(phone) !== current.phone) {
+            try {
+                await call('updatePhoneNumber')({ phone: normalizeSaudiPhone(phone) });
+            } catch (err) {
+                if (err.code === 'functions/already-exists') throw new Error('رقم الجوال مستخدم في حساب آخر');
+                if (err.code === 'functions/invalid-argument') throw new Error('رقم الجوال غير صحيح — أدخل رقم جوال سعودي (05xxxxxxxx)');
+                throw new Error('تعذّر تحديث رقم الجوال، حاول مرة أخرى');
+            }
+        }
+
+        const updates = {};
+        if (name !== undefined && name.trim() !== current.name) updates.name = name.trim();
+        if (companyName !== undefined && current.accountType === 'COMPANY' && companyName.trim() !== (current.companyName || '')) {
+            updates.companyName = companyName.trim();
+        }
+        if (Object.keys(updates).length > 0) await updateDoc(doc(db, 'users', userId), updates);
+
+        return loadFullProfile(userId);
+    },
+    /**
+     * Firebase Auth owns the password. Changing it needs a recent sign-in,
+     * so the current password re-authenticates first — which is also what
+     * checks that the person typing it is the account owner. Phone logins
+     * (custom token) have the same email/password credential underneath.
+     */
+    changePassword: async (currentPassword, newPassword) => {
+        const user = auth.currentUser;
+        if (!user || !user.email) throw new Error('انتهت الجلسة — سجّل الدخول مرة أخرى ثم أعد المحاولة');
+        try {
+            await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, currentPassword));
+        } catch (err) {
+            if (['auth/wrong-password', 'auth/invalid-credential', 'auth/invalid-login-credentials'].includes(err.code)) {
+                throw new Error('كلمة المرور الحالية غير صحيحة');
+            }
+            if (err.code === 'auth/too-many-requests') throw new Error('محاولات كثيرة فاشلة — انتظر قليلاً ثم حاول مرة أخرى');
+            throw new Error('تعذّر التحقق من كلمة المرور الحالية، حاول مرة أخرى');
+        }
+        try {
+            await updatePassword(user, newPassword);
+        } catch (err) {
+            if (err.code === 'auth/weak-password') throw new Error('كلمة المرور الجديدة ضعيفة — استخدم 8 أحرف على الأقل');
+            throw new Error('تعذّر تغيير كلمة المرور، حاول مرة أخرى');
+        }
         return { success: true };
     },
+    // No client-writable notification preference exists in the confirmed
+    // schema yet, so this stays a client-side no-op against the real backend.
     setNotificationsEnabled: async (userId, value) => {
         return { notificationsEnabled: value };
     },

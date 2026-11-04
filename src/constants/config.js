@@ -21,3 +21,6 @@ export const COMMISSION_RATE = 0.05;
 
 /** Post-assignment cancellations before a carrier is auto-blacklisted (matches mobile). */
 export const CANCELLATION_WARNING_THRESHOLD = 3;
+
+/** Fired on window after the account page saves profile edits, so the Topbar (which loads the user once) shows the new name without a reload. */
+export const PROFILE_UPDATED_EVENT = 'hemola:profile-updated';

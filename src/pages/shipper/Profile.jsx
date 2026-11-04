@@ -7,6 +7,8 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { ChangePasswordModal } from '../../components/profile/ChangePasswordModal';
 import { NotificationSettingsModal } from '../../components/profile/NotificationSettingsModal';
 import { TruckDetailsModal } from '../../components/profile/TruckDetailsModal';
+import { isValidSaudiPhone } from '../../utils/validators';
+import { PROFILE_UPDATED_EVENT } from '../../constants/config';
 export const Profile = () => {
     const [user, setUser] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
@@ -15,6 +17,9 @@ export const Profile = () => {
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const [isTruckOpen, setIsTruckOpen] = useState(false);
     const [selectedTruck, setSelectedTruck] = useState(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState('');
+    const [saveMessage, setSaveMessage] = useState('');
     // Form state
     const [formData, setFormData] = useState({
         name: '',
@@ -22,27 +27,57 @@ export const Profile = () => {
         email: '',
         companyName: ''
     });
+    const resetForm = (u) => setFormData({
+        name: u.name || '',
+        phone: u.phone || '',
+        email: u.email || '',
+        companyName: u.companyName || ''
+    });
     useEffect(() => {
         authService.getCurrentUser().then(u => {
             setUser(u);
-            setFormData({
-                name: u.name,
-                phone: u.phone,
-                email: u.email,
-                companyName: u.companyName || ''
-            });
+            if (u) resetForm(u);
             setIsLoading(false);
-        });
+        }).catch(() => setIsLoading(false));
     }, []);
     if (isLoading)
         return <div>جاري التحميل...</div>;
     if (!user)
         return <div>حدث خطأ</div>;
-    const handleSave = () => {
-        // Mock save
-        setUser({ ...user, ...formData });
+    const startEditing = () => {
+        setSaveError('');
+        setSaveMessage('');
+        setIsEditing(true);
+    };
+    const cancelEditing = () => {
+        resetForm(user);
+        setSaveError('');
         setIsEditing(false);
-        alert('تم حفظ التغييرات بنجاح');
+    };
+    const handleSave = async () => {
+        setSaveError('');
+        setSaveMessage('');
+        if (!formData.name.trim()) { setSaveError('اسم المسؤول مطلوب'); return; }
+        if (user.accountType === 'COMPANY' && !formData.companyName.trim()) { setSaveError('اسم المنشأة مطلوب'); return; }
+        if (!isValidSaudiPhone(formData.phone)) { setSaveError('رقم الجوال غير صحيح — أدخل رقم جوال سعودي (05xxxxxxxx)'); return; }
+
+        setIsSaving(true);
+        try {
+            const updated = await authService.updateProfile(user.id, {
+                name: formData.name,
+                companyName: formData.companyName,
+                phone: formData.phone,
+            });
+            setUser(updated);
+            resetForm(updated);
+            setIsEditing(false);
+            setSaveMessage('تم حفظ التغييرات بنجاح');
+            window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT, { detail: updated }));
+        } catch (err) {
+            setSaveError(err.message || 'تعذّر حفظ التغييرات، حاول مرة أخرى');
+        } finally {
+            setIsSaving(false);
+        }
     };
     return (<div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 800, margin: '0 auto' }}>
       <h2 style={{ margin: 0 }}>إعدادات الحساب</h2>
@@ -67,7 +102,7 @@ export const Profile = () => {
               )}
             </div>
           </div>
-          <Button variant={isEditing ? "outline" : "primary"} onClick={() => isEditing ? setIsEditing(false) : setIsEditing(true)}>
+          <Button variant={isEditing ? "outline" : "primary"} onClick={isEditing ? cancelEditing : startEditing} disabled={isSaving}>
             {isEditing ? 'إلغاء التعديل' : 'تعديل البيانات'}
           </Button>
         </div>
@@ -76,11 +111,19 @@ export const Profile = () => {
           {user.accountType === 'COMPANY' && (<Input label="اسم المنشأة" value={formData.companyName} onChange={e => setFormData({ ...formData, companyName: e.target.value })} disabled={!isEditing}/>)}
           <Input label="اسم المسؤول" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} disabled={!isEditing}/>
           <Input label="رقم الجوال" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} disabled={!isEditing} dir="ltr" style={{ textAlign: 'right' }}/>
-          <Input label="البريد الإلكتروني" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} disabled={!isEditing} dir="ltr" style={{ textAlign: 'right' }}/>
+          <div>
+            {/* The email is the Firebase Auth login and there is no backend
+                path for a user to change it, so it is shown, not edited. */}
+            <Input label="البريد الإلكتروني" value={formData.email} disabled dir="ltr" style={{ textAlign: 'right' }}/>
+            {isEditing && <div className="text-helper" style={{ marginTop: -8, fontSize: 12 }}>لا يمكن تغيير البريد الإلكتروني من هنا — تواصل مع الدعم لتغييره.</div>}
+          </div>
         </div>
 
+        {saveError && <div role="alert" style={{ marginTop: 16, color: 'var(--color-error)', fontSize: 14 }}>{saveError}</div>}
+        {saveMessage && !isEditing && <div role="status" style={{ marginTop: 16, color: 'var(--color-success)', fontSize: 14 }}>{saveMessage}</div>}
+
         {isEditing && (<div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end' }}>
-            <Button onClick={handleSave}>حفظ التغييرات</Button>
+            <Button onClick={handleSave} isLoading={isSaving} disabled={isSaving}>حفظ التغييرات</Button>
           </div>)}
       </Card>
 

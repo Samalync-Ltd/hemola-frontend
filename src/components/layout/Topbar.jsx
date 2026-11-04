@@ -4,11 +4,15 @@ import styles from './Layout.module.css';
 import { StatusBadge } from '../common/StatusBadge';
 import { authService } from '../../services/api';
 import { NotificationCenter } from '../common/NotificationCenter';
+import { PROFILE_UPDATED_EVENT } from '../../constants/config';
 export const Topbar = ({ onMenuClick }) => {
     const [user, setUser] = useState(null);
     useEffect(() => {
-        // Demo: fetch current user
         authService.getCurrentUser().then(u => setUser(u));
+        // The account page saves profile edits — pick them up without a reload.
+        const onProfileUpdated = (e) => setUser(e.detail);
+        window.addEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
+        return () => window.removeEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
     }, []);
     return (<header className={styles.topbar}>
       <div className={styles.topbarLeft}>
