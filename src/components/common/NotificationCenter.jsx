@@ -9,13 +9,11 @@ export const NotificationCenter = () => {
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
 
-    const fetchNotifications = () => {
-        notificationService.getNotifications().then(setNotifications);
-    };
+    // Live — a notification sent while the page is open shows up (and the
+    // unread count moves) without a reload.
+    useEffect(() => notificationService.subscribe(setNotifications, () => {}), []);
 
     useEffect(() => {
-        fetchNotifications();
-        
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
                 setIsOpen(false);
@@ -31,19 +29,14 @@ export const NotificationCenter = () => {
     const handleMarkAsRead = async (id, e) => {
         e.stopPropagation();
         await notificationService.markAsRead(id);
-        fetchNotifications();
     };
 
     const handleMarkAllAsRead = async () => {
         await notificationService.markAllAsRead();
-        fetchNotifications();
     };
 
     const handleNotificationClick = async (notif) => {
-        if (!notif.isRead) {
-            await notificationService.markAsRead(notif.id);
-            fetchNotifications();
-        }
+        if (!notif.isRead) notificationService.markAsRead(notif.id).catch(() => {});
         setIsOpen(false);
         if (notif.linkTo) {
             navigate(notif.linkTo);

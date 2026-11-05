@@ -11,32 +11,22 @@ export const NotificationsPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const navigate = useNavigate();
 
-    const fetchNotifications = () => {
-        notificationService.getNotifications().then(data => {
-            setNotifications(data);
-            setIsLoading(false);
-        });
-    };
-
-    useEffect(() => {
-        fetchNotifications();
-    }, []);
+    useEffect(() => notificationService.subscribe(
+        (data) => { setNotifications(data); setIsLoading(false); },
+        () => setIsLoading(false),
+    ), []);
 
     const handleMarkAsRead = async (id, e) => {
         e.stopPropagation();
         await notificationService.markAsRead(id);
-        fetchNotifications();
     };
 
     const handleMarkAllAsRead = async () => {
         await notificationService.markAllAsRead();
-        fetchNotifications();
     };
 
     const handleNotificationClick = async (notif) => {
-        if (!notif.isRead) {
-            await notificationService.markAsRead(notif.id);
-        }
+        if (!notif.isRead) notificationService.markAsRead(notif.id).catch(() => {});
         if (notif.linkTo) {
             navigate(notif.linkTo);
         }

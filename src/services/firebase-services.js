@@ -12,7 +12,7 @@ import {
 } from 'firebase/auth';
 import {
     collection, collectionGroup, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc,
-    query, where, orderBy, limit, serverTimestamp
+    query, where, orderBy, limit, serverTimestamp, onSnapshot
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { httpsCallable } from 'firebase/functions';
@@ -830,30 +830,55 @@ const notificationLink = (type, data = {}) => {
     return null;
 };
 
+/** One inbox record in the shape the bell and the notifications page render. */
+const toNotificationUiShape = (d) => {
+    const n = d.data();
+    const type = n.type || n.data?.type;
+    const text = notificationDisplayText(type, n.title || '', n.body || '');
+    return {
+        id: d.id,
+        type,
+        title: text.title,
+        message: text.body,
+        timestamp: n.createdAt?.toDate?.().toISOString() ?? null,
+        isRead: !!n.read,
+        linkTo: notificationLink(type, n.data),
+    };
+};
+
+const inboxQuery = (uid) => query(
+    collection(db, 'users', uid, 'notifications'),
+    orderBy('createdAt', 'desc'),
+    limit(50),
+);
+
 export const firebaseNotificationService = {
     getNotifications: async () => {
         await auth.authStateReady();
         const uid = auth.currentUser?.uid;
         if (!uid) return [];
-        const snap = await getDocs(query(
-            collection(db, 'users', uid, 'notifications'),
-            orderBy('createdAt', 'desc'),
-            limit(50),
-        ));
-        return snap.docs.map((d) => {
-            const n = d.data();
-            const type = n.type || n.data?.type;
-            const text = notificationDisplayText(type, n.title || '', n.body || '');
-            return {
-                id: d.id,
-                type,
-                title: text.title,
-                message: text.body,
-                timestamp: n.createdAt?.toDate?.().toISOString() ?? null,
-                isRead: !!n.read,
-                linkTo: notificationLink(type, n.data),
-            };
+        const snap = await getDocs(inboxQuery(uid));
+        return snap.docs.map(toNotificationUiShape);
+    },
+    /**
+     * Live inbox: calls back immediately and again on every change — a new
+     * notification arriving, or one being marked read — so the bell and the
+     * notifications page never show a stale list. Returns the unsubscribe.
+     */
+    subscribe: (onChange, onError) => {
+        let unsubscribe = () => {};
+        let cancelled = false;
+        auth.authStateReady().then(() => {
+            const uid = auth.currentUser?.uid;
+            if (cancelled) return;
+            if (!uid) { onChange([]); return; }
+            unsubscribe = onSnapshot(
+                inboxQuery(uid),
+                (snap) => onChange(snap.docs.map(toNotificationUiShape)),
+                (err) => onError?.(err),
+            );
         });
+        return () => { cancelled = true; unsubscribe(); };
     },
     markAsRead: async (notificationId) => {
         await call('markNotificationRead')({ notificationId });
