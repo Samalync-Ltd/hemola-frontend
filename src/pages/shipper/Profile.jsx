@@ -20,6 +20,9 @@ export const Profile = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState('');
     const [saveMessage, setSaveMessage] = useState('');
+    const [emailVerified, setEmailVerified] = useState(null); // null until known
+    const [verificationNotice, setVerificationNotice] = useState('');
+    const [isResending, setIsResending] = useState(false);
     // Form state
     const [formData, setFormData] = useState({
         name: '',
@@ -39,7 +42,21 @@ export const Profile = () => {
             if (u) resetForm(u);
             setIsLoading(false);
         }).catch(() => setIsLoading(false));
+        authService.isEmailVerified().then(setEmailVerified).catch(() => {});
     }, []);
+
+    const resendVerification = async () => {
+        setVerificationNotice('');
+        setIsResending(true);
+        try {
+            await authService.resendEmailVerification();
+            setVerificationNotice('تم إرسال رابط التأكيد إلى بريدك الإلكتروني.');
+        } catch (err) {
+            setVerificationNotice(toArabicError(err, 'تعذّر إرسال رابط التأكيد، حاول لاحقاً'));
+        } finally {
+            setIsResending(false);
+        }
+    };
     if (isLoading)
         return <Loader label="جاري تحميل بيانات الحساب" />;
     if (!user)
@@ -116,6 +133,18 @@ export const Profile = () => {
                 path for a user to change it, so it is shown, not edited. */}
             <Input label="البريد الإلكتروني" value={formData.email} disabled dir="ltr" style={{ textAlign: 'right' }}/>
             {isEditing && <div className="text-helper" style={{ marginTop: -8, fontSize: 12 }}>لا يمكن تغيير البريد الإلكتروني من هنا — تواصل مع الدعم لتغييره.</div>}
+            {!isEditing && emailVerified === true && (
+              <div style={{ marginTop: -8, fontSize: 12, color: 'var(--color-success)', fontWeight: 600 }}>✓ تم تأكيد البريد الإلكتروني</div>
+            )}
+            {!isEditing && emailVerified === false && (
+              <div style={{ marginTop: -8, fontSize: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ color: '#B45309', fontWeight: 600 }}>البريد غير مؤكد</span>
+                <button type="button" onClick={resendVerification} disabled={isResending} style={{ background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: 'var(--color-primary)', cursor: 'pointer', textDecoration: 'underline' }}>
+                  {isResending ? 'جاري الإرسال' : 'إعادة إرسال رابط التأكيد'}
+                </button>
+                {verificationNotice && <span className="text-helper" style={{ fontSize: 12 }}>{verificationNotice}</span>}
+              </div>
+            )}
           </div>
         </div>
 

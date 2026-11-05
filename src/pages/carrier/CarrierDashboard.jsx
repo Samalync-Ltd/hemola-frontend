@@ -7,9 +7,11 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { DataTable } from '../../components/common/DataTable';
 import { shipmentService, tripService, walletService, authService, offerService } from '../../services/api';
-import { ShipmentStatus, OfferStatus } from '../../constants/enums';
+import { OfferStatus } from '../../constants/enums';
 import { WithdrawModal } from '../../components/wallet/WithdrawModal';
 import { Loader } from '../../components/common/Loader';
+import { isShipmentForCarrier, carrierBlockReason } from '../../utils/carrierEligibility';
+import { CarrierBlockNotice } from '../../components/carrier/CarrierBlockNotice';
 
 export const CarrierDashboard = () => {
     const navigate = useNavigate();
@@ -30,15 +32,14 @@ export const CarrierDashboard = () => {
                 shipmentService.getShipments(),
                 tripService.getTrips(),
                 walletService.getWallet(),
-                offerService.getOffersByCarrier(currentUser.id)
+                // The pending-offers count is secondary — never let it take
+                // the whole home page down with it.
+                offerService.getOffersByCarrier(currentUser.id).catch(() => [])
             ]);
 
-            // For a carrier, available shipments are those pending offers or
-            // negotiating, matching one of the truck types on their account.
-            const available = sh.filter(s =>
-                (s.status === ShipmentStatus.PENDING_OFFERS || s.status === ShipmentStatus.NEGOTIATING) &&
-                (!currentUser?.trucks?.length || !s.requiredTruckType || currentUser.trucks.some(t => t.type === s.requiredTruckType))
-            );
+            // Same rule as the shipments page: open, and one of the carrier's
+            // trucks matches the type and can carry the weight.
+            const available = sh.filter(s => isShipmentForCarrier(s, currentUser));
             setAvailableShipments(available);
 
             setTrips(tr.filter(t => t.carrierId === currentUser.id));
@@ -80,6 +81,7 @@ export const CarrierDashboard = () => {
     ];
 
     return (<div className={styles.dashboard}>
+      <CarrierBlockNotice reason={carrierBlockReason(user)} />
       <div className={styles.kpiGrid}>
         <Card className={styles.kpiCard}>
           <span className={styles.kpiLabel}>شحنات متاحة</span>
@@ -105,7 +107,7 @@ export const CarrierDashboard = () => {
             <h3 className={styles.sectionTitle}>شحنات متاحة حديثاً</h3>
             <Button variant="outline" size="sm" onClick={() => navigate('/app/shipments')}>تصفح الشحنات</Button>
           </div>
-          <DataTable data={availableShipments.slice(0, 5)} columns={shipmentColumns} keyExtractor={(s) => s.id} emptyMessage="لا توجد شحنات متاحة حالياً المطابقة لنوع مركبتك"/>
+          <DataTable data={availableShipments.slice(0, 5)} columns={shipmentColumns} keyExtractor={(s) => s.id} emptyMessage="لا توجد حالياً شحنات تناسب نوع شاحنتك وحمولتها"/>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>

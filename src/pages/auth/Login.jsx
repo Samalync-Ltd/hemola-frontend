@@ -5,6 +5,7 @@ import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
 import { authService } from '../../services/api';
 import { toArabicError } from '../../utils/errors';
+import { ForgotPasswordModal } from '../../components/auth/ForgotPasswordModal';
 
 export const Login = () => {
     const navigate = useNavigate();
@@ -13,6 +14,7 @@ export const Login = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isForgotOpen, setIsForgotOpen] = useState(false);
 
     const handleRoleChange = (newRole) => {
         setRole(newRole);
@@ -94,7 +96,14 @@ export const Login = () => {
 
           <Input type="password" label="كلمة المرور" placeholder="أدخل كلمة المرور" value={password} onChange={(e) => setPassword(e.target.value)} required/>
 
-          <Link to="#" className={styles.forgotPassword}>نسيت كلمة المرور؟</Link>
+          <button
+            type="button"
+            className={styles.forgotPassword}
+            onClick={() => setIsForgotOpen(true)}
+            style={{ width: '100%', background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', color: 'var(--color-primary)', cursor: 'pointer' }}
+          >
+            نسيت كلمة المرور؟
+          </button>
 
           <Button type="submit" style={{ width: '100%' }} size="lg" isLoading={isLoading}>
             تسجيل الدخول
@@ -106,5 +115,6 @@ export const Login = () => {
           </div>
         </form>
       </div>
+      <ForgotPasswordModal isOpen={isForgotOpen} onClose={() => setIsForgotOpen(false)} initialEmail={email} />
     </div>);
 };

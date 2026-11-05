@@ -1,0 +1,117 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--spacing-md);
+}
+
+.label {
+  font-weight: 700;
+  margin-bottom: var(--spacing-xs);
+  color: var(--color-text-primary);
+  font-size: 14px;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px var(--spacing-md);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  color: var(--color-text-primary);
+  background-color: var(--color-surface);
+  text-align: start;
+}
+
+.empty {
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px var(--spacing-md);
+  border: 1.5px dashed var(--color-border);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.empty:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background-color: rgba(15, 36, 64, 0.03);
+}
+
+.empty:focus-visible,
+.changeButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.emptyTitle {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-primary);
+}
+
+.hint {
+  font-size: 12px;
+}
+
+.chosen {
+  border: 1px solid var(--color-border);
+}
+
+.fileIcon {
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+
+.fileText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.fileName {
+  font-weight: 600;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.fileMeta {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.changeButton {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.changeButton:hover:not(:disabled) {
+  border-color: var(--color-primary);
+}
+
+.hasError {
+  border-color: var(--color-error);
+}
+
+.errorText {
+  color: var(--color-error);
+  font-size: 13px;
+  margin-top: var(--spacing-xs);
+}

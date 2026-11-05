@@ -5,7 +5,8 @@ import { Card } from '../../components/common/Card';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { Input } from '../../components/common/Input';
-import { shipmentService, offerService, isCarrierBusy } from '../../services/api';
+import { shipmentService, offerService } from '../../services/api';
+import { offerBlockReason, usableTrucksFor } from '../../utils/carrierEligibility';
 import { OfferStatus, ShipmentStatus, TruckTypeAr } from '../../constants/enums';
 import { lookupCityCoordinates } from '../../utils/geo';
 import { MapThumbnail } from '../../components/map/MapThumbnail';
@@ -29,27 +30,25 @@ export const CarrierShipmentDetail = ({ user }) => {
 
     useEffect(() => {
         if (shipmentId && user) {
+            // Only this carrier's own thread on this one shipment — a read the
+            // rules allow. Listing offers across all shipments here is what
+            // used to fail with permission-denied before anything was shown.
             Promise.all([
                 shipmentService.getShipmentById(shipmentId),
-                offerService.getOffersByCarrier(user.id)
+                offerService.getMyThreadOnShipment(shipmentId, user.id)
             ])
-            .then(([s, offers]) => {
+            .then(([s, thread]) => {
                 setShipment(s);
-                const existingOffer = offers.find(o => o.shipmentId === shipmentId);
-                if (existingOffer) {
-                    setMyOffer(existingOffer);
-                }
+                if (thread) setMyOffer(thread);
             })
             .catch(err => setError(toArabicError(err)))
             .finally(() => setIsLoading(false));
         }
     }, [shipmentId, user]);
 
-    // Only a truck of the required type with both papers already APPROVED
-    // may be offered (INTEGRATION.md §14) — the backend rejects anything
-    // else anyway, so this is filtered here rather than left for the
-    // server to refuse.
-    const eligibleTrucks = (user?.trucks || []).filter(t => t.isSelectable && t.type === shipment?.requiredTruckType);
+    // Only a truck of the required type, big enough for the load, with both
+    // papers APPROVED may be offered (see utils/carrierEligibility).
+    const eligibleTrucks = shipment ? usableTrucksFor(user, shipment) : [];
 
     useEffect(() => {
         if (!selectedTruckId && eligibleTrucks.length > 0) setSelectedTruckId(eligibleTrucks[0].id);
@@ -99,8 +98,9 @@ export const CarrierShipmentDetail = ({ user }) => {
     if (isLoading) return <Loader label="جاري تحميل الشحنة" />;
     if (error || !shipment) return <div>{error || 'الشحنة غير موجودة'}</div>;
 
-    const busy = user && isCarrierBusy(user);
-    const hasEligibleTruck = eligibleTrucks.length > 0;
+    // The same reason the home page and the shipments list show.
+    const blockReason = offerBlockReason(user, shipment);
+    const blocked = !!blockReason;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -186,7 +186,6 @@ export const CarrierShipmentDetail = ({ user }) => {
                                         color: myOffer.status === OfferStatus.ACCEPTED || myOffer.status === OfferStatus.REJECTED ? 'white' : 'var(--color-text-primary)'
                                     }}>
                                         حالة العرض: {
-                                            myOffer.status === OfferStatus.PENDING ? 'قيد الانتظار' :
                                             myOffer.status === OfferStatus.PENDING && myOffer.proposedBy === 'CARRIER' ? 'بانتظار رد صاحب الشحنة' :
                                             myOffer.status === OfferStatus.PENDING ? 'عرض مضاد من صاحب الشحنة — دورك للرد' :
                                             myOffer.status === OfferStatus.ACCEPTED ? 'مقبول' :
@@ -219,17 +218,12 @@ export const CarrierShipmentDetail = ({ user }) => {
                                         {submitError}
                                     </div>
                                 )}
-                                {busy && (
-                                    <div style={{ padding: 12, marginBottom: 16, borderRadius: 8, backgroundColor: 'rgba(245,158,11,0.08)', color: 'var(--color-warning)', fontSize: 13 }}>
-                                        لديك شحنة نشطة حالياً — أكملها أو ألغِها قبل تقديم عروض على شحنات أخرى.
+                                {blockReason && (
+                                    <div role="status" style={{ padding: 12, marginBottom: 16, borderRadius: 8, backgroundColor: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.4)', color: '#B45309', fontSize: 13 }}>
+                                        {blockReason}
                                     </div>
                                 )}
-                                {!hasEligibleTruck && (
-                                    <div style={{ padding: 12, marginBottom: 16, borderRadius: 8, backgroundColor: 'rgba(245,158,11,0.08)', color: 'var(--color-warning)', fontSize: 13 }}>
-                                        لا تملك شاحنة من النوع المطلوب ({TruckTypeAr[shipment.requiredTruckType] || shipment.requiredTruckType}) بأوراق موثّقة بالكامل — لا يمكنك تقديم عرض حتى تضيف واحدة وتتم الموافقة على بطاقة التشغيل والاستمارة.
-                                    </div>
-                                )}
-                                {hasEligibleTruck && eligibleTrucks.length > 1 && (
+                                {!blocked && eligibleTrucks.length > 1 && (
                                     <div style={{ marginBottom: 16 }}>
                                         <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>الشاحنة المستخدمة لهذا العرض</label>
                                         <select
@@ -247,7 +241,7 @@ export const CarrierShipmentDetail = ({ user }) => {
                                     variant="secondary"
                                     onClick={handleAcceptPostedPrice}
                                     isLoading={isAccepting}
-                                    disabled={busy || isSubmitting || !hasEligibleTruck}
+                                    disabled={blocked || isSubmitting}
                                     style={{ width: '100%', marginBottom: 16 }}
                                 >
                                     عرض بالسعر المطروح ({shipment.proposedPrice} ر.س)
@@ -268,13 +262,13 @@ export const CarrierShipmentDetail = ({ user }) => {
                                             onChange={(e) => setOfferPrice(e.target.value)}
                                             required
                                             min="1"
-                                            disabled={busy || !hasEligibleTruck}
+                                            disabled={blocked}
                                         />
                                         <p className="text-helper" style={{ fontSize: 12, marginTop: 8 }}>
                                             بتقديمك لهذا العرض، أنت توافق على شروط النقل في حال القبول.
                                         </p>
                                     </div>
-                                    <Button type="submit" isLoading={isSubmitting} disabled={busy || isAccepting || !hasEligibleTruck} style={{ width: '100%' }}>
+                                    <Button type="submit" isLoading={isSubmitting} disabled={blocked || isAccepting} style={{ width: '100%' }}>
                                         تقديم العرض
                                     </Button>
                                 </form>

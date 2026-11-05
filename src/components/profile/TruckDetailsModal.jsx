@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
+import { FileInput } from '../common/FileInput';
 import { StatusBadge } from '../common/StatusBadge';
 import { authService } from '../../services/api';
 import { TRUCK_TYPE_OPTIONS, TruckTypeAr } from '../../constants/enums';
@@ -43,7 +44,7 @@ export const TruckDetailsModal = ({ isOpen, onClose, user, truck, onSaved, onDel
     if (!isOpen) return null;
 
     const handleFieldChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
-    const handleFileChange = (e) => setFiles({ ...files, [e.target.name]: e.target.files[0] });
+    const handleFileChange = (name, file) => setFiles(f => ({ ...f, [name]: file }));
 
     const handleSave = async () => {
         setError('');
@@ -119,8 +120,8 @@ export const TruckDetailsModal = ({ isOpen, onClose, user, truck, onSaved, onDel
                             <Input name="plateNumber" label="رقم اللوحة" value={form.plateNumber} onChange={handleFieldChange} />
 
                             {isNew && (<>
-                                <Input name="operatingCard" type="file" label="بطاقة تشغيل مركبة" onChange={handleFileChange} />
-                                <Input name="registration" type="file" label="الاستمارة (رخصة السير)" onChange={handleFileChange} />
+                                <FileInput name="operatingCard" label="بطاقة تشغيل مركبة" file={files.operatingCard} onChange={handleFileChange} />
+                                <FileInput name="registration" label="الاستمارة (رخصة السير)" file={files.registration} onChange={handleFileChange} />
                             </>)}
 
                             <div style={{ display: 'flex', gap: 12 }}>

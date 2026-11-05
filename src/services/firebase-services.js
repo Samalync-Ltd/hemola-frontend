@@ -7,6 +7,8 @@ import {
     EmailAuthProvider,
     reauthenticateWithCredential,
     updatePassword,
+    sendEmailVerification,
+    sendPasswordResetEmail,
 } from 'firebase/auth';
 import {
     collection, collectionGroup, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc,
@@ -17,6 +19,7 @@ import { httpsCallable } from 'firebase/functions';
 import { TripStage } from '../constants/enums';
 import { normalizeSaudiPhone } from '../utils/validators';
 import { notificationDisplayText } from '../utils/notificationText';
+import { DOCUMENT_KEYS } from '../constants/documentKeys';
 
 // Every Cloud Function below is documented in hemooltak-backend/INTEGRATION.md
 // — request/response shapes, error codes, and the exact enum spellings all
@@ -160,15 +163,25 @@ export const firebaseAuthService = {
         const uid = signUpRes.data.uid;
 
         // signUp does not sign anyone in.
-        await signInWithEmailAndPassword(auth, payload.email, payload.password);
+        const { user: authUser } = await signInWithEmailAndPassword(auth, payload.email, payload.password);
+
+        // Firebase's built-in verification email. It never blocks sign-in —
+        // admin document review is what gates the account — so a failure to
+        // send is not a failure to register.
+        sendEmailVerification(authUser).catch(() => {});
 
         // Every uploaded document (payload.files, keyed by the stable
         // DOCUMENT_KEYS constants — NATIONAL_ID, PUBLIC_DRIVING_LICENCE,
         // COMMERCIAL_REGISTRATION, MANAGER_ID, which double as the account
         // document `type` value the backend expects) actually gets
         // uploaded to Storage and recorded in Firestore here.
+        // Only the four account-level types belong in users/{uid}/documents —
+        // truck papers are uploaded with their truck below. Anything else in
+        // payload.files is ignored rather than recorded under a type the
+        // admin dashboard can't name.
+        const accountDocumentTypes = Object.values(DOCUMENT_KEYS);
         for (const [type, file] of Object.entries(payload.files || {})) {
-            if (!file) continue;
+            if (!file || !accountDocumentTypes.includes(type)) continue;
             const fileUrl = await uploadFile(`documents/${uid}/${type}_${Date.now()}${fileExtension(file)}`, file);
             await setDoc(doc(collection(db, 'users', uid, 'documents')), {
                 type, fileUrl, status: 'PENDING', uploadedAt: serverTimestamp(),
@@ -215,6 +228,30 @@ export const firebaseAuthService = {
         if (Object.keys(updates).length > 0) await updateDoc(doc(db, 'users', userId), updates);
 
         return loadFullProfile(userId);
+    },
+    /**
+     * Firebase's built-in reset email. Resolves the same way whether or not
+     * an account exists for the address, so the form can't be used to find
+     * out who is registered.
+     */
+    sendPasswordReset: async (email) => {
+        try {
+            await sendPasswordResetEmail(auth, email.trim());
+        } catch (err) {
+            if (err.code === 'auth/user-not-found') return;
+            throw err;
+        }
+    },
+    /** Whether the signed-in user has confirmed their email (informational — never blocks anything). */
+    isEmailVerified: async () => {
+        await auth.authStateReady();
+        await auth.currentUser?.reload().catch(() => {});
+        return !!auth.currentUser?.emailVerified;
+    },
+    resendEmailVerification: async () => {
+        await auth.authStateReady();
+        if (!auth.currentUser) throw new Error('انتهت الجلسة — سجّل الدخول مرة أخرى');
+        await sendEmailVerification(auth.currentUser);
     },
     /**
      * Firebase Auth owns the password. Changing it needs a recent sign-in,
@@ -483,6 +520,10 @@ const buildOfferThread = (shipmentId, offers, anchorOfferId = null) => {
     };
 };
 
+// Set once the offers collection-group query is refused, so later calls go
+// straight to the per-shipment reads instead of failing again first.
+let offersCollectionGroupDenied = false;
+
 const groupBy = (items, keyFn) => {
     const map = new Map();
     for (const item of items) {
@@ -503,12 +544,47 @@ export const firebaseOfferService = {
         return Promise.all([...byCarrier.values()].map(offers => buildOfferThread(shipmentId, offers)));
     },
     /** One row per shipment this carrier has ever offered on — a collection-group query constrained on carrierId, per the rules and the provisioned index. */
+    /**
+     * Every offer thread this carrier has, across all shipments.
+     *
+     * The direct way is one collection-group query (served by the
+     * offers carrierId+createdAt COLLECTION_GROUP index), but firestore.rules
+     * only matches offers under shipments/{id}, with no `{path=**}/offers`
+     * rule, so that query is denied. Until the backend adds that rule, fall
+     * back to the documented per-shipment read: each shipment's offers
+     * constrained to this carrier (INTEGRATION.md "shipments/{id}/offers").
+     */
     getOffersByCarrier: async (carrierId) => {
-        const q = query(collectionGroup(db, 'offers'), where('carrierId', '==', carrierId));
-        const snap = await getDocs(q);
-        const all = snap.docs.map(d => ({ id: d.id, shipmentId: d.ref.parent.parent.id, ...d.data() }));
+        let all;
+        if (!offersCollectionGroupDenied) {
+            try {
+                const snap = await getDocs(query(
+                    collectionGroup(db, 'offers'),
+                    where('carrierId', '==', carrierId),
+                    orderBy('createdAt', 'desc'),
+                ));
+                all = snap.docs.map(d => ({ id: d.id, shipmentId: d.ref.parent.parent.id, ...d.data() }));
+            } catch (err) {
+                if (err.code !== 'permission-denied' && err.code !== 'failed-precondition') throw err;
+                offersCollectionGroupDenied = true;
+            }
+        }
+        if (!all) {
+            const shipmentsSnap = await getDocs(collection(db, 'shipments'));
+            const perShipment = await Promise.all(shipmentsSnap.docs.map(async (s) => {
+                const snap = await getDocs(query(collection(db, 'shipments', s.id, 'offers'), where('carrierId', '==', carrierId)));
+                return snap.docs.map(d => ({ id: d.id, shipmentId: s.id, ...d.data() }));
+            }));
+            all = perShipment.flat();
+        }
         const byShipment = groupBy(all, o => o.shipmentId);
         return Promise.all([...byShipment.entries()].map(([shipmentId, offers]) => buildOfferThread(shipmentId, offers)));
+    },
+    /** This carrier's thread on one shipment, or null — the read the rules allow a carrier (constrained to their own carrierId). */
+    getMyThreadOnShipment: async (shipmentId, carrierId) => {
+        const snap = await getDocs(query(collection(db, 'shipments', shipmentId, 'offers'), where('carrierId', '==', carrierId)));
+        if (snap.empty) return null;
+        return buildOfferThread(shipmentId, snap.docs.map(d => ({ id: d.id, ...d.data() })));
     },
     /**
      * Resolves the WHOLE thread from any historical offer id in its chain —

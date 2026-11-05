@@ -15,6 +15,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+// Firebase's built-in emails (verification, password reset) go out in Arabic.
+auth.languageCode = 'ar';
 export const db = getFirestore(app);
 
 // Every Cloud Function in hemooltak-backend runs in me-central1 (Doha) —

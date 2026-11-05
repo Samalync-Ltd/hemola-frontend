@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import styles from './Auth.module.css';
 import { Input } from '../../components/common/Input';
+import { FileInput } from '../../components/common/FileInput';
 import { Button } from '../../components/common/Button';
 import { isValidSaudiPhone, normalizeSaudiPhone } from '../../utils/validators';
 import { authService } from '../../services/api';
@@ -33,7 +34,10 @@ export const Register = () => {
     const [isLoading, setIsLoading] = useState(false);
 
     const handleTextChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
-    const handleFileChange = (e) => setFiles({ ...files, [e.target.name]: e.target.files[0] });
+    const handleFileChange = (name, file) => {
+        setFiles(f => ({ ...f, [name]: file }));
+        setErrors(e => ({ ...e, [name]: null }));
+    };
 
     const validateStep = () => {
         const newErrors = {};
@@ -107,7 +111,10 @@ export const Register = () => {
         setIsLoading(true);
         try {
             const payload = {
-                role, accountType, files, ...formData,
+                role, accountType, ...formData,
+                // Account-level documents only — the truck's two papers
+                // belong to the truck record below, not to users/{uid}/documents.
+                files: Object.fromEntries(Object.values(DOCUMENT_KEYS).filter(k => files[k]).map(k => [k, files[k]])),
                 ...(role === 'CARRIER' ? {
                     trucks: [{
                         brand: formData.brand,
@@ -206,21 +213,21 @@ export const Register = () => {
           {step === 4 && role === 'SHIPPER' && (<>
               <h2 style={{ textAlign: 'center', marginBottom: 24 }}>المستندات</h2>
               {accountType === 'INDIVIDUAL' ? (
-                  <Input name={DOCUMENT_KEYS.NATIONAL_ID} type="file" label="الهوية الوطنية / الإقامة" onChange={handleFileChange} error={errors[DOCUMENT_KEYS.NATIONAL_ID]} />
+                  <FileInput name={DOCUMENT_KEYS.NATIONAL_ID} label="الهوية الوطنية / الإقامة" file={files[DOCUMENT_KEYS.NATIONAL_ID]} onChange={handleFileChange} error={errors[DOCUMENT_KEYS.NATIONAL_ID]} />
               ) : (<>
-                  <Input name={DOCUMENT_KEYS.COMMERCIAL_REGISTRATION} type="file" label="السجل التجاري" onChange={handleFileChange} error={errors[DOCUMENT_KEYS.COMMERCIAL_REGISTRATION]} />
-                  <Input name={DOCUMENT_KEYS.MANAGER_ID} type="file" label="هوية المسؤول" onChange={handleFileChange} error={errors[DOCUMENT_KEYS.MANAGER_ID]} />
+                  <FileInput name={DOCUMENT_KEYS.COMMERCIAL_REGISTRATION} label="السجل التجاري" file={files[DOCUMENT_KEYS.COMMERCIAL_REGISTRATION]} onChange={handleFileChange} error={errors[DOCUMENT_KEYS.COMMERCIAL_REGISTRATION]} />
+                  <FileInput name={DOCUMENT_KEYS.MANAGER_ID} label="هوية المسؤول" file={files[DOCUMENT_KEYS.MANAGER_ID]} onChange={handleFileChange} error={errors[DOCUMENT_KEYS.MANAGER_ID]} />
                 </>)}
             </>)}
 
           {step === 4 && role === 'CARRIER' && (<>
               <h2 style={{ textAlign: 'center', marginBottom: 24 }}>المستندات الأساسية</h2>
               {accountType === 'INDIVIDUAL' ? (<>
-                  <Input name={DOCUMENT_KEYS.NATIONAL_ID} type="file" label="الهوية الوطنية / الإقامة" onChange={handleFileChange} error={errors[DOCUMENT_KEYS.NATIONAL_ID]} />
-                  <Input name={DOCUMENT_KEYS.PUBLIC_DRIVING_LICENCE} type="file" label="رخصة قيادة عمومي" onChange={handleFileChange} error={errors[DOCUMENT_KEYS.PUBLIC_DRIVING_LICENCE]} />
+                  <FileInput name={DOCUMENT_KEYS.NATIONAL_ID} label="الهوية الوطنية / الإقامة" file={files[DOCUMENT_KEYS.NATIONAL_ID]} onChange={handleFileChange} error={errors[DOCUMENT_KEYS.NATIONAL_ID]} />
+                  <FileInput name={DOCUMENT_KEYS.PUBLIC_DRIVING_LICENCE} label="رخصة قيادة عمومي" file={files[DOCUMENT_KEYS.PUBLIC_DRIVING_LICENCE]} onChange={handleFileChange} error={errors[DOCUMENT_KEYS.PUBLIC_DRIVING_LICENCE]} />
               </>) : (<>
-                  <Input name={DOCUMENT_KEYS.COMMERCIAL_REGISTRATION} type="file" label="السجل التجاري" onChange={handleFileChange} error={errors[DOCUMENT_KEYS.COMMERCIAL_REGISTRATION]} />
-                  <Input name={DOCUMENT_KEYS.MANAGER_ID} type="file" label="هوية المسؤول" onChange={handleFileChange} error={errors[DOCUMENT_KEYS.MANAGER_ID]} />
+                  <FileInput name={DOCUMENT_KEYS.COMMERCIAL_REGISTRATION} label="السجل التجاري" file={files[DOCUMENT_KEYS.COMMERCIAL_REGISTRATION]} onChange={handleFileChange} error={errors[DOCUMENT_KEYS.COMMERCIAL_REGISTRATION]} />
+                  <FileInput name={DOCUMENT_KEYS.MANAGER_ID} label="هوية المسؤول" file={files[DOCUMENT_KEYS.MANAGER_ID]} onChange={handleFileChange} error={errors[DOCUMENT_KEYS.MANAGER_ID]} />
                 </>)}
             </>)}
 
@@ -246,8 +253,8 @@ export const Register = () => {
               )}
               <Input name="capacityTons" type="number" min="0" label="الحمولة القصوى (طن)" value={formData.capacityTons || ''} onChange={handleTextChange} error={errors.capacityTons} />
               <Input name="plateNumber" label="رقم اللوحة" value={formData.plateNumber || ''} onChange={handleTextChange} error={errors.plateNumber} />
-              <Input name="operatingCard" type="file" label="بطاقة تشغيل مركبة" onChange={handleFileChange} error={errors.operatingCard} />
-              <Input name="registration" type="file" label="الاستمارة (رخصة السير)" onChange={handleFileChange} error={errors.registration} />
+              <FileInput name="operatingCard" label="بطاقة تشغيل مركبة" file={files.operatingCard} onChange={handleFileChange} error={errors.operatingCard} />
+              <FileInput name="registration" label="الاستمارة (رخصة السير)" file={files.registration} onChange={handleFileChange} error={errors.registration} />
             </>)}
 
           {( (step === 5 && role === 'SHIPPER') || (step === 6 && role === 'CARRIER') ) && (<div style={{ textAlign: 'center' }}>
@@ -257,6 +264,9 @@ export const Register = () => {
               <h2 style={{ marginBottom: 16 }}>حسابك قيد المراجعة</h2>
               <p style={{ color: 'var(--color-text-muted)', marginBottom: 32 }}>
                 بانتظار موافقة الإدارة لتفعيل الحساب.
+              </p>
+              <p className="text-helper" style={{ marginTop: -16, marginBottom: 32 }}>
+                أرسلنا رابط تأكيد إلى <strong dir="ltr">{formData.email}</strong> — يمكنك تأكيد بريدك في أي وقت، ولن يمنعك ذلك من تسجيل الدخول.
               </p>
               
               <Button type="button" onClick={returnToLogin} variant="outline" style={{ width: '100%' }}>

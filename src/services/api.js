@@ -20,10 +20,3 @@ export const walletService = firebaseWalletService;
 export const notificationService = firebaseNotificationService;
 export const userService = firebaseUserService;
 export const catalogService = firebaseCatalogService;
-
-/**
- * One carrier, one active shipment at a time. `isBusy` is maintained
- * server-side on the carrier's profile (INTEGRATION.md §2) and enforced by
- * the backend on every offer/assignment — the UI only reflects it.
- */
-export const isCarrierBusy = (carrier) => !!carrier?.isBusy;

@@ -4,8 +4,9 @@ import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { DataTable } from '../../components/common/DataTable';
 import { PriceBlock } from '../../components/common/PriceBlock';
-import { shipmentService, authService, walletService, offerService, isCarrierBusy } from '../../services/api';
-import { ShipmentStatus } from '../../constants/enums';
+import { shipmentService, authService, offerService } from '../../services/api';
+import { isShipmentForCarrier, carrierBlockReason, offerBlockReason } from '../../utils/carrierEligibility';
+import { CarrierBlockNotice } from '../../components/carrier/CarrierBlockNotice';
 import { getCurrentPositionSafe, haversineKm, lookupCityCoordinates } from '../../utils/geo';
 import { SkeletonRows } from '../../components/common/Loader';
 
@@ -22,7 +23,6 @@ export const CarrierShipments = () => {
     const [sortOrder, setSortOrder] = useState('newest');
     const [position, setPosition] = useState(null);
     const [carrier, setCarrier] = useState(null);
-    const [wallet, setWallet] = useState(null);
     // Which of these shipments the carrier already has an offer thread on
     // (shipmentId -> offer), so the list can send them straight back into
     // that negotiation instead of only ever offering "submit a new offer".
@@ -31,18 +31,13 @@ export const CarrierShipments = () => {
     useEffect(() => {
         Promise.all([
             authService.getCurrentUser(),
-            walletService.getWallet(),
             shipmentService.getShipments(),
-        ]).then(([user, w, data]) => {
+        ]).then(([user, data]) => {
             setCarrier(user);
-            setWallet(w);
 
-            // Carriers can only browse shipments that are looking for offers
-            // and match one of the truck types registered on their account.
-            const available = data.filter(s =>
-                (s.status === ShipmentStatus.PENDING_OFFERS || s.status === ShipmentStatus.NEGOTIATING) &&
-                (!user?.trucks?.length || !s.requiredTruckType || user.trucks.some(t => t.type === s.requiredTruckType))
-            );
+            // Open shipments one of the carrier's trucks matches by type and
+            // can carry by weight — the same rule as the home page.
+            const available = data.filter(s => isShipmentForCarrier(s, user));
             setShipments(available);
             setIsLoading(false);
 
@@ -84,36 +79,9 @@ export const CarrierShipments = () => {
         return list;
     }, [shipments, sortOrder, position]);
 
-    // A suspended carrier — or one owing cancellation commission — can't
-    // browse or bid on shipments. Mirrors mobile's shipments_screen.dart gate.
-    if (!isLoading && carrier?.isSuspended) {
-        return (
-            <Card>
-                <h3 style={{ marginBottom: 8 }}>الحساب موقوف</h3>
-                <p className="text-helper">
-                    تم إيقاف حسابك بسبب تكرار الاعتذار عن الرحلات بعد إسنادها. لا يمكنك تصفّح الشحنات أو
-                    تقديم عروض حالياً — يرجى التواصل مع دعم المنصة.
-                </p>
-            </Card>
-        );
-    }
-    if (!isLoading && wallet && wallet.balance < -0.009) {
-        return (
-            <Card>
-                <h3 style={{ marginBottom: 8 }}>عمولة إلغاء مستحقة</h3>
-                <p className="text-helper">
-                    عليك سداد {Math.abs(wallet.balance)} ر.س من عمولة إلغاء سابقة قبل قبول شحنات جديدة. يتم
-                    خصم المبلغ تلقائياً من تسوية رحلتك القادمة، أو يمكنك التواصل مع دعم المنصة لتسويته.
-                </p>
-            </Card>
-        );
-    }
-    // The busy rule itself is enforced hard, server-side, in isCarrierBusy /
-    // offerService.submitOffer / offerService.acceptOffer regardless of what
-    // this screen shows — so here it only changes what the carrier can DO
-    // with each row, never what they can see. The full marketplace stays
-    // visible; only the action is disabled with an explanatory notice.
-    const busy = !!(carrier && isCarrierBusy(carrier));
+    // Account-level reason (unverified, suspended, busy, debt) — shown once
+    // above the list; the marketplace itself stays visible either way.
+    const accountBlock = carrierBlockReason(carrier);
 
     const columns = [
         { key: 'route', header: 'المسار', render: (s) => `${s.pickupCity} -> ${s.deliveryCity}` },
@@ -133,13 +101,15 @@ export const CarrierShipments = () => {
                         </Button>
                     );
                 }
-                if (busy) {
+                const reason = accountBlock || offerBlockReason(carrier, s);
+                if (reason) {
                     return (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
-                            <Button size="sm" disabled>تقديم عرض</Button>
-                            <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textAlign: 'end' }}>
-                                لديك رحلة نشطة — أكملها أولاً
-                            </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end', maxWidth: 220 }}>
+                            <Button size="sm" variant="outline" onClick={() => navigate(`/app/shipments/${s.id}`)}>عرض التفاصيل</Button>
+                            {/* Account-level reasons are in the banner above; only truck-specific ones repeat per row. */}
+                            {!accountBlock && (
+                                <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textAlign: 'end' }}>{reason}</span>
+                            )}
                         </div>
                     );
                 }
@@ -167,6 +137,8 @@ export const CarrierShipments = () => {
                 </select>
             </div>
 
+            {!isLoading && <CarrierBlockNotice reason={accountBlock} />}
+
             <Card>
                 {isLoading ? (
                     <SkeletonRows rows={4} columns={3} label="جاري تحميل الشحنات المتاحة" />
@@ -175,7 +147,7 @@ export const CarrierShipments = () => {
                         data={sortedShipments}
                         columns={columns}
                         keyExtractor={(s) => s.id}
-                        emptyMessage="لا توجد شحنات متاحة حالياً المطابقة لنوع مركبتك"
+                        emptyMessage="لا توجد حالياً شحنات تناسب نوع شاحنتك وحمولتها"
                     />
                 )}
             </Card>
