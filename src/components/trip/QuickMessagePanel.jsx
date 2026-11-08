@@ -2,27 +2,42 @@ import React from 'react';
 import { Button } from '../common/Button';
 import { UserRole } from '../../constants/enums';
 
-// Closed set, no free text — mirrors lib/models/trip_message.dart exactly.
+// Closed set, no free text — the backend owns this list and refuses any
+// other key, or a key from the other side (INTEGRATION.md §12,
+// sendQuickMessage). Use these keys exactly.
 const QUICK_MESSAGES = {
     [UserRole.CARRIER]: [
-        { key: 'arrivedAtPickup', label: 'وصلت لموقع التحميل' },
-        { key: 'locationUnclear', label: 'الموقع غير واضح' },
-        { key: 'runningLate', label: 'سأتأخر قليلاً' },
-        { key: 'arrivedAtDelivery', label: 'وصلت لموقع التسليم' },
+        { key: 'EN_ROUTE_TO_PICKUP', label: 'في الطريق لموقع التحميل' },
+        { key: 'ARRIVED_AT_PICKUP', label: 'وصلت لموقع التحميل' },
+        { key: 'LOADING_STARTED', label: 'بدأ التحميل' },
+        { key: 'LOCATION_UNCLEAR', label: 'الموقع غير واضح' },
+        { key: 'RUNNING_LATE', label: 'سأتأخر قليلًا' },
+        { key: 'NO_ONE_AT_SITE', label: 'لا يوجد أحد بالموقع' },
+        { key: 'ARRIVED_AT_DELIVERY', label: 'وصلت لموقع التسليم' },
     ],
     [UserRole.SHIPPER]: [
-        { key: 'acknowledged', label: 'تم الاستلام' },
-        { key: 'contactReady', label: 'المسؤول بالموقع جاهز' },
-        { key: 'pleaseWait', label: 'يرجى الانتظار قليلاً' },
+        { key: 'GOODS_READY', label: 'البضاعة جاهزة للتحميل' },
+        { key: 'SITE_OPEN', label: 'الموقع مفتوح الآن' },
+        { key: 'SITE_CONTACT_READY', label: 'المسؤول بالموقع جاهز' },
+        { key: 'CALL_SITE_CONTACT', label: 'يرجى الاتصال بالمسؤول بالموقع' },
+        { key: 'PLEASE_WAIT', label: 'يرجى الانتظار قليلًا' },
+        { key: 'LOCATION_IN_DETAILS', label: 'الموقع موضّح في تفاصيل الشحنة' },
+        { key: 'RECEIVED', label: 'تم الاستلام' },
     ],
 };
 
-// Flat messageKey -> label lookup — the real backend only stores
-// `messageKey` (INTEGRATION.md §12), never a label, so the display text is
-// always resolved from this table rather than trusted from stored data.
-// Messages no longer offered as buttons still need a label, because older
-// trips may already contain them.
-const RETIRED_LABELS = { willSendLocation: 'سأرسل الموقع' };
+// Messages already stored on older trips keep their old keys — they can no
+// longer be sent, but still need their Arabic when shown.
+const RETIRED_LABELS = {
+    arrivedAtPickup: 'وصلت لموقع التحميل',
+    locationUnclear: 'الموقع غير واضح',
+    runningLate: 'سأتأخر قليلًا',
+    arrivedAtDelivery: 'وصلت لموقع التسليم',
+    acknowledged: 'تم الاستلام',
+    contactReady: 'المسؤول بالموقع جاهز',
+    pleaseWait: 'يرجى الانتظار قليلًا',
+    willSendLocation: 'سأرسل الموقع',
+};
 
 const LABEL_BY_KEY = {
     ...RETIRED_LABELS,
