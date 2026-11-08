@@ -10,6 +10,7 @@ import { shipmentService, tripService, walletService, authService } from '../../
 import { ShipmentStatus } from '../../constants/enums';
 import { TopUpModal } from '../../components/wallet/TopUpModal';
 import { Loader } from '../../components/common/Loader';
+import { formatAmount } from '../../utils/format';
 export const Dashboard = () => {
     const navigate = useNavigate();
     const [shipments, setShipments] = useState([]);
@@ -92,8 +93,8 @@ export const Dashboard = () => {
           <span className={styles.kpiValue}>{activeTrips.length}</span>
         </Card>
         <Card className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>رصيد المحفظة</span>
-          <span className={styles.kpiValue}>{wallet ? `${wallet.balance} ر.س` : '-'}</span>
+          <span className={styles.kpiLabel}>الرصيد المتاح</span>
+          <span className={styles.kpiValue}>{wallet ? `${formatAmount(wallet.available)} ر.س` : '-'}</span>
         </Card>
       </div>
 
@@ -127,13 +128,13 @@ export const Dashboard = () => {
           <Card variant="dark">
             <div className={styles.walletHeader}>
               <div className={styles.walletBalance}>
-                <span className="text-helper">الرصيد الحالي</span>
-                <h2>{wallet?.balance} ر.س</h2>
+                <span className="text-helper">الرصيد المتاح</span>
+                <h2>{formatAmount(wallet?.available)} ر.س</h2>
               </div>
               <WalletIcon />
             </div>
             {wallet?.reservedBalance ? (<div style={{ marginBottom: 16 }}>
-                <span className="text-helper" style={{ display: 'block' }}>مبالغ محجوزة: {wallet.reservedBalance} ر.س</span>
+                <span className="text-helper" style={{ display: 'block' }}>مبالغ محجوزة لرحلات جارية: {formatAmount(wallet.reservedBalance)} ر.س</span>
               </div>) : null}
             <div style={{ display: 'flex', gap: 12 }}>
               <Button variant="secondary" style={{ flex: 1 }} onClick={() => setIsTopUpOpen(true)}>شحن المحفظة</Button>

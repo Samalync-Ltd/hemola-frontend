@@ -48,23 +48,60 @@ const DEFAULT_MESSAGE = 'حدث خطأ غير متوقع، حاول مرة أخ�
 
 const amount = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
+const PLATFORM_ERROR = 'حدث خطأ في المنصة، حاول لاحقاً';
+
+/** Shown for a reason code the backend sends that isn't in the table below (new ones may be added). */
+export const UNKNOWN_REASON_MESSAGE = 'تعذّر تنفيذ هذا الإجراء حالياً. حدّث الصفحة وحاول مرة أخرى.';
+
 /**
- * Arabic text per backend `details.reason` code, built from the values the
- * backend sends alongside it. Add a line here for each reason INTEGRATION.md
- * documents — the error text itself is never parsed.
+ * Arabic per backend `details.reason` — all 29 in INTEGRATION.md §18, with
+ * the values in {braces} filled from `details`. The error text itself is
+ * never parsed.
  */
 const REASON_MESSAGES = {
+    // Users
+    ACCOUNT_NOT_VERIFIED: () => 'حسابك قيد المراجعة. ستتمكن من ذلك بعد توثيق الحساب.',
+    CARRIER_SUSPENDED: () => 'حسابك موقوف مؤقتاً بسبب تكرار الإلغاء. تواصل مع الدعم.',
+    CARRIER_BUSY: () => 'لديك رحلة نشطة. أكملها قبل قبول شحنة جديدة.',
+    CARRIER_IN_DEBT: ({ debt }) => (debt != null
+        ? `عليك مبلغ مستحق للمنصة (${amount(debt)} ر.س). اشحن محفظتك لتسديده أولاً.`
+        : 'عليك مبلغ مستحق للمنصة. اشحن محفظتك لتسديده أولاً.'),
+    PHONE_UNCHANGED: () => 'هذا هو رقم جوالك الحالي.',
+    SHIPMENT_NOT_OPEN: () => 'هذه الشحنة لم تعد متاحة.',
+    SITE_DETAILS_LOCKED: () => 'لا يمكن تعديل تفاصيل الموقع بعد إسناد الشحنة.',
+    OWN_SHIPMENT: () => 'لا يمكنك تقديم عرض على شحنتك.',
+    OFFER_ALREADY_OPEN: () => 'لديك عرض بانتظار الرد على هذه الشحنة.',
+    OFFER_NOT_PENDING: () => 'هذا العرض لم يعد متاحاً. حدّث الصفحة.',
+    NOT_YOUR_TURN: () => 'بانتظار رد الطرف الآخر على عرضك.',
+    TRUCK_WRONG_TYPE: () => 'نوع الشاحنة لا يطابق النوع المطلوب لهذه الشحنة.',
     TRUCK_CAPACITY_TOO_LOW: ({ capacityTons, weight }) => {
-        if (capacityTons != null && weight != null) return `حمولة الشاحنة (${capacityTons} طن) أقل من وزن الشحنة (${weight} طن)`;
-        if (weight != null) return `حمولة الشاحنة أقل من وزن الشحنة (${weight} طن)`;
-        return 'حمولة الشاحنة أقل من وزن الشحنة';
+        if (capacityTons != null && weight != null) return `حمولة الشاحنة (${capacityTons} طن) أقل من وزن الشحنة (${weight} طن).`;
+        if (weight != null) return `حمولة الشاحنة أقل من وزن الشحنة (${weight} طن).`;
+        return 'حمولة الشاحنة أقل من وزن الشحنة.';
     },
-    INSUFFICIENT_BALANCE: ({ availableBalance, required, amount: offered }) => {
-        const needed = required ?? offered;
+    TRUCK_NOT_APPROVED: () => 'مستندات الشاحنة لم تُعتمد بعد.',
+    INSUFFICIENT_BALANCE: ({ availableBalance, required, requested }) => {
+        const needed = required ?? requested;
         return availableBalance != null && needed != null
-        ? `رصيدك المتاح (${amount(availableBalance)} ر.س) أقل من قيمة العرض (${amount(needed)} ر.س)`
-            : 'رصيدك المتاح غير كافٍ لهذه العملية — اشحن محفظتك ثم حاول مرة أخرى';
+            ? `رصيدك المتاح (${amount(availableBalance)} ر.س) لا يكفي. المبلغ المطلوب ${amount(needed)} ر.س.`
+            : 'رصيدك المتاح لا يكفي لهذه العملية. اشحن محفظتك ثم حاول مرة أخرى.';
     },
+    BANK_DETAILS_MISSING: () => 'أضف بيانات حسابك البنكي قبل طلب السحب.',
+    TRIP_NOT_ACTIVE: () => 'هذه الرحلة لم تعد نشطة.',
+    STAGE_OUT_OF_ORDER: () => 'يجب تحديث مراحل الرحلة بالترتيب.',
+    PROOF_MISSING: () => 'يرجى رفع صورة الإثبات أولاً.',
+    TRIP_NOT_DELIVERED: () => 'يمكنك التقييم بعد تسليم الشحنة.',
+    NOTHING_TO_CANCEL: () => 'لا يوجد إسناد لإلغائه في هذه الشحنة.',
+    CANCEL_NOT_ALLOWED: () => 'لا يمكن الإلغاء بعد تحميل الشحنة. تواصل مع الدعم.',
+    // Admin dashboard (listed for completeness — the website never calls these)
+    DOCUMENTS_NOT_APPROVED: () => 'لا يمكن توثيق الحساب قبل اعتماد جميع المستندات المطلوبة.',
+    TRUCK_DOCUMENT_MISSING: () => 'لم يُرفع هذا المستند بعد.',
+    NOT_SUSPENDED: () => 'هذا الحساب غير موقوف.',
+    WITHDRAWAL_ALREADY_PROCESSED: () => 'تمت معالجة طلب السحب هذا مسبقاً.',
+    NO_DEBT: () => 'لا يوجد مبلغ مستحق على هذا الحساب.',
+    // Platform setup — should never reach a user
+    PLATFORM_NOT_CONFIGURED: () => PLATFORM_ERROR,
+    PHONE_LOGIN_UNAVAILABLE: () => PLATFORM_ERROR,
 };
 
 /** The backend reason code on an error, if any — for screens that react to a specific one (e.g. offer a top-up). */
@@ -88,7 +125,11 @@ export const toArabicError = (err, fallback = DEFAULT_MESSAGE) => {
     // message — never the English error text (INTEGRATION.md §12).
     const details = (typeof err === 'object' && err !== null) ? (err.details || err.customData?.details) : null;
     const reason = errorReason(err) || (typeof err === 'object' && err?.reason);
-    if (reason && REASON_MESSAGES[reason]) return REASON_MESSAGES[reason](details || err || {});
+    if (reason) {
+        // Report setup problems — they should never reach a user (§18).
+        if (reason === 'PLATFORM_NOT_CONFIGURED' || reason === 'PHONE_LOGIN_UNAVAILABLE') console.error('Platform misconfigured:', reason);
+        return REASON_MESSAGES[reason] ? REASON_MESSAGES[reason](details || err || {}) : UNKNOWN_REASON_MESSAGE;
+    }
 
     const message = typeof err === 'string' ? err : (err.message || '');
     if (ARABIC.test(message)) return message;

@@ -18,7 +18,6 @@ import { ref, uploadBytes, uploadBytesResumable, getDownloadURL } from 'firebase
 import { httpsCallable } from 'firebase/functions';
 import { TripStage } from '../constants/enums';
 import { normalizeSaudiPhone } from '../utils/validators';
-import { notificationDisplayText } from '../utils/notificationText';
 import { DOCUMENT_KEYS } from '../constants/documentKeys';
 
 // Every Cloud Function below is documented in hemooltak-backend/INTEGRATION.md
@@ -840,6 +839,19 @@ const toWalletUiShape = (data) => {
     return { balance: totalBalance, reservedBalance: reservedAmount, available: totalBalance - reservedAmount };
 };
 
+const toTransactionUiShape = (d) => {
+    const data = d.data();
+    return {
+        id: d.id,
+        type: data.type,
+        amount: data.amount,
+        withheld: data.withheld,
+        description: data.description || '',
+        referenceId: data.shipmentId || data.tripId || data.withdrawalId || null,
+        timestamp: toIso(data.createdAt),
+    };
+};
+
 export const firebaseWalletService = {
     /** Live balance — top-ups, reservations, settlements and fees show without a refresh. */
     subscribe: (onChange, onError) => {
@@ -872,18 +884,22 @@ export const firebaseWalletService = {
         const currentUser = await firebaseAuthService.getCurrentUser();
         if (!currentUser) throw new Error('Unauthorized');
         const snap = await getDocs(query(collection(db, 'wallets', currentUser.id, 'transactions'), orderBy('createdAt', 'desc')));
-        return snap.docs.map(d => {
-            const data = d.data();
-            return {
-                id: d.id,
-                type: data.type,
-                amount: data.amount,
-                withheld: data.withheld,
-                description: data.description || '',
-                referenceId: data.shipmentId || data.tripId || data.withdrawalId || null,
-                timestamp: toIso(data.createdAt),
-            };
+        return snap.docs.map(toTransactionUiShape);
+    },
+    /** Live statement — a fee or settlement appears the moment it's recorded. */
+    subscribeTransactions: (onChange, onError) => {
+        let unsubscribe = () => {};
+        let cancelled = false;
+        auth.authStateReady().then(() => {
+            const uid = auth.currentUser?.uid;
+            if (cancelled || !uid) return;
+            unsubscribe = onSnapshot(
+                query(collection(db, 'wallets', uid, 'transactions'), orderBy('createdAt', 'desc')),
+                (snap) => onChange(snap.docs.map(toTransactionUiShape)),
+                (err) => onError?.(err),
+            );
         });
+        return () => { cancelled = true; unsubscribe(); };
     },
     topUp: async (amount) => {
         const res = await call('topUpWallet')({ amount: Number(amount) });
@@ -908,23 +924,15 @@ export const firebaseWalletService = {
         }
     },
     /** The backend snapshots the carrier's saved bank details onto the withdrawal and echoes them back. */
+    // Refusals carry details.reason (BANK_DETAILS_MISSING, INSUFFICIENT_BALANCE,
+    // CARRIER_IN_DEBT, …), which toArabicError turns into Arabic.
     withdraw: async (amount, note) => {
-        try {
-            const res = await call('requestWithdrawal')({ amount: Number(amount), ...(note ? { note } : {}) });
-            return {
-                id: res.data.withdrawalId, type: 'WITHDRAWAL', amount: -res.data.amount,
-                iban: res.data.iban, bankAccountName: res.data.bankAccountName,
-                description: 'طلب سحب رصيد (قيد مراجعة الإدارة)', timestamp: new Date().toISOString(),
-            };
-        } catch (err) {
-            if (err.code === 'functions/failed-precondition') {
-                if (err.details?.missing) throw new Error('يرجى إضافة بيانات الحساب البنكي قبل طلب السحب.');
-                if (err.details?.availableBalance !== undefined) throw new Error(`الرصيد المتاح غير كافٍ (المتاح: ${err.details.availableBalance} ر.س).`);
-                if (/you owe/i.test(err.message)) throw new Error('لا يمكن السحب قبل سداد المديونية المستحقة.');
-                if (/verified/i.test(err.message)) throw new Error('حسابك غير موثّق بعد.');
-            }
-            throw err;
-        }
+        const res = await call('requestWithdrawal')({ amount: Number(amount), ...(note ? { note } : {}) });
+        return {
+            id: res.data.withdrawalId, type: 'WITHDRAWAL', amount: -res.data.amount,
+            iban: res.data.iban, bankAccountName: res.data.bankAccountName,
+            description: 'طلب سحب رصيد (قيد مراجعة الإدارة)', timestamp: new Date().toISOString(),
+        };
     },
 };
 
@@ -952,12 +960,11 @@ const notificationLink = (type, data = {}) => {
 const toNotificationUiShape = (d) => {
     const n = d.data();
     const type = n.type || n.data?.type;
-    const text = notificationDisplayText(type, n.title || '', n.body || '');
     return {
         id: d.id,
         type,
-        title: text.title,
-        message: text.body,
+        title: n.title || '',
+        message: n.body || '',
         timestamp: n.createdAt?.toDate?.().toISOString() ?? null,
         isRead: !!n.read,
         tripId: n.data?.tripId || null,

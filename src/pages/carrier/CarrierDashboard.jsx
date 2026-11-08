@@ -12,6 +12,7 @@ import { WithdrawModal } from '../../components/wallet/WithdrawModal';
 import { Loader } from '../../components/common/Loader';
 import { isShipmentForCarrier, carrierBlockReason } from '../../utils/carrierEligibility';
 import { CarrierBlockNotice } from '../../components/carrier/CarrierBlockNotice';
+import { formatAmount } from '../../utils/format';
 
 export const CarrierDashboard = () => {
     const navigate = useNavigate();
@@ -98,8 +99,8 @@ export const CarrierDashboard = () => {
           <span className={styles.kpiValue}>{activeTrips.length}</span>
         </Card>
         <Card className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>رصيد المحفظة</span>
-          <span className={styles.kpiValue}>{wallet ? `${wallet.balance} ر.س` : '-'}</span>
+          <span className={styles.kpiLabel}>الرصيد المتاح</span>
+          <span className={styles.kpiValue}>{wallet ? `${formatAmount(wallet.available)} ر.س` : '-'}</span>
         </Card>
       </div>
 
@@ -133,8 +134,8 @@ export const CarrierDashboard = () => {
           <Card variant="dark">
             <div className={styles.walletHeader}>
               <div className={styles.walletBalance}>
-                <span className="text-helper">الرصيد الحالي</span>
-                <h2>{wallet?.balance} ر.س</h2>
+                <span className="text-helper">الرصيد المتاح</span>
+                <h2>{formatAmount(wallet?.available)} ر.س</h2>
               </div>
               <WalletIcon />
             </div>

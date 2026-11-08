@@ -8,6 +8,7 @@ import { TopUpModal } from '../../components/wallet/TopUpModal';
 import { walletService, authService } from '../../services/api';
 import { TransactionType } from '../../constants/enums';
 import { Loader } from '../../components/common/Loader';
+import { formatAmount } from '../../utils/format';
 
 // INTEGRATION.md §8/§9. Rows with amount 0 and a `withheld` figure
 // (commission, debt recovered) explain money taken before it reached the
@@ -56,6 +57,7 @@ export const CarrierWallet = () => {
     useEffect(() => { fetchData(); }, []);
     // Live balance — top-ups, reservations, settlements and fees show without a refresh.
     useEffect(() => walletService.subscribe(setWallet, () => {}), []);
+    useEffect(() => walletService.subscribeTransactions((t) => setTransactions(t.filter(txn => txn.type in TRANSACTION_LABELS)), () => {}), []);
 
     const handleWithdrawCompleted = async () => {
         await fetchData();
@@ -96,10 +98,10 @@ export const CarrierWallet = () => {
         <Card variant="dark">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
             <div>
-              <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: 8 }}>الرصيد الإجمالي</div>
-              <div style={{ fontSize: 36, fontWeight: 'bold' }}>{wallet.balance} ر.س</div>
+              <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: 8 }}>المتاح للسحب</div>
+              <div style={{ fontSize: 36, fontWeight: 'bold' }}>{formatAmount(wallet.available)} ر.س</div>
               <div style={{ color: 'rgba(255,255,255,0.7)', marginTop: 4, fontSize: 13 }}>
-                المتاح للسحب: <strong style={{ color: 'white' }}>{wallet.available} ر.س</strong>
+                الرصيد الإجمالي: {formatAmount(wallet.balance)} ر.س{wallet.reservedBalance > 0 ? ` — منها ${formatAmount(wallet.reservedBalance)} ر.س بطلبات سحب قيد المراجعة` : ''}
               </div>
             </div>
           </div>

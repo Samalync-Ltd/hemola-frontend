@@ -6,7 +6,7 @@ import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { Input } from '../../components/common/Input';
 import { shipmentService, offerService } from '../../services/api';
-import { offerBlockReason, usableTrucksFor } from '../../utils/carrierEligibility';
+import { offerBlockReason, usableTrucksFor, truckCanCarry, isTruckApproved } from '../../utils/carrierEligibility';
 import { OfferStatus, ShipmentStatus, TruckTypeAr } from '../../constants/enums';
 import { lookupCityCoordinates } from '../../utils/geo';
 import { MapThumbnail } from '../../components/map/MapThumbnail';
@@ -62,6 +62,10 @@ export const CarrierShipmentDetail = ({ user }) => {
     // papers APPROVED may be offered (see utils/carrierEligibility). Trucks
     // too small for the shipment's weight are hidden from the picker.
     const eligibleTrucks = shipment ? usableTrucksFor(user, shipment) : [];
+    // Approved trucks of the right type left out only because they're too small.
+    const tooSmallTrucks = shipment
+        ? (user?.trucks || []).filter(t => t.type === shipment.requiredTruckType && isTruckApproved(t) && !truckCanCarry(t, shipment)).length
+        : 0;
 
     useEffect(() => {
         if (eligibleTrucks.length > 0) {
@@ -264,6 +268,11 @@ export const CarrierShipmentDetail = ({ user }) => {
                                         ) : (
                                             <div style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border)', backgroundColor: 'var(--color-background-subtle, #f9fafb)' }}>
                                                 {eligibleTrucks[0].brand} {eligibleTrucks[0].model} — {eligibleTrucks[0].plateNumber}{eligibleTrucks[0].capacityTons ? ` (${eligibleTrucks[0].capacityTons} طن)` : ''}
+                                            </div>
+                                        )}
+                                        {tooSmallTrucks > 0 && (
+                                            <div className="text-helper" style={{ fontSize: 12, marginTop: 6 }}>
+                                                {tooSmallTrucks === 1 ? 'شاحنة أخرى من نفس النوع لا تظهر' : `${tooSmallTrucks} شاحنات أخرى من نفس النوع لا تظهر`} لأن حمولتها أقل من وزن الشحنة ({shipment.weight} طن).
                                             </div>
                                         )}
                                     </div>

@@ -7,6 +7,7 @@ import { DataTable } from '../../components/common/DataTable';
 import { TopUpModal } from '../../components/wallet/TopUpModal';
 import { TransactionType } from '../../constants/enums';
 import { Loader } from '../../components/common/Loader';
+import { formatAmount } from '../../utils/format';
 
 // Withdrawals are carrier-only (INTEGRATION.md §12 requestWithdrawal), so a
 // shipper's statement never shows WITHDRAWAL.
@@ -42,6 +43,7 @@ export const WalletPage = () => {
     }, []);
     // Live balance — top-ups, reservations, settlements and fees show without a refresh.
     useEffect(() => walletService.subscribe(setWallet, () => {}), []);
+    useEffect(() => walletService.subscribeTransactions(setTransactions, () => {}), []);
 
     // Errors propagate to TopUpModal, which shows them and only reports
     // success once the backend has actually credited the wallet.
@@ -77,10 +79,12 @@ export const WalletPage = () => {
         <Card variant="dark">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
             <div>
-              <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: 8 }}>الرصيد الإجمالي</div>
-              <div style={{ fontSize: 36, fontWeight: 'bold' }}>{wallet.balance} ر.س</div>
+              {/* Available is what the shipper can actually commit — it's the
+                  number that changes when a hold is placed or released. */}
+              <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: 8 }}>الرصيد المتاح</div>
+              <div style={{ fontSize: 36, fontWeight: 'bold' }}>{formatAmount(wallet.available)} ر.س</div>
               <div style={{ color: 'rgba(255,255,255,0.7)', marginTop: 4, fontSize: 13 }}>
-                المتاح للاستخدام: <strong style={{ color: 'white' }}>{wallet.available} ر.س</strong>
+                الرصيد الإجمالي: {formatAmount(wallet.balance)} ر.س{wallet.reservedBalance > 0 ? ` — منها ${formatAmount(wallet.reservedBalance)} ر.س محجوزة` : ''}
               </div>
             </div>
             {/* Wallet Icon */}
@@ -99,7 +103,7 @@ export const WalletPage = () => {
           <h3 style={{ marginBottom: 16 }}>الرصيد المعلق (محجوز للرحلات)</h3>
           <PriceBlock amount={wallet.reservedBalance} size="lg"/>
           <p className="text-helper" style={{ marginTop: 8 }}>
-            هذا الرصيد محجوز للرحلات الجارية أو قيد التفاوض النهائي. لا يمكن سحبه حتى انتهاء الرحلة.
+            محجوز لرحلات مُسندة لم تُسلَّم بعد. يُخصم عند التسليم، ويعود إلى رصيدك المتاح إذا أُلغيت الرحلة (بعد خصم رسوم الإلغاء).
           </p>
         </Card>
       </div>
