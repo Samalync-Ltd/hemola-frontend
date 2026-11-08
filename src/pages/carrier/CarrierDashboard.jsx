@@ -66,7 +66,8 @@ export const CarrierDashboard = () => {
         return <Loader label="جاري تحميل لوحة التحكم" />;
     }
 
-    const activeTrips = trips.filter(t => t.currentStage !== 'DELIVERED');
+    // Only trips still running — cancelled and completed ones drop off the home page.
+    const activeTrips = trips.filter(t => t.overallStatus ? t.overallStatus === 'ACTIVE' : t.currentStage !== 'DELIVERED');
     const pendingOffers = offers.filter(o => o.status === OfferStatus.PENDING || o.status === OfferStatus.COUNTERED);
 
     const shipmentColumns = [

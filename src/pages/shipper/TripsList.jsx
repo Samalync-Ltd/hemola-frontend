@@ -29,7 +29,7 @@ export const TripsList = () => {
         { key: 'route', header: 'المسار', render: (t) => t.route },
         { key: 'carrier', header: 'الناقل', render: (t) => t.carrierName },
         { key: 'price', header: 'السعر النهائي', render: (t) => <PriceBlock amount={t.finalPrice}/> },
-        { key: 'status', header: 'حالة الرحلة', render: (t) => <StatusBadge status={t.currentStage}/> },
+        { key: 'status', header: 'حالة الرحلة', render: (t) => <StatusBadge status={t.overallStatus === 'CANCELLED' ? 'CANCELLED' : t.currentStage}/> },
         {
             key: 'actions',
             header: 'الإجراء',
