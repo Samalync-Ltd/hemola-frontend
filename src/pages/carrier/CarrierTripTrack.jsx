@@ -141,6 +141,8 @@ export const CarrierTripTrack = () => {
         </div>
       </Card>
 
+      {!isCancelled && !isDelivered && <CallButton phoneNumber={trip.shipperPhone} label="الاتصال بصاحب الشحنة" />}
+
       <div style={{ backgroundColor: 'rgba(255,122,41,0.1)', padding: '20px 24px', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontSize: 24, fontWeight: 'bold', color: 'var(--color-accent)' }} dir="ltr">{formatAmount(trip.finalPrice)} ر.س</div>
         <div style={{ fontWeight: 'bold', fontSize: 16 }}>السعر النهائي المتفق عليه</div>
@@ -269,8 +271,6 @@ export const CarrierTripTrack = () => {
           )}
         </Card>
       </div>
-
-      {!isDelivered && <CallButton phoneNumber={trip.shipperPhone} label="الاتصال بصاحب الشحنة" />}
       </>)}
 
       <div ref={messagesRef} id="messages" style={{ scrollMarginTop: 80 }}>
