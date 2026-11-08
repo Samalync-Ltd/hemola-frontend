@@ -59,6 +59,22 @@ export const TripTrack = () => {
 
     const { newMessageIds, unreadCount } = useUnreadTripMessages(trip, trip?.shipperId, messagesRef);
 
+    // Live truck position (INTEGRATION.md §9) — listened to only while the
+    // carrier's app is sending it, so a finished trip costs no reads.
+    const [truckLocation, setTruckLocation] = useState(null);
+    const isTracking = trip?.overallStatus === 'ACTIVE' && tripService.trackedStages.includes(trip?.currentStage);
+    useEffect(() => {
+        if (!tripId || !isTracking) { setTruckLocation(null); return undefined; }
+        return tripService.subscribeLiveLocation(tripId, setTruckLocation, () => setTruckLocation(null));
+    }, [tripId, isTracking]);
+    // Re-render every 30 s so «آخر تحديث منذ …» stays current between updates.
+    const [now, setNow] = useState(() => Date.now());
+    useEffect(() => {
+        if (!isTracking) return undefined;
+        const timer = setInterval(() => setNow(Date.now()), 30000);
+        return () => clearInterval(timer);
+    }, [isTracking]);
+
     const hasTrip = !!trip;
     useEffect(() => {
         if (hasTrip && hash === '#messages') {
@@ -91,6 +107,11 @@ export const TripTrack = () => {
             setIsSendingMessage(false);
         }
     };
+
+    const truckAgeMin = truckLocation?.updatedAt ? Math.max(0, Math.floor((now - new Date(truckLocation.updatedAt).getTime()) / 60000)) : null;
+    // A position older than a few minutes means no signal, or the truck is standing still.
+    const isTruckStale = truckAgeMin != null && truckAgeMin >= 5;
+    const truckAgeText = truckAgeMin == null ? '' : truckAgeMin < 1 ? 'الآن' : truckAgeMin === 1 ? 'منذ دقيقة' : truckAgeMin === 2 ? 'منذ دقيقتين' : truckAgeMin <= 10 ? `منذ ${truckAgeMin} دقائق` : `منذ ${truckAgeMin} دقيقة`;
 
     const stagesList = stageOrder.map((stage) => ({
         stage,
@@ -164,14 +185,30 @@ export const TripTrack = () => {
         })}
       </div>
 
-      {shipment && (shipment.pickupLat || shipment.deliveryLat) && (
+      {(truckLocation || (shipment && (shipment.pickupLat || shipment.deliveryLat))) && (
         <>
           <h3 style={{ marginTop: 8, marginBottom: 8 }}>بيانات الموقع</h3>
+          {isTracking && (
+            <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, fontSize: 13, backgroundColor: truckLocation && !isTruckStale ? 'rgba(255,122,41,0.1)' : 'var(--color-background)', border: '1px solid var(--color-border)' }}>
+              <span aria-hidden="true">🚚</span>
+              {!truckLocation ? (
+                <span>لم يصل موقع الشاحنة بعد — يظهر هنا عندما يبدأ الناقل الحركة.</span>
+              ) : (
+                <span>
+                  <strong>موقع الشاحنة مباشر</strong> · آخر تحديث {truckAgeText}
+                  {truckLocation.updatedAt && <span className="text-helper"> ({new Date(truckLocation.updatedAt).toLocaleTimeString('ar-SA', { hour: 'numeric', minute: '2-digit' })})</span>}
+                  {isTruckStale && <span style={{ display: 'block', color: 'var(--color-text-muted)', fontSize: 12 }}>لا توجد تحديثات حديثة — قد تكون الشاحنة متوقفة أو بلا إشارة.</span>}
+                </span>
+              )}
+            </div>
+          )}
           <MapThumbnail
-            pickup={shipment.pickupLat ? [shipment.pickupLat, shipment.pickupLng] : null}
-            delivery={shipment.deliveryLat ? [shipment.deliveryLat, shipment.deliveryLng] : null}
+            pickup={shipment?.pickupLat ? [shipment.pickupLat, shipment.pickupLng] : null}
+            delivery={shipment?.deliveryLat ? [shipment.deliveryLat, shipment.deliveryLng] : null}
+            carrier={truckLocation ? [truckLocation.lat, truckLocation.lng] : null}
             title="موقع الرحلة"
           />
+          {shipment && (shipment.pickupLat || shipment.deliveryLat) && (
           <Card>
             <div className="responsive-two-col-even">
               {shipment.pickupLat && (
@@ -192,6 +229,7 @@ export const TripTrack = () => {
               )}
             </div>
           </Card>
+          )}
         </>
       )}
 

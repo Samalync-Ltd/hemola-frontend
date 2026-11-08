@@ -1,14 +1,15 @@
 import React, { useEffect } from 'react';
 import { Map, AdvancedMarker, Polyline, useMap } from '@vis.gl/react-google-maps';
-import { PickupPin, DeliveryPin } from './MapPin';
+import { PickupPin, DeliveryPin, CarrierPin } from './MapPin';
 import { GOOGLE_MAPS_MAP_ID, toLatLng } from './googleMaps';
 
 /** Frames both pins once the map is ready (a single pin keeps the default zoom). */
-const FitToPoints = ({ points }) => {
+const FitToPoints = ({ points, fitKey }) => {
     const map = useMap();
     // Keyed on the coordinates, not the array, so a parent re-render (live
     // trip updates) doesn't yank the camera back while the user is panning.
-    const key = JSON.stringify(points);
+    // A moving truck only refits once, when it first appears (`fitKey`).
+    const key = fitKey ?? JSON.stringify(points);
     useEffect(() => {
         if (!map || points.length < 2) return;
         const bounds = new window.google.maps.LatLngBounds();
@@ -25,25 +26,27 @@ const FitToPoints = ({ points }) => {
  * tracking screens. Only ever rendered post-assignment — see the visibility
  * rule on SiteDetails.
  */
-export const TripMap = ({ pickup, delivery, height = 220, interactive = true, focus = null }) => {
-    if (!pickup && !delivery) return null;
+export const TripMap = ({ pickup, delivery, carrier = null, height = 220, interactive = true, focus = null }) => {
+    if (!pickup && !delivery && !carrier) return null;
     // `focus` ('pickup' | 'delivery'): the point the carrier is heading to now.
     const emphasisFor = (point) => (!focus ? undefined : focus === point ? 'focus' : 'muted');
     const points = [pickup, delivery].filter(Boolean).map(toLatLng);
+    const fitPoints = carrier ? [...points, toLatLng(carrier)] : points;
+    const fitKey = JSON.stringify(points) + (carrier ? '+truck' : '');
 
     return (
         <div style={{ height, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--color-border)' }}>
             <Map
                 mapId={GOOGLE_MAPS_MAP_ID}
-                defaultCenter={points[0]}
-                defaultZoom={points.length > 1 ? 6 : 11}
+                defaultCenter={fitPoints[0]}
+                defaultZoom={fitPoints.length > 1 ? 6 : 11}
                 style={{ height: '100%', width: '100%' }}
                 gestureHandling={interactive ? 'greedy' : 'none'}
                 disableDefaultUI={!interactive}
                 keyboardShortcuts={interactive}
                 clickableIcons={false}
             >
-                <FitToPoints points={points} />
+                <FitToPoints points={fitPoints} fitKey={fitKey} />
                 {points.length > 1 && (
                     <Polyline
                         path={points}
@@ -56,6 +59,7 @@ export const TripMap = ({ pickup, delivery, height = 220, interactive = true, fo
                 )}
                 {pickup && <AdvancedMarker position={toLatLng(pickup)} zIndex={focus === 'pickup' ? 2 : 1}><PickupPin emphasis={emphasisFor('pickup')} /></AdvancedMarker>}
                 {delivery && <AdvancedMarker position={toLatLng(delivery)} zIndex={focus === 'delivery' ? 2 : 1}><DeliveryPin emphasis={emphasisFor('delivery')} /></AdvancedMarker>}
+                {carrier && <AdvancedMarker position={toLatLng(carrier)} zIndex={3} title="موقع الشاحنة"><CarrierPin /></AdvancedMarker>}
             </Map>
         </div>
     );

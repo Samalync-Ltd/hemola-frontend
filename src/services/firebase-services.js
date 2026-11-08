@@ -813,6 +813,21 @@ export const firebaseTripService = {
         trip.settlement = res.data.settlement; // { price, commission, debtDeducted, netToCarrier } on DELIVERED, else null
         return trip;
     },
+    /** Stages during which the carrier's app sends its position (INTEGRATION.md §9, live/location). */
+    trackedStages: [TripStage.EN_ROUTE_PICKUP, TripStage.ARRIVED_PICKUP, TripStage.LOADED, TripStage.EN_ROUTE_DELIVERY],
+    /**
+     * The carrier's latest position, live: `{ lat, lng, heading, speed, accuracy, updatedAt }`,
+     * or null until the carrier has set off. One document, overwritten on every update.
+     */
+    subscribeLiveLocation: (tripId, onChange, onError) => onSnapshot(
+        doc(db, 'trips', tripId, 'live', 'location'),
+        (snap) => {
+            if (!snap.exists()) { onChange(null); return; }
+            const d = snap.data();
+            onChange({ lat: d.lat, lng: d.lng, heading: d.heading ?? null, speed: d.speed ?? null, accuracy: d.accuracy ?? null, updatedAt: toIso(d.updatedAt) });
+        },
+        onError
+    ),
     cancellableStages: [TripStage.ASSIGNED, TripStage.EN_ROUTE_PICKUP, TripStage.ARRIVED_PICKUP],
     /** Resolves the trip's shipmentId and cancels through the same cancelShipment function the pre-assignment path uses — there is no separate trip-level cancel endpoint. */
     cancelTrip: async (tripId) => {
