@@ -21,16 +21,22 @@ const QUICK_MESSAGES = {
 // Flat messageKey -> label lookup — the real backend only stores
 // `messageKey` (INTEGRATION.md §12), never a label, so the display text is
 // always resolved from this table rather than trusted from stored data.
-const LABEL_BY_KEY = Object.fromEntries(
-    Object.values(QUICK_MESSAGES).flat().map(opt => [opt.key, opt.label])
-);
+// Messages no longer offered as buttons still need a label, because older
+// trips may already contain them.
+const RETIRED_LABELS = { willSendLocation: 'سأرسل الموقع' };
+
+const LABEL_BY_KEY = {
+    ...RETIRED_LABELS,
+    ...Object.fromEntries(Object.values(QUICK_MESSAGES).flat().map(opt => [opt.key, opt.label])),
+};
 
 /**
  * A trip's shared quick-message timeline, closed-set buttons filtered by
  * role. `currentUserId` decides which bubbles are "mine" via the backend's
  * `senderId` field; `role` is a fallback for messages without one.
+ * `newMessageIds` marks messages the user hasn't seen yet.
  */
-export const QuickMessagePanel = ({ role, currentUserId, messages = [], onSend, isSending }) => {
+export const QuickMessagePanel = ({ role, currentUserId, messages = [], onSend, isSending, newMessageIds }) => {
     const options = QUICK_MESSAGES[role] || [];
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -39,17 +45,20 @@ export const QuickMessagePanel = ({ role, currentUserId, messages = [], onSend, 
                     {messages.map(m => {
                         const isMe = currentUserId ? m.senderId === currentUserId : m.senderRole === role;
                         const label = m.label || LABEL_BY_KEY[m.messageKey] || m.messageKey;
+                        const isNew = !isMe && newMessageIds?.has(m.id);
                         return (
                             <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
                                 <div style={{
                                     padding: '6px 14px', borderRadius: 12, fontSize: 13,
-                                    backgroundColor: isMe ? 'var(--color-primary)' : 'var(--color-background)',
+                                    backgroundColor: isMe ? 'var(--color-primary)' : isNew ? 'rgba(255,122,41,0.1)' : 'var(--color-background)',
                                     color: isMe ? 'white' : 'var(--color-text-primary)',
-                                    border: isMe ? 'none' : '1px solid var(--color-border)',
+                                    border: isMe ? 'none' : isNew ? '1px solid var(--color-accent)' : '1px solid var(--color-border)',
+                                    fontWeight: isNew ? 700 : 400,
                                 }}>
                                     {label}
                                 </div>
                                 <span style={{ fontSize: 10, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                                    {isNew && <span style={{ color: 'var(--color-accent)', fontWeight: 700 }}>جديدة · </span>}
                                     {new Date(m.timestamp).toLocaleTimeString('ar-SA')}
                                 </span>
                             </div>

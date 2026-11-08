@@ -40,6 +40,8 @@ export const WalletPage = () => {
     useEffect(() => {
         fetchData();
     }, []);
+    // Live balance — top-ups, reservations, settlements and fees show without a refresh.
+    useEffect(() => walletService.subscribe(setWallet, () => {}), []);
 
     // Errors propagate to TopUpModal, which shows them and only reports
     // success once the backend has actually credited the wallet.

@@ -136,3 +136,24 @@ p {
   font-size: 13px;
   color: var(--color-text-muted);
 }
+
+/* Notification bell: a short shake when something new arrives. */
+@keyframes bell-shake {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-12deg); }
+  45% { transform: rotate(9deg); }
+  60% { transform: rotate(-6deg); }
+  75% { transform: rotate(3deg); }
+}
+
+.bell-shake {
+  animation: bell-shake 0.8s ease-in-out;
+  transform-origin: 50% 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bell-shake {
+    animation: none;
+  }
+}

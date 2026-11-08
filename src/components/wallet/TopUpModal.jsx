@@ -63,11 +63,10 @@ export const TopUpModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
                             <div>
                                 <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>المبلغ (ر.س)</label>
                                 <Input
-                                    type="number"
+                                    numeric="decimal"
                                     placeholder="أدخل المبلغ"
                                     value={amount}
                                     onChange={e => setAmount(e.target.value)}
-                                    min="1"
                                     required
                                     disabled={status === 'processing' || isLoading}
                                 />

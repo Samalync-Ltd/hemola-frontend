@@ -1,17 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Star, Building2, Clock } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { Building2, Clock } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
-import { tripService, shipmentService, userService } from '../../services/api';
+import { tripService, shipmentService } from '../../services/api';
 import { TripStage as TripStageEnum, TripStageAr, UserRole } from '../../constants/enums';
-import { ProofPhotoCapture } from '../../components/trip/ProofPhotoCapture';
+import { ProofPhotoView } from '../../components/trip/ProofPhotoCapture';
 import { QuickMessagePanel } from '../../components/trip/QuickMessagePanel';
+import { CancelTripModal } from '../../components/trip/CancelTripModal';
 import { openInMaps } from '../../components/map/TripMap';
 import { MapThumbnail } from '../../components/map/MapThumbnail';
 import { CallButton } from '../../components/trip/CallButton';
 import { toArabicError } from '../../utils/errors';
+import { formatAmount } from '../../utils/format';
 import { Loader } from '../../components/common/Loader';
+import { useUnreadTripMessages } from '../../hooks/useUnreadTripMessages';
 
 const stageOrder = [
     TripStageEnum.ASSIGNED,
@@ -22,129 +25,122 @@ const stageOrder = [
     TripStageEnum.DELIVERED
 ];
 
+const AwaitingProof = () => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="text-helper" style={{ fontSize: 12 }}>بانتظار رفع الناقل</div>
+        <Clock size={20} color="var(--color-text-muted)" />
+    </div>
+);
+
 export const TripTrack = () => {
     const { tripId } = useParams();
     const navigate = useNavigate();
-    const [trip, setTrip] = useState(null);
+    const { hash } = useLocation();
+    const messagesRef = useRef(null);
+    const [trip, setTrip] = useState(undefined); // undefined = loading, null = not found
     const [shipment, setShipment] = useState(null);
-    const [carrier, setCarrier] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
-    const [isCancelling, setIsCancelling] = useState(false);
+    const [error, setError] = useState('');
+    const [messageError, setMessageError] = useState('');
+    const [isCancelOpen, setIsCancelOpen] = useState(false);
     const [isSendingMessage, setIsSendingMessage] = useState(false);
 
-    const fetchTrip = () => {
-        if (tripId) {
-            tripService.getTripById(tripId)
-                .then(t => {
-                    setTrip(t);
-                    return Promise.all([
-                        shipmentService.getShipmentById(t.shipmentId).catch(() => null),
-                        t.carrierId ? userService.getUserById(t.carrierId) : Promise.resolve(null)
-                    ]);
-                })
-                .then(([s, c]) => {
-                    setShipment(s);
-                    setCarrier(c);
-                })
-                .finally(() => setIsLoading(false));
+    // Live: the carrier's stage updates, proof photos and messages appear
+    // without a refresh.
+    useEffect(() => {
+        if (!tripId) return undefined;
+        return tripService.subscribe(tripId, setTrip, (err) => { setError(toArabicError(err)); setTrip(null); });
+    }, [tripId]);
+
+    const shipmentId = trip?.shipmentId;
+    useEffect(() => {
+        if (!shipmentId) return;
+        shipmentService.getShipmentById(shipmentId).then(setShipment).catch(() => setShipment(null));
+    }, [shipmentId]);
+
+    const { newMessageIds, unreadCount } = useUnreadTripMessages(trip, trip?.shipperId, messagesRef);
+
+    const hasTrip = !!trip;
+    useEffect(() => {
+        if (hasTrip && hash === '#messages') {
+            setTimeout(() => messagesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
         }
-    };
+    }, [hasTrip, hash]);
 
-    useEffect(() => { fetchTrip(); }, [tripId]);
-
-    if (isLoading)
+    if (trip === undefined)
         return <Loader label="جاري تحميل الرحلة" />;
     if (!trip)
-        return <div>الرحلة غير موجودة</div>;
+        return <div>{error || 'الرحلة غير موجودة'}</div>;
 
     const isCancelled = trip.overallStatus === 'CANCELLED';
     const currentStageIndex = stageOrder.indexOf(trip.currentStage);
     const isDelivered = trip.currentStage === TripStageEnum.DELIVERED;
+    // Cancelling is only possible before the cargo is loaded — from «تم
+    // التحميل» on, only support can end the trip.
+    const canCancel = !isCancelled && !isDelivered && tripService.cancellableStages.includes(trip.currentStage);
+    const cargoType = shipment?.cargoType || trip.cargoType;
+    const loadingDate = shipment?.loadingDate || trip.loadingDate;
 
-    const handleCancel = async () => {
-        const confirmMsg = tripService.cancellableStages.includes(trip.currentStage)
-            ? 'سيتم خصم عمولة إلغاء من محفظتك ولن يحصل الناقل على أي مبلغ. هل تريد المتابعة؟'
-            : null;
-        if (confirmMsg && !window.confirm(confirmMsg)) return;
-        setIsCancelling(true);
-        try {
-            const updated = await tripService.cancelTrip(trip.id, 'SHIPPER');
-            if (updated.cancellationResult?.commission) {
-                alert(`تم إلغاء الرحلة — تم خصم عمولة إلغاء قدرها ${updated.cancellationResult.commission} ر.س`);
-            }
-            fetchTrip();
-        } catch (error) {
-            alert(toArabicError(error));
-        } finally {
-            setIsCancelling(false);
-        }
-    };
-
-    const handleSendMessage = async (key, label) => {
+    const handleSendMessage = async (key) => {
+        setMessageError('');
         setIsSendingMessage(true);
         try {
-            await tripService.sendQuickMessage(trip.id, UserRole.SHIPPER, key, label);
-            fetchTrip();
+            await tripService.sendQuickMessage(trip.id, UserRole.SHIPPER, key);
+        } catch (err) {
+            setMessageError(toArabicError(err));
         } finally {
             setIsSendingMessage(false);
         }
     };
 
-    // Every stage in order, stamped with when it actually happened
-    // (trip.stages comes from the backend's stageHistory).
     const stagesList = stageOrder.map((stage) => ({
         stage,
         timestamp: (trip.stages || []).find((s) => s.stage === stage)?.timestamp ?? null,
     }));
 
-    const [pickupCity, deliveryCity] = trip.route.split(' -> ');
-
     return (<div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 600, margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2 style={{ margin: 0 }}>{trip.shipmentId}</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+        <h2 style={{ margin: 0 }}>{trip.route}</h2>
         <Button variant="outline" size="sm" onClick={() => navigate('/app/trips')}>عودة</Button>
       </div>
 
-      <div style={{ textAlign: 'center', marginBottom: 16 }}>
-        <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, fontSize: 24 }}>
-          {pickupCity}
-          <span style={{ color: 'var(--color-accent)' }}>→</span>
-          {deliveryCity}
-        </h2>
-        <span className="text-helper" style={{ fontSize: 14, marginTop: 8, display: 'inline-block' }}>
-          {shipment?.cargoType || 'غير محدد'} • {shipment?.loadingDate ? new Date(shipment.loadingDate).toLocaleDateString('ar-SA') : new Date().toLocaleDateString('ar-SA')}
-        </span>
-      </div>
-
       <Card style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div>
-            <div className="text-helper" style={{ fontSize: 12 }}>{trip.carrierId ? 'الناقل المكلّف' : 'الناقل المكلّف'}</div>
-            <div style={{ fontWeight: 'bold', fontSize: 16 }}>
-              {trip.carrierId || carrier?.name || trip.carrierName ? (carrier?.name || trip.carrierName || 'بيانات الناقل غير متاحة') : 'غير محدد'}
-            </div>
-          </div>
-          <div style={{ width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text)' }}>
-            <Building2 size={20} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div className="text-helper" style={{ fontSize: 12 }}>نوع البضاعة</div>
+          <div style={{ fontWeight: 'bold', fontSize: 16 }}>{cargoType || '—'}</div>
+          {(shipment?.weight ?? trip.weight) != null && (
+            <div className="text-helper" style={{ fontSize: 12 }}>{shipment?.weight ?? trip.weight} طن</div>
+          )}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+          <div className="text-helper" style={{ fontSize: 12 }}>تاريخ التحميل</div>
+          <div style={{ fontWeight: 'bold', fontSize: 14 }}>
+            {loadingDate ? new Date(loadingDate).toLocaleString('ar-SA') : '—'}
           </div>
         </div>
-        {carrier?.rating && (
-          <span style={{ fontSize: 18, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 4 }}>
-            {carrier.rating} <Star fill="var(--color-accent)" color="var(--color-accent)" size={16} />
-          </span>
-        )}
       </Card>
 
-      {!isCancelled && !isDelivered && <CallButton phoneNumber={carrier?.phone} label="الاتصال بالناقل" />}
+      <Card style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 40, height: 40, backgroundColor: 'var(--color-background)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Building2 size={20} />
+          </div>
+          <div>
+            <div className="text-helper" style={{ fontSize: 12 }}>الناقل المكلّف</div>
+            <div style={{ fontWeight: 'bold', fontSize: 16 }}>{trip.carrierName || 'بيانات الناقل غير متاحة'}</div>
+          </div>
+        </div>
+      </Card>
+
+      {!isCancelled && !isDelivered && <CallButton phoneNumber={trip.carrierPhone} label="الاتصال بالناقل" />}
 
       <div style={{ backgroundColor: 'rgba(255,122,41,0.1)', padding: '20px 24px', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontSize: 24, fontWeight: 'bold', color: 'var(--color-accent)' }} dir="ltr">{trip.finalPrice} ر.س</div>
+        <div style={{ fontSize: 24, fontWeight: 'bold', color: 'var(--color-accent)' }} dir="ltr">{formatAmount(trip.finalPrice)} ر.س</div>
         <div style={{ fontWeight: 'bold', fontSize: 16 }}>السعر النهائي المتفق عليه</div>
       </div>
 
       <h3 style={{ margin: '8px 0 0' }}>حالة الرحلة</h3>
-      <p className="text-helper" style={{ margin: '-16px 0 16px', fontSize: 12 }}>يقوم الناقل بتحديث حالة الرحلة — العرض هنا للمتابعة فقط</p>
-      
+      <p className="text-helper" style={{ margin: '-16px 0 0', fontSize: 12 }}>يقوم الناقل بتحديث حالة الرحلة — تتحدث هنا تلقائياً</p>
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0, paddingRight: 16 }}>
         {stagesList.map((stage, idx) => {
           const stageIdx = stageOrder.indexOf(stage.stage);
@@ -155,13 +151,14 @@ export const TripTrack = () => {
               <div style={{
                 width: 20, height: 20, borderRadius: '50%',
                 backgroundColor: isCurrent ? 'var(--color-surface)' : isCompleted ? 'var(--color-border)' : 'var(--color-surface)',
-                border: isCurrent ? '4px solid var(--color-accent)' : isCompleted ? '2px solid var(--color-border)' : '2px solid var(--color-border)',
+                border: isCurrent ? '4px solid var(--color-accent)' : '2px solid var(--color-border)',
                 marginTop: 2
               }}></div>
-              {idx < stagesList.length - 1 && (<div style={{ width: 2, height: 40, backgroundColor: isCompleted ? 'var(--color-border)' : 'var(--color-border)', margin: '4px 0' }}></div>)}
+              {idx < stagesList.length - 1 && (<div style={{ width: 2, height: 40, backgroundColor: 'var(--color-border)', margin: '4px 0' }}></div>)}
             </div>
             <div style={{ paddingBottom: idx < stagesList.length - 1 ? 24 : 0 }}>
               <div style={{ fontWeight: 'bold', fontSize: 16 }}>{TripStageAr[stage.stage] || stage.stage}</div>
+              {stage.timestamp && <div className="text-helper" style={{ fontSize: 12 }}>{new Date(stage.timestamp).toLocaleString('ar-SA')}</div>}
             </div>
           </div>);
         })}
@@ -202,41 +199,37 @@ export const TripTrack = () => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 8 }}>
         <Card>
           <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>إثبات التحميل</div>
-          {trip.proofOfLoad ? <ProofPhotoCapture label="إثبات التحميل" existingPhoto={trip.proofOfLoad} /> : (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div className="text-helper" style={{ fontSize: 12 }}>بانتظار رفع الناقل</div>
-              <Clock size={20} color="var(--color-text-muted)" />
-            </div>
-          )}
+          {trip.proofOfLoad ? <ProofPhotoView label="إثبات التحميل" photo={trip.proofOfLoad} /> : <AwaitingProof />}
         </Card>
         <Card>
           <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>إثبات التسليم</div>
-          {trip.proofOfDelivery ? <ProofPhotoCapture label="إثبات التسليم" existingPhoto={trip.proofOfDelivery} /> : (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div className="text-helper" style={{ fontSize: 12 }}>بانتظار رفع الناقل</div>
-              <Clock size={20} color="var(--color-text-muted)" />
-            </div>
-          )}
+          {trip.proofOfDelivery ? <ProofPhotoView label="إثبات التسليم" photo={trip.proofOfDelivery} /> : <AwaitingProof />}
         </Card>
       </div>
 
-      <h3 style={{ marginTop: 8, marginBottom: 8 }}>رسائل سريعة</h3>
-      <Card>
-        <QuickMessagePanel role={UserRole.SHIPPER} currentUserId={trip.shipperId} messages={trip.messages} onSend={handleSendMessage} isSending={isSendingMessage} />
-      </Card>
+      <div ref={messagesRef} id="messages" style={{ scrollMarginTop: 80 }}>
+        <h3 style={{ marginTop: 8, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+          رسائل سريعة
+          {unreadCount > 0 && <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, backgroundColor: 'var(--color-accent)', color: 'white' }}>{unreadCount} جديدة</span>}
+        </h3>
+        {messageError && <div role="alert" style={{ color: 'var(--color-error)', fontSize: 13, marginBottom: 8 }}>{messageError}</div>}
+        <Card>
+          <QuickMessagePanel role={UserRole.SHIPPER} currentUserId={trip.shipperId} messages={trip.messages} onSend={handleSendMessage} isSending={isSendingMessage || isCancelled || isDelivered} newMessageIds={newMessageIds} />
+        </Card>
+      </div>
 
       {isCancelled ? (
         <div style={{ padding: 16, backgroundColor: 'rgba(229,62,62,0.1)', color: 'var(--color-error)', borderRadius: 8, fontWeight: 'bold', textAlign: 'center' }}>
           تم إلغاء هذه الرحلة
         </div>
       ) : !isDelivered && (
-        tripService.cancellableStages.includes(trip.currentStage) ? (
-          <Button variant="danger" style={{ width: '100%' }} onClick={handleCancel} isLoading={isCancelling}>
+        canCancel ? (
+          <Button variant="danger" style={{ width: '100%' }} onClick={() => setIsCancelOpen(true)}>
             إلغاء الرحلة
           </Button>
         ) : (
           <p className="text-helper" style={{ fontSize: 12, textAlign: 'center' }}>
-            لا يمكن إلغاء الرحلة بعد بدء التحميل — يرجى التواصل مع دعم المنصة عند وجود مشكلة.
+            لا يمكن إلغاء الرحلة بعد التحميل — يرجى التواصل مع دعم المنصة عند وجود مشكلة.
           </p>
         )
       )}
@@ -247,5 +240,6 @@ export const TripTrack = () => {
         <Button style={{ width: '100%' }} onClick={() => navigate(`/app/trips/${trip.id}/rating`)}>تقييم الرحلة</Button>
       </Card>)}
 
+      <CancelTripModal isOpen={isCancelOpen} onClose={() => setIsCancelOpen(false)} trip={trip} role="SHIPPER" />
     </div>);
 };

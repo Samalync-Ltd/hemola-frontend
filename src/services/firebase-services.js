@@ -14,7 +14,7 @@ import {
     collection, collectionGroup, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc,
     query, where, orderBy, limit, serverTimestamp, onSnapshot
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { httpsCallable } from 'firebase/functions';
 import { TripStage } from '../constants/enums';
 import { normalizeSaudiPhone } from '../utils/validators';
@@ -168,7 +168,7 @@ export const firebaseAuthService = {
         // Firebase's built-in verification email. It never blocks sign-in —
         // admin document review is what gates the account — so a failure to
         // send is not a failure to register.
-        sendEmailVerification(authUser).catch(() => {});
+        sendEmailVerification(authUser).catch((err) => console.warn('Email verification was not sent:', err?.code || err));
 
         // Every uploaded document (payload.files, keyed by the stable
         // DOCUMENT_KEYS constants — NATIONAL_ID, PUBLIC_DRIVING_LICENCE,
@@ -285,19 +285,29 @@ export const firebaseAuthService = {
         return loadFullProfile(userId);
     },
     /**
-     * Edits one existing truck's own details — never operatingCard.status,
-     * registration.status, or isSelectable, which the rules only let this
-     * write through unchanged (they stay untouched here, so the rule's
-     * equality check passes automatically).
+     * Edits one existing truck. Brand/model change freely; type, customType,
+     * capacity and plate are what the admin checked against the papers, so
+     * changing any of them must send the truck back for review in the SAME
+     * write, or the rules refuse it (INTEGRATION.md §2). Resolves the
+     * refreshed profile.
      */
-    updateTruck: async (userId, truckId, { brand, model, type, capacityTons, plateNumber }) => {
+    updateTruck: async (userId, truckId, { brand, model, type, customType, capacityTons, plateNumber }) => {
+        const truckDoc = doc(db, 'users', userId, 'trucks', truckId);
+        const current = (await getDoc(truckDoc)).data() || {};
         const updates = {};
-        if (brand !== undefined) updates.brand = brand;
-        if (model !== undefined) updates.model = model;
-        if (type !== undefined) updates.type = type;
-        if (capacityTons !== undefined) updates.capacityTons = Number(capacityTons);
-        if (plateNumber !== undefined) updates.plateNumber = plateNumber;
-        await updateDoc(doc(db, 'users', userId, 'trucks', truckId), updates);
+        if (brand !== undefined && brand !== current.brand) updates.brand = brand;
+        if (model !== undefined && model !== current.model) updates.model = model;
+        if (type !== undefined && type !== current.type) updates.type = type;
+        if (customType !== undefined && (customType || '') !== (current.customType || '')) updates.customType = customType;
+        if (capacityTons !== undefined && Number(capacityTons) !== Number(current.capacityTons)) updates.capacityTons = Number(capacityTons);
+        if (plateNumber !== undefined && plateNumber !== current.plateNumber) updates.plateNumber = plateNumber;
+        const sentForReview = ['type', 'customType', 'capacityTons', 'plateNumber'].some(k => k in updates);
+        if (sentForReview) {
+            updates['operatingCard.status'] = 'PENDING';
+            updates['registration.status'] = 'PENDING';
+            updates.isSelectable = false;
+        }
+        if (Object.keys(updates).length > 0) await updateDoc(truckDoc, updates);
         return loadFullProfile(userId);
     },
     /** Removes a truck from the carrier's `trucks` subcollection. */
@@ -391,6 +401,12 @@ export const firebaseShipmentService = {
         if (!docSnap.exists()) throw new Error('الشحنة غير موجودة');
         return attachSiteDetails(toShipmentUiShape(docSnap.id, docSnap.data()));
     },
+    /** Live public shipment (status, tripId once assigned). Site details are not re-read per change. */
+    subscribe: (id, onChange, onError) => onSnapshot(
+        doc(db, 'shipments', id),
+        (snap) => onChange(snap.exists() ? toShipmentUiShape(snap.id, snap.data()) : null),
+        (err) => onError?.(err),
+    ),
     /** `data` matches createShipment's real payload (INTEGRATION.md §12) plus the UI's flat `proposedPrice`/`pickupLat`.../`onSiteContact` fields, assembled into the required nested `siteDetails` shape here. */
     createShipment: async (data) => {
         const res = await call('createShipment')({
@@ -586,6 +602,12 @@ export const firebaseOfferService = {
         if (snap.empty) return null;
         return buildOfferThread(shipmentId, snap.docs.map(d => ({ id: d.id, ...d.data() })));
     },
+    /** Live version of getMyThreadOnShipment — the shipper's counter or acceptance shows immediately. */
+    subscribeMyThreadOnShipment: (shipmentId, carrierId, onChange, onError) => onSnapshot(
+        query(collection(db, 'shipments', shipmentId, 'offers'), where('carrierId', '==', carrierId)),
+        (snap) => onChange(snap.empty ? null : buildOfferThread(shipmentId, snap.docs.map(d => ({ id: d.id, ...d.data() })))),
+        (err) => onError?.(err),
+    ),
     /**
      * Resolves the WHOLE thread from any historical offer id in its chain —
      * used by Negotiation.jsx, whose URL anchors on whatever offer id was
@@ -613,7 +635,36 @@ export const firebaseOfferService = {
         const chainSnap = await getDocs(query(collection(db, 'shipments', shipmentId, 'offers'), where('carrierId', '==', newOffer.carrierId)));
         return buildOfferThread(shipmentId, chainSnap.docs.map(d => ({ id: d.id, ...d.data() })), newOffer.id);
     },
+    /** Resolves { tripId, ... } — the trip exists the moment this returns. */
     acceptOffer: async (shipmentId, offerId) => (await call('acceptOffer')({ shipmentId, offerId })).data,
+    /** Live list of carrier threads on one shipment (shipper side). Returns the unsubscribe. */
+    subscribeOffersForShipment: (shipmentId, onChange, onError) => onSnapshot(
+        collection(db, 'shipments', shipmentId, 'offers'),
+        (snap) => {
+            const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            onChange([...groupBy(all, o => o.carrierId).values()].map(offers => buildOfferThread(shipmentId, offers)));
+        },
+        (err) => onError?.(err),
+    ),
+    /**
+     * Live negotiation thread containing `anchorOfferId` — both sides see a
+     * counter, acceptance or rejection the moment it happens. Constrained to
+     * the thread's carrier, which is also what lets a carrier read it.
+     */
+    subscribeThread: (shipmentId, anchorOfferId, onChange, onError) => {
+        let unsubscribe = () => {};
+        let cancelled = false;
+        getDoc(doc(db, 'shipments', shipmentId, 'offers', anchorOfferId)).then((anchor) => {
+            if (cancelled) return;
+            if (!anchor.exists()) { onChange(null); return; }
+            unsubscribe = onSnapshot(
+                query(collection(db, 'shipments', shipmentId, 'offers'), where('carrierId', '==', anchor.data().carrierId)),
+                (snap) => onChange(buildOfferThread(shipmentId, snap.docs.map(d => ({ id: d.id, ...d.data() })), anchorOfferId)),
+                (err) => onError?.(err),
+            );
+        }, (err) => onError?.(err));
+        return () => { cancelled = true; unsubscribe(); };
+    },
     /**
      * Closes ONE thread (INTEGRATION.md §12 rejectOffer) — only the side that
      * did NOT make the live offer may reject it. Other carriers' threads are
@@ -632,7 +683,8 @@ const toProofUiShape = (proof) => proof ? {
     capturedAt: toIso(proof.timestamp),
 } : null;
 
-const toTripUiShape = async (id, data) => {
+/** The trip document's own fields, mapped — cheap, so it runs on every live snapshot. */
+const tripBaseShape = (id, data) => {
     const trip = {
         id,
         ...data,
@@ -654,32 +706,63 @@ const toTripUiShape = async (id, data) => {
     if (data.status === 'CANCELLED') {
         trip.cancellation = { cancelledBy: data.cancelledBy, reason: data.cancelReason, at: toIso(data.cancelledAt) };
     }
+    return trip;
+};
+
+/**
+ * What the trip document doesn't carry itself: the route and cargo (from the
+ * shipment), the carrier's display name, and whether I've rated it. These
+ * don't change during a trip, so a live view reads them once.
+ */
+const loadTripExtras = async (id, data) => {
+    const extras = { route: '—', pickupCity: '', deliveryCity: '', cargoType: null, weight: null, loadingDate: null };
     try {
         const shipmentSnap = await getDoc(doc(db, 'shipments', data.shipmentId));
         if (shipmentSnap.exists()) {
             const s = shipmentSnap.data();
-            trip.route = `${s.pickupCity} -> ${s.deliveryCity}`;
+            Object.assign(extras, {
+                pickupCity: s.pickupCity,
+                deliveryCity: s.deliveryCity,
+                route: `${s.pickupCity} ← ${s.deliveryCity}`,
+                cargoType: s.cargoType || null,
+                weight: s.weight ?? null,
+                loadingDate: toIso(s.loadingDate),
+            });
         }
-    } catch { /* leave route unset */ }
+    } catch { /* leave route/cargo unset */ }
     // A shipper may not read the carrier's profile — fall back to the
     // public name snapshot on the carrier's offer for this shipment.
     const carrierInfo = await getUserInfo(data.carrierId);
-    trip.carrierName = carrierInfo?.name ?? null;
-    if (!trip.carrierName) {
+    extras.carrierName = carrierInfo?.name ?? null;
+    if (!extras.carrierName) {
         try {
             const offersSnap = await getDocs(query(collection(db, 'shipments', data.shipmentId, 'offers'), where('carrierId', '==', data.carrierId)));
-            trip.carrierName = offersSnap.docs.map(d => d.data().carrierName).find(Boolean) || '—';
+            extras.carrierName = offersSnap.docs.map(d => d.data().carrierName).find(Boolean) || '—';
         } catch {
-            trip.carrierName = '—';
+            extras.carrierName = '—';
         }
     }
     const me = auth.currentUser?.uid;
     if (me) {
-        const ratingSnap = await getDoc(doc(db, 'trips', id, 'ratings', me));
-        trip.isRated = ratingSnap.exists();
+        try {
+            extras.isRated = (await getDoc(doc(db, 'trips', id, 'ratings', me))).exists();
+        } catch { extras.isRated = false; }
     }
-    return trip;
+    return extras;
 };
+
+const toTripUiShape = async (id, data) => ({ ...tripBaseShape(id, data), ...(await loadTripExtras(id, data)) });
+
+/** Uploads with a progress callback (0–100); resolves the download URL. */
+const uploadFileWithProgress = (path, blob, onProgress) => new Promise((resolve, reject) => {
+    const task = uploadBytesResumable(ref(storage, path), blob, { contentType: blob.type || 'image/jpeg' });
+    task.on(
+        'state_changed',
+        (snap) => onProgress?.(snap.totalBytes ? Math.round((snap.bytesTransferred / snap.totalBytes) * 100) : 0),
+        reject,
+        () => getDownloadURL(task.snapshot.ref).then(resolve, reject),
+    );
+});
 
 /** dataURL (from ProofPhotoCapture's canvas capture) -> Blob, for uploading to Storage. */
 const dataUrlToBlob = async (dataUrl) => (await fetch(dataUrl)).blob();
@@ -699,18 +782,31 @@ export const firebaseTripService = {
         return toTripUiShape(snap.id, snap.data());
     },
     /**
+     * Live trip: stage, proofs and quick messages update as the other party
+     * acts. Returns the unsubscribe. onChange(null) if the trip is gone.
+     */
+    subscribe: (id, onChange, onError) => {
+        let extras = null;
+        return onSnapshot(doc(db, 'trips', id), async (snap) => {
+            if (!snap.exists()) { onChange(null); return; }
+            if (!extras) extras = await loadTripExtras(snap.id, snap.data());
+            onChange({ ...tripBaseShape(snap.id, snap.data()), ...extras });
+        }, (err) => onError?.(err));
+    },
+    /**
      * `proof`, when present (advancing to LOADED/DELIVERED), is
      * `{ photoDataUrl, lat, lng, capturedAt }` from ProofPhotoCapture — the
      * photo is uploaded to Storage and recorded via recordTripProof BEFORE
      * updateTripStage, exactly the order INTEGRATION.md §15 requires (the
      * reverse order fails with `failed-precondition`/`missingProof`).
      */
-    updateTripStage: async (id, stage, proof) => {
+    updateTripStage: async (id, stage, proof, onUploadProgress) => {
         if (proof) {
             const kind = stage === TripStage.LOADED ? 'LOAD' : 'DELIVERY';
             const blob = await dataUrlToBlob(proof.photoDataUrl);
-            const path = `trips/${id}/proof_of_${kind === 'LOAD' ? 'load' : 'delivery'}_${Date.now()}.jpg`;
-            const url = await uploadFile(path, blob);
+            const extension = blob.type === 'image/png' ? 'png' : 'jpg';
+            const path = `trips/${id}/proof_of_${kind === 'LOAD' ? 'load' : 'delivery'}_${Date.now()}.${extension}`;
+            const url = await uploadFileWithProgress(path, blob, onUploadProgress);
             await call('recordTripProof')({ tripId: id, kind, url, coords: { lat: proof.lat, lng: proof.lng } });
         }
         const res = await call('updateTripStage')({ tripId: id, stage });
@@ -745,6 +841,27 @@ const toWalletUiShape = (data) => {
 };
 
 export const firebaseWalletService = {
+    /** Live balance — top-ups, reservations, settlements and fees show without a refresh. */
+    subscribe: (onChange, onError) => {
+        let unsubscribe = () => {};
+        let cancelled = false;
+        auth.authStateReady().then(() => {
+            const uid = auth.currentUser?.uid;
+            if (cancelled || !uid) return;
+            unsubscribe = onSnapshot(
+                doc(db, 'wallets', uid),
+                (snap) => onChange(toWalletUiShape(snap.exists() ? snap.data() : null)),
+                (err) => onError?.(err),
+            );
+        });
+        return () => { cancelled = true; unsubscribe(); };
+    },
+    /** config/platform — the cancellation fee rate, readable by any signed-in user. */
+    getPlatformConfig: async () => {
+        const snap = await getDoc(doc(db, 'config', 'platform'));
+        const data = snap.exists() ? snap.data() : {};
+        return { commissionPercent: data.commissionPercent ?? null, warningThreshold: data.warningThreshold ?? 3 };
+    },
     getWallet: async () => {
         const currentUser = await firebaseAuthService.getCurrentUser();
         if (!currentUser) throw new Error('Unauthorized');
@@ -822,7 +939,8 @@ const ACCOUNT_TYPES = ['ACCOUNT_APPROVED', 'ACCOUNT_REJECTED', 'ACCOUNT_SUSPENDE
 
 /** Where tapping a notification should take the user, from its routing data. */
 const notificationLink = (type, data = {}) => {
-    if (data.tripId) return `/app/trips/${data.tripId}/track`;
+    // A quick message opens the trip scrolled to its messages section.
+    if (data.tripId) return `/app/trips/${data.tripId}/track${type === 'QUICK_MESSAGE' ? '#messages' : ''}`;
     if (data.offerId && data.shipmentId) return `/app/shipments/${data.shipmentId}/negotiation/${data.offerId}`;
     if (data.shipmentId) return `/app/shipments/${data.shipmentId}`;
     if (data.truckId || ACCOUNT_TYPES.includes(type)) return '/app/account';
@@ -842,6 +960,7 @@ const toNotificationUiShape = (d) => {
         message: text.body,
         timestamp: n.createdAt?.toDate?.().toISOString() ?? null,
         isRead: !!n.read,
+        tripId: n.data?.tripId || null,
         linkTo: notificationLink(type, n.data),
     };
 };

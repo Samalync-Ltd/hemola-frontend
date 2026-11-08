@@ -20,7 +20,7 @@ import { toArabicError } from '../../utils/errors';
 export const TruckDetailsModal = ({ isOpen, onClose, user, truck, onSaved, onDeleted }) => {
     const isNew = !truck;
     const [isEditing, setIsEditing] = useState(isNew);
-    const [form, setForm] = useState({ brand: '', model: '', type: '', capacityTons: '', plateNumber: '' });
+    const [form, setForm] = useState({ brand: '', model: '', type: '', customType: '', capacityTons: '', plateNumber: '' });
     const [files, setFiles] = useState({});
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState('');
@@ -32,6 +32,7 @@ export const TruckDetailsModal = ({ isOpen, onClose, user, truck, onSaved, onDel
                 brand: truck?.brand || '',
                 model: truck?.model || '',
                 type: truck?.type || TRUCK_TYPE_OPTIONS[0],
+                customType: truck?.customType || '',
                 capacityTons: truck?.capacityTons ?? '',
                 plateNumber: truck?.plateNumber || '',
             });
@@ -51,6 +52,15 @@ export const TruckDetailsModal = ({ isOpen, onClose, user, truck, onSaved, onDel
         if (isNew && (!files.operatingCard || !files.registration)) {
             setError('يرجى إرفاق بطاقة تشغيل المركبة والاستمارة (رخصة السير)');
             return;
+        }
+        // Type, capacity and plate were checked by the admin against the
+        // papers — changing them sends the truck back for review.
+        if (!isNew) {
+            const reviewed = (t) => [t.type, t.customType || '', Number(t.capacityTons), t.plateNumber].join('|');
+            if (reviewed(form) !== reviewed(truck)
+                && !window.confirm('تغيير نوع الشاحنة أو حمولتها أو رقم لوحتها يعيدها للمراجعة، ولن تتمكن من تقديم عروض بها حتى توافق الإدارة على مستنداتها مجدداً. هل تريد المتابعة؟')) {
+                return;
+            }
         }
         setIsSaving(true);
         try {
@@ -116,7 +126,7 @@ export const TruckDetailsModal = ({ isOpen, onClose, user, truck, onSaved, onDel
                                     {TRUCK_TYPE_OPTIONS.map(t => <option key={t} value={t}>{TruckTypeAr[t] || t}</option>)}
                                 </select>
                             </div>
-                            <Input name="capacityTons" type="number" min="0" label="الحمولة القصوى (طن)" value={form.capacityTons} onChange={handleFieldChange} />
+                            <Input name="capacityTons" numeric="decimal" label="الحمولة القصوى (طن)" value={form.capacityTons} onChange={handleFieldChange} />
                             <Input name="plateNumber" label="رقم اللوحة" value={form.plateNumber} onChange={handleFieldChange} />
 
                             {isNew && (<>

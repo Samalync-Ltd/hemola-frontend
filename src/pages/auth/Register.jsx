@@ -205,7 +205,7 @@ export const Register = () => {
                   <Input name="companyName" label="اسم الشركة / المنشأة" value={formData.companyName} onChange={handleTextChange} error={errors.companyName} />
               )}
               <Input name="name" label={accountType === 'COMPANY' ? "اسم المسؤول" : "الاسم"} value={formData.name} onChange={handleTextChange} error={errors.name} />
-              <Input name="phone" label="رقم الجوال" type="tel" value={formData.phone} onChange={handleTextChange} error={errors.phone} />
+              <Input name="phone" label="رقم الجوال" numeric="phone" value={formData.phone} onChange={handleTextChange} error={errors.phone} />
               <Input name="email" label="البريد الإلكتروني" type="email" value={formData.email} onChange={handleTextChange} error={errors.email} />
               <Input name="password" label="كلمة المرور" type="password" value={formData.password} onChange={handleTextChange} error={errors.password} />
             </>)}
@@ -251,7 +251,7 @@ export const Register = () => {
               {formData.truckType === 'OTHER' && (
                   <Input name="customType" label="حدد نوع الشاحنة" value={formData.customType || ''} onChange={handleTextChange} error={errors.customType} />
               )}
-              <Input name="capacityTons" type="number" min="0" label="الحمولة القصوى (طن)" value={formData.capacityTons || ''} onChange={handleTextChange} error={errors.capacityTons} />
+              <Input name="capacityTons" numeric="decimal" label="الحمولة القصوى (طن)" value={formData.capacityTons || ''} onChange={handleTextChange} error={errors.capacityTons} />
               <Input name="plateNumber" label="رقم اللوحة" value={formData.plateNumber || ''} onChange={handleTextChange} error={errors.plateNumber} />
               <FileInput name="operatingCard" label="بطاقة تشغيل مركبة" file={files.operatingCard} onChange={handleFileChange} error={errors.operatingCard} />
               <FileInput name="registration" label="الاستمارة (رخصة السير)" file={files.registration} onChange={handleFileChange} error={errors.registration} />

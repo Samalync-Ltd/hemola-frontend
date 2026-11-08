@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { notificationService } from '../../services/api';
+import { useShakeOnNew } from '../../hooks/useShakeOnNew';
 
 export const NotificationCenter = () => {
-    const [notifications, setNotifications] = useState([]);
+    const [notifications, setNotifications] = useState(null); // null until the first snapshot
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
@@ -24,7 +25,8 @@ export const NotificationCenter = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const unreadCount = notifications.filter(n => !n.isRead).length;
+    const unreadCount = (notifications || []).filter(n => !n.isRead).length;
+    const isShaking = useShakeOnNew(notifications ? notifications.filter(n => !n.isRead).map(n => n.id) : null);
 
     const handleMarkAsRead = async (id, e) => {
         e.stopPropagation();
@@ -56,7 +58,7 @@ export const NotificationCenter = () => {
                     padding: 4
                 }}
             >
-                <Bell size={24} />
+                <Bell size={24} className={isShaking ? 'bell-shake' : undefined} />
                 {unreadCount > 0 && (
                     <span style={{
                         position: 'absolute',
@@ -118,7 +120,7 @@ export const NotificationCenter = () => {
                     </div>
 
                     <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-                        {notifications.length === 0 ? (
+                        {!notifications || notifications.length === 0 ? (
                             <div style={{ padding: 32, textAlign: 'center', color: 'var(--color-text-muted)' }}>
                                 لا توجد إشعارات
                             </div>

@@ -10,6 +10,7 @@ import { isValidSaudiPhone } from '../../utils/validators';
 import { PROFILE_UPDATED_EVENT } from '../../constants/config';
 import { toArabicError } from '../../utils/errors';
 import { Loader } from '../../components/common/Loader';
+import { truckTypeLabel } from '../../utils/format';
 export const Profile = () => {
     const [user, setUser] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
@@ -127,7 +128,7 @@ export const Profile = () => {
         <div className="responsive-two-col-even">
           {user.accountType === 'COMPANY' && (<Input label="اسم المنشأة" value={formData.companyName} onChange={e => setFormData({ ...formData, companyName: e.target.value })} disabled={!isEditing}/>)}
           <Input label="اسم المسؤول" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} disabled={!isEditing}/>
-          <Input label="رقم الجوال" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} disabled={!isEditing} dir="ltr" style={{ textAlign: 'right' }}/>
+          <Input label="رقم الجوال" numeric="phone" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} disabled={!isEditing} dir="ltr" style={{ textAlign: 'right' }}/>
           <div>
             {/* The email is the Firebase Auth login and there is no backend
                 path for a user to change it, so it is shown, not edited. */}
@@ -174,7 +175,7 @@ export const Profile = () => {
                           style={{ padding: 16, border: '1px solid var(--color-border)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', cursor: 'pointer', width: '100%', textAlign: 'right', font: 'inherit', color: 'inherit' }}
                       >
                           <div>
-                              <strong style={{ display: 'block', marginBottom: 4 }}>{truck.type || 'لم يتم تحديد نوع الشاحنة'} {truck.brand ? `— ${truck.brand} ${truck.model}` : ''}</strong>
+                              <strong style={{ display: 'block', marginBottom: 4 }}>{truck.type ? truckTypeLabel(truck.type, truck.customType) : 'لم يتم تحديد نوع الشاحنة'} {truck.brand ? `— ${truck.brand} ${truck.model}` : ''}</strong>
                               <span className="text-helper">اللوحة: {truck.plateNumber || '—'} | السعة: {truck.capacityTons ?? '—'} طن</span>
                           </div>
                           <StatusBadge status={truck.operatingCard?.status} />

@@ -4,7 +4,8 @@ import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
-import { shipmentService, catalogService } from '../../services/api';
+import { shipmentService, catalogService, walletService } from '../../services/api';
+import { InsufficientBalanceNotice } from '../../components/wallet/InsufficientBalanceNotice';
 import { MapPickerModal } from '../../components/map/MapPickerModal';
 import { TRUCK_TYPE_OPTIONS, TruckTypeAr } from '../../constants/enums';
 import { isValidSaudiPhone } from '../../utils/validators';
@@ -23,6 +24,7 @@ export const CreateShipment = () => {
     const [currentStep, setCurrentStep] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [publishError, setPublishError] = useState('');
+    const [wallet, setWallet] = useState(null);
     const [formData, setFormData] = useState({
         pickupCity: '',
         deliveryCity: '',
@@ -49,6 +51,8 @@ export const CreateShipment = () => {
     const [cargoOptions, setCargoOptions] = useState(DEFAULT_CARGO_NAMES);
     const [truckLabels, setTruckLabels] = useState(TruckTypeAr);
     const [truckOptions, setTruckOptions] = useState(TRUCK_TYPE_OPTIONS);
+
+    useEffect(() => walletService.subscribe(setWallet, () => {}), []);
 
     useEffect(() => {
         catalogService.getCargoTypes()
@@ -144,6 +148,15 @@ export const CreateShipment = () => {
         }
     };
 
+    // Posting isn't blocked — the money is only reserved when an offer is
+    // accepted — but the shipper should know now that they'll need to top up.
+    const suggestedPrice = Number(formData.proposedPrice) || 0;
+    const balanceWarning = wallet && suggestedPrice > 0 && wallet.available < suggestedPrice ? (
+        <InsufficientBalanceNotice available={wallet.available} required={suggestedPrice} label="السعر المقترح" warning>
+            {' — يمكنك نشر الشحنة الآن، لكن ستحتاج إلى شحن رصيدك قبل قبول أي عرض.'}
+        </InsufficientBalanceNotice>
+    ) : null;
+
     const ErrorMsg = ({ error }) => error ? <div style={{ color: 'var(--color-error)', fontSize: 12, marginTop: -8, marginBottom: 8 }}>{error}</div> : null;
 
     return (<div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -211,7 +224,7 @@ export const CreateShipment = () => {
               <p className="text-helper" style={{ marginBottom: 8 }}>
                 بيانات إضافية — لا تظهر إلا للناقل بعد إسناد الشحنة إليه فقط.
               </p>
-              <Input name="onSiteContact" label="جوال المسؤول في الموقع" value={formData.onSiteContact} onChange={handleChange} dir="ltr" style={{ textAlign: 'right' }} />
+              <Input name="onSiteContact" numeric="phone" label="جوال المسؤول في الموقع" value={formData.onSiteContact} onChange={handleChange} dir="ltr" style={{ textAlign: 'right' }} />
               <ErrorMsg error={errors.onSiteContact} />
               <Input name="pickupNotes" label="ملاحظات موقع التحميل (اختياري)" value={formData.pickupNotes} onChange={handleChange}/>
               <Input name="deliveryNotes" label="ملاحظات موقع التسليم (اختياري)" value={formData.deliveryNotes} onChange={handleChange}/>
@@ -254,7 +267,7 @@ export const CreateShipment = () => {
                   <ErrorMsg error={errors.customCargoType} />
                   </>
               )}
-              <Input name="weight" type="number" label="الوزن (طن)" value={formData.weight} onChange={handleChange}/>
+              <Input name="weight" numeric="decimal" label="الوزن (طن)" value={formData.weight} onChange={handleChange}/>
               <ErrorMsg error={errors.weight} />
               <Input name="description" label="وصف إضافي (اختياري)" value={formData.description} onChange={handleChange}/>
             </div>)}
@@ -278,11 +291,12 @@ export const CreateShipment = () => {
 
           {currentStep === 4 && (<div>
               <h3 style={{ marginBottom: 16 }}>التسعير</h3>
-              <Input name="proposedPrice" type="number" label="السعر المقترح (ر.س)" value={formData.proposedPrice} onChange={handleChange}/>
+              <Input name="proposedPrice" numeric="integer" label="السعر المقترح (ر.س)" value={formData.proposedPrice} onChange={handleChange}/>
               <ErrorMsg error={errors.proposedPrice} />
               <p className="text-helper" style={{ marginTop: 8 }}>
                 هذا هو السعر الذي سيظهر للناقلين كعرض مبدئي. يمكن للناقلين قبوله أو تقديم عروض مضادة.
               </p>
+              {balanceWarning}
             </div>)}
 
           {currentStep === 5 && (<div>
@@ -292,6 +306,7 @@ export const CreateShipment = () => {
                       {publishError}
                   </div>
               )}
+              {balanceWarning && <div style={{ marginBottom: 16 }}>{balanceWarning}</div>}
               <div className="responsive-two-col-even">
                 <div><strong>المسار:</strong> {formData.pickupCity} إلى {formData.deliveryCity}</div>
                 <div><strong>البضاعة:</strong> {formData.cargoType === 'أخرى' ? formData.customCargoType : formData.cargoType} ({formData.weight} طن)</div>

@@ -53,6 +53,8 @@ export const CarrierDashboard = () => {
     useEffect(() => {
         fetchData();
     }, []);
+    // Live balance — top-ups, reservations, settlements and fees show without a refresh.
+    useEffect(() => walletService.subscribe(setWallet, () => {}), []);
 
     const handleWithdrawCompleted = async () => {
         await fetchData();

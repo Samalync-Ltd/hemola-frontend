@@ -118,11 +118,10 @@ export const WithdrawModal = ({ isOpen, onClose, onCompleted, currentBalance, sa
                             <div>
                                 <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>المبلغ المراد سحبه (ر.س)</label>
                                 <Input
-                                    type="number"
+                                    numeric="decimal"
                                     placeholder="أدخل المبلغ"
                                     value={amount}
                                     onChange={e => { setAmount(e.target.value); setErrors(prev => ({ ...prev, amount: null, form: null })); }}
-                                    min="1"
                                     max={currentBalance}
                                     disabled={busy}
                                 />

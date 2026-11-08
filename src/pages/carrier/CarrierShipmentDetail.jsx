@@ -46,6 +46,18 @@ export const CarrierShipmentDetail = ({ user }) => {
         }
     }, [shipmentId, user]);
 
+    // Live from then on: the shipper's counter/acceptance and the shipment's
+    // status/tripId update here without a refresh. The live shipment is
+    // merged over the first read so its private site details are kept.
+    useEffect(() => {
+        if (!shipmentId || !user) return undefined;
+        const unsubscribers = [
+            offerService.subscribeMyThreadOnShipment(shipmentId, user.id, (thread) => { if (thread) setMyOffer(thread); }, () => {}),
+            shipmentService.subscribe(shipmentId, (live) => { if (live) setShipment(prev => (prev ? { ...prev, ...live } : prev)); }, () => {}),
+        ];
+        return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+    }, [shipmentId, user]);
+
     // Only a truck of the required type, big enough for the load, with both
     // papers APPROVED may be offered (see utils/carrierEligibility). Trucks
     // too small for the shipment's weight are hidden from the picker.
@@ -204,7 +216,10 @@ export const CarrierShipmentDetail = ({ user }) => {
                                 </div>
                                 {shipment.status === ShipmentStatus.ACTIVE && shipment.assignedCarrierId === user.id ? (
                                     <div style={{ padding: 12, backgroundColor: 'rgba(39, 174, 96, 0.1)', color: 'var(--color-success)', borderRadius: 8, fontWeight: 'bold', textAlign: 'center' }}>
-                                        ✓ تم إسناد الشحنة إليك — راجع صفحة الرحلات لمتابعتها
+                                        ✓ تم إسناد الشحنة إليك
+                                        {shipment.tripId && (
+                                            <Button style={{ width: '100%', marginTop: 12 }} onClick={() => navigate(`/app/trips/${shipment.tripId}/track`)}>عرض الرحلة</Button>
+                                        )}
                                     </div>
                                 ) : myOffer.status === OfferStatus.REJECTED ? (
                                     // A rejection closes the offer, not the door (INTEGRATION.md §12).
@@ -272,12 +287,11 @@ export const CarrierShipmentDetail = ({ user }) => {
                                 <form onSubmit={handleSubmitOffer}>
                                     <div style={{ marginBottom: 16 }}>
                                         <Input
-                                            type="number"
+                                            numeric="integer"
                                             label="سعر عرضك (ر.س)"
                                             value={offerPrice}
                                             onChange={(e) => setOfferPrice(e.target.value)}
                                             required
-                                            min="1"
                                             disabled={blocked}
                                         />
                                         <p className="text-helper" style={{ fontSize: 12, marginTop: 8 }}>

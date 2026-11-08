@@ -46,6 +46,37 @@ const CODE_MESSAGES = {
 
 const DEFAULT_MESSAGE = 'حدث خطأ غير متوقع، حاول مرة أخرى';
 
+const amount = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+/**
+ * Arabic text per backend `details.reason` code, built from the values the
+ * backend sends alongside it. Add a line here for each reason INTEGRATION.md
+ * documents — the error text itself is never parsed.
+ */
+const REASON_MESSAGES = {
+    TRUCK_CAPACITY_TOO_LOW: ({ capacityTons, weight }) => {
+        if (capacityTons != null && weight != null) return `حمولة الشاحنة (${capacityTons} طن) أقل من وزن الشحنة (${weight} طن)`;
+        if (weight != null) return `حمولة الشاحنة أقل من وزن الشحنة (${weight} طن)`;
+        return 'حمولة الشاحنة أقل من وزن الشحنة';
+    },
+    INSUFFICIENT_BALANCE: ({ availableBalance, required, amount: offered }) => {
+        const needed = required ?? offered;
+        return availableBalance != null && needed != null
+        ? `رصيدك المتاح (${amount(availableBalance)} ر.س) أقل من قيمة العرض (${amount(needed)} ر.س)`
+            : 'رصيدك المتاح غير كافٍ لهذه العملية — اشحن محفظتك ثم حاول مرة أخرى';
+    },
+};
+
+/** The backend reason code on an error, if any — for screens that react to a specific one (e.g. offer a top-up). */
+export const errorReason = (err) => {
+    const details = err?.details || err?.customData?.details;
+    if (details?.reason) return details.reason;
+    // acceptOffer's balance refusal carries { availableBalance, required }
+    // before it has a reason code of its own.
+    if (details?.availableBalance != null && details?.required != null) return 'INSUFFICIENT_BALANCE';
+    return null;
+};
+
 /**
  * @param {unknown} err  anything thrown — Error, FirebaseError, string
  * @param {string} [fallback]  shown when nothing more specific is known
@@ -53,20 +84,11 @@ const DEFAULT_MESSAGE = 'حدث خطأ غير متوقع، حاول مرة أخ�
 export const toArabicError = (err, fallback = DEFAULT_MESSAGE) => {
     if (!err) return fallback;
 
-    // Read details.reason first, never matching the message text (INTEGRATION.md §12)
+    // A machine-readable reason, when the backend gives one, decides the
+    // message — never the English error text (INTEGRATION.md §12).
     const details = (typeof err === 'object' && err !== null) ? (err.details || err.customData?.details) : null;
-    const reason = details?.reason || (typeof err === 'object' && err?.reason);
-    if (reason === 'TRUCK_CAPACITY_TOO_LOW') {
-        const capacityTons = details?.capacityTons ?? err?.capacityTons;
-        const weight = details?.weight ?? err?.weight;
-        if (capacityTons != null && weight != null) {
-            return `حمولة الشاحنة (${capacityTons} طن) أقل من وزن الشحنة (${weight} طن)`;
-        }
-        if (weight != null) {
-            return `حمولة الشاحنة أقل من وزن الشحنة (${weight} طن)`;
-        }
-        return 'حمولة الشاحنة أقل من وزن الشحنة';
-    }
+    const reason = errorReason(err) || (typeof err === 'object' && err?.reason);
+    if (reason && REASON_MESSAGES[reason]) return REASON_MESSAGES[reason](details || err || {});
 
     const message = typeof err === 'string' ? err : (err.message || '');
     if (ARABIC.test(message)) return message;
