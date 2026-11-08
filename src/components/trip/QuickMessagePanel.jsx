@@ -12,7 +12,6 @@ const QUICK_MESSAGES = {
     ],
     [UserRole.SHIPPER]: [
         { key: 'acknowledged', label: 'تم الاستلام' },
-        { key: 'willSendLocation', label: 'سأرسل الموقع' },
         { key: 'contactReady', label: 'المسؤول بالموقع جاهز' },
         { key: 'pleaseWait', label: 'يرجى الانتظار قليلاً' },
     ],
