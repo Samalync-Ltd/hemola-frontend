@@ -14,7 +14,7 @@ import { Button } from '../common/Button';
  * pre-acceptance vs. the real pin post-assignment); this component never
  * upgrades the data just because the user zoomed in.
  */
-export const MapThumbnail = ({ pickup, delivery, height = 160, title = 'الخريطة' }) => {
+export const MapThumbnail = ({ pickup, delivery, height = 160, title = 'الخريطة', focus = null }) => {
     const [expanded, setExpanded] = useState(false);
 
     return (
@@ -28,7 +28,7 @@ export const MapThumbnail = ({ pickup, delivery, height = 160, title = 'الخر
                 {/* pointerEvents: 'none' keeps the thumbnail's own map gesture
                     layer from swallowing the click meant for the wrapper above. */}
                 <div style={{ pointerEvents: 'none' }}>
-                    <TripMap pickup={pickup} delivery={delivery} height={height} interactive={false} />
+                    <TripMap pickup={pickup} delivery={delivery} height={height} interactive={false} focus={focus} />
                 </div>
                 <div style={{
                     position: 'absolute', bottom: 8, insetInlineEnd: 8,
@@ -54,7 +54,7 @@ export const MapThumbnail = ({ pickup, delivery, height = 160, title = 'الخر
                             <Button variant="outline" size="sm" onClick={() => setExpanded(false)}>إغلاق</Button>
                         </div>
                         <div style={{ flex: 1 }}>
-                            <TripMap pickup={pickup} delivery={delivery} height="100%" interactive />
+                            <TripMap pickup={pickup} delivery={delivery} height="100%" interactive focus={focus} />
                         </div>
                     </div>
                 </div>,

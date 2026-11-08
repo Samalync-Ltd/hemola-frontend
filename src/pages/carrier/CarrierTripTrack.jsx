@@ -7,7 +7,7 @@ import { TripStage as TripStageEnum, TripStageAr, UserRole } from '../../constan
 import { ProofPhotoCapture, ProofPhotoView } from '../../components/trip/ProofPhotoCapture';
 import { QuickMessagePanel } from '../../components/trip/QuickMessagePanel';
 import { CancelTripModal } from '../../components/trip/CancelTripModal';
-import { openInMaps } from '../../components/map/TripMap';
+import { openDirections } from '../../components/map/TripMap';
 import { MapThumbnail } from '../../components/map/MapThumbnail';
 import { CallButton } from '../../components/trip/CallButton';
 import { toArabicError } from '../../utils/errors';
@@ -78,6 +78,10 @@ export const CarrierTripTrack = () => {
     // Cancelling is only possible before the cargo is loaded (INTEGRATION.md
     // cancelShipment matrix) — from «تم التحميل» on, only support can.
     const canCancel = !isCancelled && !isDelivered && tripService.cancellableStages.includes(trip.currentStage);
+    // Where the carrier is heading now: the pickup point until «تم التحميل»,
+    // then the delivery point. Nothing once the trip is over.
+    const focus = isDelivered || isCancelled ? null
+        : currentStageIndex < stageOrder.indexOf(TripStageEnum.LOADED) ? 'pickup' : 'delivery';
     const cargoType = shipment?.cargoType || trip.cargoType;
     const loadingDate = shipment?.loadingDate || trip.loadingDate;
 
@@ -200,11 +204,18 @@ export const CarrierTripTrack = () => {
       {shipment && (shipment.onSiteContact || shipment.pickupNotes || shipment.deliveryNotes || shipment.pickupLat || shipment.deliveryLat) && (
         <>
           <h3 style={{ marginTop: 8, marginBottom: 8 }}>بيانات الموقع</h3>
+          {focus && (
+            <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, backgroundColor: 'rgba(255,122,41,0.1)', border: '1px solid rgba(255,122,41,0.4)', fontWeight: 700 }}>
+              <span aria-hidden="true">{focus === 'pickup' ? '📦' : '🏁'}</span>
+              وجهتك الحالية: {focus === 'pickup' ? 'نقطة التحميل' : 'نقطة التسليم'}
+            </div>
+          )}
           {(shipment.pickupLat || shipment.deliveryLat) && (
             <MapThumbnail
               pickup={shipment.pickupLat ? [shipment.pickupLat, shipment.pickupLng] : null}
               delivery={shipment.deliveryLat ? [shipment.deliveryLat, shipment.deliveryLng] : null}
               title="موقع الرحلة"
+              focus={focus}
             />
           )}
           <Card>
@@ -215,28 +226,25 @@ export const CarrierTripTrack = () => {
               </div>
             )}
             <div className="responsive-two-col-even">
-              {(shipment.pickupNotes || shipment.pickupLat) && (
-                <div>
-                  <div className="text-helper">📦 موقع التحميل</div>
-                  {shipment.pickupNotes && <div>{shipment.pickupNotes}</div>}
-                  {shipment.pickupLat && (
-                    <Button variant="outline" size="sm" style={{ marginTop: 8 }} onClick={() => openInMaps(shipment.pickupLat, shipment.pickupLng)}>
-                      فتح في خرائط جوجل
-                    </Button>
-                  )}
-                </div>
-              )}
-              {(shipment.deliveryNotes || shipment.deliveryLat) && (
-                <div>
-                  <div className="text-helper">🏁 موقع التسليم</div>
-                  {shipment.deliveryNotes && <div>{shipment.deliveryNotes}</div>}
-                  {shipment.deliveryLat && (
-                    <Button variant="outline" size="sm" style={{ marginTop: 8 }} onClick={() => openInMaps(shipment.deliveryLat, shipment.deliveryLng)}>
-                      فتح في خرائط جوجل
-                    </Button>
-                  )}
-                </div>
-              )}
+              {[
+                { key: 'pickup', icon: '📦', name: 'نقطة التحميل', notes: shipment.pickupNotes, lat: shipment.pickupLat, lng: shipment.pickupLng },
+                { key: 'delivery', icon: '🏁', name: 'نقطة التسليم', notes: shipment.deliveryNotes, lat: shipment.deliveryLat, lng: shipment.deliveryLng },
+              ].filter(p => p.notes || p.lat).map(p => {
+                const isNext = focus === p.key;
+                return (
+                  <div key={p.key} style={{ opacity: focus && !isNext ? 0.6 : 1, ...(isNext ? { padding: 12, margin: -12, borderRadius: 10, backgroundColor: 'rgba(255,122,41,0.06)' } : {}) }}>
+                    <div className="text-helper" style={isNext ? { color: 'var(--color-accent)', fontWeight: 700 } : undefined}>
+                      {p.icon} {p.name}{isNext && ' — وجهتك الحالية'}
+                    </div>
+                    {p.notes && <div>{p.notes}</div>}
+                    {p.lat && (
+                      <Button variant={isNext ? 'primary' : 'outline'} size="sm" style={{ marginTop: 8 }} onClick={() => openDirections(p.lat, p.lng)}>
+                        {isNext ? `التوجه إلى ${p.name}` : 'فتح في خرائط جوجل'}
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </Card>
         </>

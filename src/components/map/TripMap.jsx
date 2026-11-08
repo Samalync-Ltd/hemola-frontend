@@ -25,8 +25,10 @@ const FitToPoints = ({ points }) => {
  * tracking screens. Only ever rendered post-assignment — see the visibility
  * rule on SiteDetails.
  */
-export const TripMap = ({ pickup, delivery, height = 220, interactive = true }) => {
+export const TripMap = ({ pickup, delivery, height = 220, interactive = true, focus = null }) => {
     if (!pickup && !delivery) return null;
+    // `focus` ('pickup' | 'delivery'): the point the carrier is heading to now.
+    const emphasisFor = (point) => (!focus ? undefined : focus === point ? 'focus' : 'muted');
     const points = [pickup, delivery].filter(Boolean).map(toLatLng);
 
     return (
@@ -52,11 +54,16 @@ export const TripMap = ({ pickup, delivery, height = 220, interactive = true }) 
                         }]}
                     />
                 )}
-                {pickup && <AdvancedMarker position={toLatLng(pickup)}><PickupPin /></AdvancedMarker>}
-                {delivery && <AdvancedMarker position={toLatLng(delivery)}><DeliveryPin /></AdvancedMarker>}
+                {pickup && <AdvancedMarker position={toLatLng(pickup)} zIndex={focus === 'pickup' ? 2 : 1}><PickupPin emphasis={emphasisFor('pickup')} /></AdvancedMarker>}
+                {delivery && <AdvancedMarker position={toLatLng(delivery)} zIndex={focus === 'delivery' ? 2 : 1}><DeliveryPin emphasis={emphasisFor('delivery')} /></AdvancedMarker>}
             </Map>
         </div>
     );
+};
+
+/** Google Maps directions from the device's current location to the point — starts navigation on a phone. */
+export const openDirections = (lat, lng) => {
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank', 'noopener,noreferrer');
 };
 
 /** Opens the coordinate in Google Maps in a new tab — universal, no API key. */
