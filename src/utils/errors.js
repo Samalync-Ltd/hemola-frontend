@@ -52,6 +52,22 @@ const DEFAULT_MESSAGE = 'حدث خطأ غير متوقع، حاول مرة أخ�
  */
 export const toArabicError = (err, fallback = DEFAULT_MESSAGE) => {
     if (!err) return fallback;
+
+    // Read details.reason first, never matching the message text (INTEGRATION.md §12)
+    const details = (typeof err === 'object' && err !== null) ? (err.details || err.customData?.details) : null;
+    const reason = details?.reason || (typeof err === 'object' && err?.reason);
+    if (reason === 'TRUCK_CAPACITY_TOO_LOW') {
+        const capacityTons = details?.capacityTons ?? err?.capacityTons;
+        const weight = details?.weight ?? err?.weight;
+        if (capacityTons != null && weight != null) {
+            return `حمولة الشاحنة (${capacityTons} طن) أقل من وزن الشحنة (${weight} طن)`;
+        }
+        if (weight != null) {
+            return `حمولة الشاحنة أقل من وزن الشحنة (${weight} طن)`;
+        }
+        return 'حمولة الشاحنة أقل من وزن الشحنة';
+    }
+
     const message = typeof err === 'string' ? err : (err.message || '');
     if (ARABIC.test(message)) return message;
 

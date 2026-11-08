@@ -47,22 +47,29 @@ export const CarrierShipmentDetail = ({ user }) => {
     }, [shipmentId, user]);
 
     // Only a truck of the required type, big enough for the load, with both
-    // papers APPROVED may be offered (see utils/carrierEligibility).
+    // papers APPROVED may be offered (see utils/carrierEligibility). Trucks
+    // too small for the shipment's weight are hidden from the picker.
     const eligibleTrucks = shipment ? usableTrucksFor(user, shipment) : [];
 
     useEffect(() => {
-        if (!selectedTruckId && eligibleTrucks.length > 0) setSelectedTruckId(eligibleTrucks[0].id);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [eligibleTrucks.length]);
+        if (eligibleTrucks.length > 0) {
+            if (!selectedTruckId || !eligibleTrucks.some(t => t.id === selectedTruckId)) {
+                setSelectedTruckId(eligibleTrucks[0].id);
+            }
+        } else {
+            setSelectedTruckId('');
+        }
+    }, [eligibleTrucks, selectedTruckId]);
 
     const handleSubmitOffer = async (e) => {
         e.preventDefault();
         setSubmitError('');
         setIsSubmitting(true);
         try {
+            const truckIdToSubmit = selectedTruckId || (eligibleTrucks[0]?.id ?? '');
             const newOffer = await offerService.submitOffer({
                 shipmentId,
-                truckId: selectedTruckId,
+                truckId: truckIdToSubmit,
                 offeredPrice: Number(offerPrice),
             });
             setMyOffer(newOffer);
@@ -82,9 +89,10 @@ export const CarrierShipmentDetail = ({ user }) => {
         setSubmitError('');
         setIsAccepting(true);
         try {
+            const truckIdToSubmit = selectedTruckId || (eligibleTrucks[0]?.id ?? '');
             const newOffer = await offerService.submitOffer({
                 shipmentId,
-                truckId: selectedTruckId,
+                truckId: truckIdToSubmit,
                 offeredPrice: shipment.proposedPrice,
             });
             setMyOffer(newOffer);
@@ -223,18 +231,26 @@ export const CarrierShipmentDetail = ({ user }) => {
                                         {blockReason}
                                     </div>
                                 )}
-                                {!blocked && eligibleTrucks.length > 1 && (
+                                {!blocked && eligibleTrucks.length > 0 && (
                                     <div style={{ marginBottom: 16 }}>
                                         <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>الشاحنة المستخدمة لهذا العرض</label>
-                                        <select
-                                            value={selectedTruckId}
-                                            onChange={e => setSelectedTruckId(e.target.value)}
-                                            style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border)' }}
-                                        >
-                                            {eligibleTrucks.map(t => (
-                                                <option key={t.id} value={t.id}>{t.brand} {t.model} — {t.plateNumber}</option>
-                                            ))}
-                                        </select>
+                                        {eligibleTrucks.length > 1 ? (
+                                            <select
+                                                value={selectedTruckId}
+                                                onChange={e => setSelectedTruckId(e.target.value)}
+                                                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border)' }}
+                                            >
+                                                {eligibleTrucks.map(t => (
+                                                    <option key={t.id} value={t.id}>
+                                                        {t.brand} {t.model} — {t.plateNumber}{t.capacityTons ? ` (${t.capacityTons} طن)` : ''}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        ) : (
+                                            <div style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border)', backgroundColor: 'var(--color-background-subtle, #f9fafb)' }}>
+                                                {eligibleTrucks[0].brand} {eligibleTrucks[0].model} — {eligibleTrucks[0].plateNumber}{eligibleTrucks[0].capacityTons ? ` (${eligibleTrucks[0].capacityTons} طن)` : ''}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                                 <Button

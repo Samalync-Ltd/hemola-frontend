@@ -5,8 +5,8 @@
 // The account checks mirror hemooltak-backend/functions/src/guards.ts
 // (assertCarrierCanTakeWork) and the truck checks mirror negotiation.ts
 // (assertTruckUsable), in the same order — so the reason shown here is the
-// reason submitOffer would give. Capacity is a marketplace filter on top:
-// the backend does not check it.
+// reason submitOffer would give. submitOffer and acceptOffer both verify
+// truck capacity (TRUCK_CAPACITY_TOO_LOW) against shipment weight.
 
 import { ShipmentStatus, TruckTypeAr } from '../constants/enums';
 
@@ -14,8 +14,16 @@ const OPEN_STATUSES = [ShipmentStatus.PENDING_OFFERS, ShipmentStatus.NEGOTIATING
 
 /** Right type for the shipment and big enough for its weight (tons). */
 export const truckCanCarry = (truck, shipment) =>
-    truck.type === shipment.requiredTruckType
-    && Number(truck.capacityTons) >= Number(shipment.weight || 0);
+    Boolean(
+        truck &&
+        shipment &&
+        truck.type === shipment.requiredTruckType &&
+        truck.capacityTons != null &&
+        truck.capacityTons !== '' &&
+        Number.isFinite(Number(truck.capacityTons)) &&
+        Number(truck.capacityTons) > 0 &&
+        Number(truck.capacityTons) >= Number(shipment.weight || 0)
+    );
 
 /** Both papers approved — what the backend checks, not the isSelectable mirror. */
 export const isTruckApproved = (truck) =>

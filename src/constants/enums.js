@@ -132,3 +132,9 @@ export var ChargeTo;
     ChargeTo["CARRIER"] = "CARRIER";
     ChargeTo["NONE"] = "NONE";
 })(ChargeTo || (ChargeTo = {}));
+
+// Error reason codes sent in Cloud Functions failed-precondition details (INTEGRATION.md §12).
+export const ErrorReason = {
+    TRUCK_CAPACITY_TOO_LOW: 'TRUCK_CAPACITY_TOO_LOW'
+};
+
