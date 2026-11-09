@@ -158,7 +158,7 @@ export const Register = () => {
     return (<div className={styles.container}>
       <div className={styles.card}>
         <div className={styles.logoArea} style={{ marginBottom: 24 }}>
-          <img src="/logos/2.png" alt="حمولة" style={{ height: 80, objectFit: 'contain' }} />
+          <img src="/logos/2.png" alt="حمولتك" style={{ height: 80, objectFit: 'contain' }} />
         </div>
 
         <div style={{ marginBottom: 24, fontSize: 14, color: 'var(--color-text-muted)', display: 'flex', justifyContent: 'center', gap: 8 }}>
@@ -174,7 +174,7 @@ export const Register = () => {
         <form className={styles.form} onSubmit={onSubmit} noValidate>
           
           {step === 1 && (<>
-              <h2 style={{ textAlign: 'center', marginBottom: 24 }}>أنت تستخدم حمولة بصفتك؟</h2>
+              <h2 style={{ textAlign: 'center', marginBottom: 24 }}>أنت تستخدم حمولتك بصفتك؟</h2>
               <div className={styles.tabs} style={{ flexDirection: 'column', gap: 8, backgroundColor: 'transparent' }}>
                 <button type="button" className={`${styles.tab} ${role === 'SHIPPER' ? styles.tabActive : ''}`} onClick={() => { setRole('SHIPPER'); setErrors({}); }} style={{ padding: 16, border: '1px solid var(--color-border)' }}>
                   صاحب شحنة

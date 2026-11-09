@@ -31,9 +31,9 @@ export const AppSidebar = ({ isOpen = false, onClose }) => {
 
     return (<aside className={`${styles.sidebar} ${isOpen ? styles.sidebarOpen : ''}`}>
       <div className={styles.brand}>
-        <img src="/logos/1.png" alt="Hemola Logo" style={{ width: 48, height: 48, borderRadius: '5px', objectFit: 'contain', background: 'transparent' }} />
+        <img src="/logos/1.png" alt="Hemooltak Logo" style={{ width: 48, height: 48, borderRadius: '5px', objectFit: 'contain', background: 'transparent' }} />
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-          <span style={{ fontSize: 24, fontWeight: 700, color: 'white', lineHeight: 1, marginBottom: 4 }}>حمولة</span>
+          <span style={{ fontSize: 24, fontWeight: 700, color: 'white', lineHeight: 1, marginBottom: 4 }}>حمولتك</span>
           <span style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.7)' }}>منصة نقل البضائع</span>
         </div>
         <button

@@ -16,7 +16,7 @@ export const AppSidebar = () => {
       <div className={styles.brand}>
         {/* Mock Logo */}
         <div style={{ width: 32, height: 32, backgroundColor: '#FF7A29', borderRadius: 8 }}></div>
-        <h2 className={styles.logoText}>حمولة</h2>
+        <h2 className={styles.logoText}>حمولتك</h2>
       </div>
 
       <div className={styles.ctaContainer}>

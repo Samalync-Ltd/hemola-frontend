@@ -12,7 +12,7 @@ export const AdminSidebar = () => {
     return (<aside className={styles.sidebar} style={{ backgroundColor: '#0A192F' }}>
       <div className={styles.brand}>
         <div style={{ width: 32, height: 32, backgroundColor: '#FF7A29', borderRadius: 8 }}></div>
-        <h2 className={styles.logoText}>حمولة - الإدارة</h2>
+        <h2 className={styles.logoText}>حمولتك - الإدارة</h2>
       </div>
 
       <nav className={styles.nav} style={{ marginTop: 24 }}>

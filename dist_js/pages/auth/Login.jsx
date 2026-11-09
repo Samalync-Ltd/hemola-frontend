@@ -37,7 +37,7 @@ export const Login = () => {
     return (<div className={styles.container}>
       <div className={styles.card}>
         <div className={styles.logoArea}>
-          <h1 className={styles.logoText}>حمولة</h1>
+          <h1 className={styles.logoText}>حمولتك</h1>
           <p className={styles.subtitle}>منصة الشحن اللوجستية المتكاملة</p>
         </div>
 

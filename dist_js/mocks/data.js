@@ -38,7 +38,7 @@ export const mockUsers = [
         id: 'user-admin-1',
         role: UserRole.ADMIN,
         name: 'مدير النظام',
-        email: 'admin@hemola.sa',
+        email: 'admin@hemooltak.sa',
         phone: '0500000000',
         accountStatus: AccountStatus.VERIFIED
     }
@@ -207,7 +207,7 @@ export const mockTransactions = [
         walletId: 'wallet-1',
         type: TransactionType.COMMISSION_DEDUCTION,
         amount: -40,
-        description: 'عمولة منصة حمولة (5%) - TR-0987',
+        description: 'عمولة منصة حمولتك (5%) - TR-0987',
         timestamp: '2023-10-26T10:00:00Z',
         tripId: 'TR-0987',
         balanceAfter: 14160
