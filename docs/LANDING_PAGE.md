@@ -39,7 +39,7 @@ A public page at / (the home page). It is for visitors who are not logged in.
 
 A. Top bar: logo, AR | EN switch, "Sign in" button, "Create account" button.
 
-B. Pre-launch banner (shown only when VITE_PRELAUNCH=true, see section 4).
+B. (Pre-launch banner removed — added by mistake, see the client's note.)
 
 C. Hero: title, subtitle, two buttons (Sign in, Create account).
 

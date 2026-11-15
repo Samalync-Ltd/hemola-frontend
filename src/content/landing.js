@@ -14,10 +14,6 @@ export const landing = {
     },
     signIn: { ar: 'تسجيل الدخول', en: 'Sign in' },
     createAccount: { ar: 'إنشاء حساب', en: 'Create account' },
-    prelaunchBanner: {
-        ar: 'التسجيل مفتوح حالياً للناقلين. استقبال الشحنات قريباً.',
-        en: 'Registration is open for carriers now. Shipment posting is coming soon.',
-    },
     how: {
         title: { ar: 'كيف تعمل المنصة', en: 'How it works' },
         shippers: {

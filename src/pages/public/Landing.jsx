@@ -7,8 +7,7 @@ import { landing } from '../../content/landing';
 import { usePublicPage } from '../../i18n/language';
 import { authService } from '../../services/api';
 
-// Build-time switches (see .env.example). The banner only shows on 'true'.
-const PRELAUNCH = import.meta.env.VITE_PRELAUNCH === 'true';
+// Build-time store links (see .env.example).
 const APP_STORE_URL = (import.meta.env.VITE_APP_STORE_URL || '').trim();
 const PLAY_STORE_URL = (import.meta.env.VITE_PLAY_STORE_URL || '').trim();
 
@@ -54,8 +53,6 @@ export const Landing = () => {
     return (
         <div className={styles.page}>
             <PublicHeader lang={lang} />
-
-            {PRELAUNCH && <div className={styles.banner} role="status">{landing.prelaunchBanner[lang]}</div>}
 
             <main>
                 <section className={styles.hero}>
