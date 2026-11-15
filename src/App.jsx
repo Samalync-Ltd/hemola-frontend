@@ -3,6 +3,9 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 // Layouts
 import { Login } from './pages/auth/Login';
 import { Register } from './pages/auth/Register';
+// Public pages
+import { Landing } from './pages/public/Landing';
+import { LegalPage } from './pages/public/LegalPage';
 // Auth Pages
 import { DashboardWrapper } from './pages/common/DashboardWrapper';
 import { CreateShipment } from './pages/shipper/CreateShipment';
@@ -22,6 +25,12 @@ import { WalletWrapper } from './pages/common/WalletWrapper';
 function App() {
     return (<BrowserRouter>
       <Routes>
+        {/* Public pages: landing at /, legal pages in the footer */}
+        <Route path="/" element={<Landing />}/>
+        <Route path="/terms" element={<LegalPage page="terms" />}/>
+        <Route path="/privacy" element={<LegalPage page="privacy" />}/>
+        <Route path="/refund" element={<LegalPage page="refund" />}/>
+
         {/* Auth Routes */}
         <Route path="/login" element={<Login />}/>
         <Route path="/register" element={<Register />}/>
