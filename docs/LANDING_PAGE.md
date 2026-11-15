@@ -164,3 +164,12 @@ How to report: push to a branch (not main). Send me the Cloudflare preview link 
 ## 7. If something is unclear
 
 Stop and ask me. Do not guess. This is especially important for: how the platform handles languages today, the logo files, and anything about company data or legal text.
+
+## 8. Design pass (team lead's notes, after the first review)
+
+- Hero: laptop + phone frames around real platform screens — `public/landing/shipments-list.webp` (shipper «شحناتي» list) and `public/landing/trip-map.webp` (shipper trip page with the live map). They were captured from the real web-app components with a demo account and demo data; recapture them if those screens change.
+- Every step and every feature card has an icon (lucide-react, already a dependency).
+- Features: 1 large «تتبّع مباشر» card + 4 cards (desktop: tall first column + 2×2; tablet: wide card + 2×2; phone: one column).
+- New texts added for this pass: «ابدأ الآن» / "Get started" (call-to-action band), «المنصة» / "Platform" and «روابط قانونية» / "Legal" (footer headings), and the screenshots' alt text. All other texts are unchanged.
+- App section: English names are wrapped in `<span dir="ltr">` (components/public/Bidi.jsx), and «و» is separated from "Google Play" by a space — written together it rendered as "Google Playg".
+- Speed: the public pages no longer download the app. Login, register and every /app screen are loaded on demand, Google Maps loads only under /app, and Firebase loads after the landing page has rendered (only to send a signed-in user to /app). First download: ~83 KB gzipped JS (was ~313 KB).

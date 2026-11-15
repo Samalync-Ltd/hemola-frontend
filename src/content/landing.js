@@ -60,8 +60,10 @@ export const landing = {
     },
     app: {
         title: { ar: 'حمّل التطبيق', en: 'Get the app' },
+        // «و» is spaced from the English name: an Arabic letter cannot join a
+        // Latin one, and without the space it reads as "Google Playg".
         text: {
-            ar: 'قريباً على App Store وGoogle Play. الحساب الذي تنشئه على الموقع هو نفسه الذي تدخل به التطبيق.',
+            ar: 'قريباً على App Store و Google Play. الحساب الذي تنشئه على الموقع هو نفسه الذي تدخل به التطبيق.',
             en: 'Coming soon on the App Store and Google Play. The account you create on the website is the same one you use in the app.',
         },
         comingSoon: { ar: 'قريباً', en: 'Coming soon' },
@@ -89,11 +91,31 @@ export const landing = {
             },
             {
                 q: { ar: 'متى يتوفر التطبيق؟', en: 'When will the app be available?' },
-                a: { ar: 'قريباً على App Store وGoogle Play.', en: 'Coming soon on the App Store and Google Play.' },
+                a: { ar: 'قريباً على App Store و Google Play.', en: 'Coming soon on the App Store and Google Play.' },
             },
         ],
     },
+    // Added with the design pass (team lead's request): the call-to-action
+    // band before the footer, and the footer's column headings.
+    cta: { title: { ar: 'ابدأ الآن', en: 'Get started' } },
+    footer: {
+        platform: { ar: 'المنصة', en: 'Platform' },
+        legal: { ar: 'روابط قانونية', en: 'Legal' },
+    },
+    // Alt text for the real platform screenshots in the hero.
+    screens: {
+        shipments: { ar: 'قائمة الشحنات في منصة حمولتك', en: 'The shipments list on the Hemooltak platform' },
+        tripMap: { ar: 'متابعة الرحلة على الخريطة في منصة حمولتك', en: 'Following a trip on the map on the Hemooltak platform' },
+    },
 };
+
+/** Links to the landing page's sections (header on wide screens, and footer). */
+export const sectionLinks = [
+    { href: '/#how', label: landing.how.title },
+    { href: '/#features', label: landing.features.title },
+    { href: '/#app', label: landing.app.title },
+    { href: '/#faq', label: landing.faq.title },
+];
 
 /** Footer links — the same names are the headings of the legal pages. */
 export const legalLinks = [
