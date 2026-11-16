@@ -89,12 +89,12 @@
   background: #17345c;
 }
 .btnGhost {
-  background: transparent;
+  background: #fff;
   color: var(--navy);
-  border-color: var(--line);
+  border-color: var(--navy);
 }
 .btnGhost:hover {
-  border-color: var(--navy);
+  background: var(--soft);
 }
 .btnLg {
   min-height: 52px;
@@ -146,6 +146,14 @@
   align-items: center;
   gap: 6px;
   min-height: 64px;
+}
+/* Phones: logo icon, AR | EN, Sign in, Create account — both buttons the
+   same height, bold, and always fully on screen. */
+.topbar .btn {
+  min-height: 38px;
+  padding: 8px 11px;
+  font-size: 13px;
+  border-radius: 10px;
 }
 .brand {
   display: flex;
@@ -238,7 +246,7 @@
   font-family: 'Poppins', 'Cairo', sans-serif;
   font-size: 12px;
   font-weight: 700;
-  padding: 5px 7px;
+  padding: 5px 6px;
   border-radius: var(--radius-pill);
   cursor: pointer;
   line-height: 1.2;
@@ -1212,12 +1220,27 @@ a.store:focus-visible {
   }
 }
 
-@media (min-width: 400px) {
+@media (min-width: 420px) {
+  .topbarInner {
+    gap: 8px;
+  }
+  .topbar .btn {
+    min-height: 40px;
+    padding: 8px 13px;
+    font-size: 14px;
+  }
+  .langBtn {
+    padding: 5px 8px;
+  }
+}
+
+/* Enough room for the name next to the logo. */
+@media (min-width: 640px) {
   .brandName {
     display: inline;
   }
   .topbarInner {
-    gap: 8px;
+    gap: 10px;
   }
   .brandLogo {
     width: 40px;
@@ -1225,6 +1248,10 @@ a.store:focus-visible {
   }
   .langBtn {
     padding: 5px 9px;
+  }
+  .topbar .btn {
+    padding: 9px 16px;
+    border-radius: 12px;
   }
 }
 
@@ -1236,9 +1263,6 @@ a.store:focus-visible {
   .btnLg {
     font-size: 16px;
     padding: 12px 26px;
-  }
-  .topbarInner {
-    gap: 10px;
   }
   .chip {
     display: inline-flex;
