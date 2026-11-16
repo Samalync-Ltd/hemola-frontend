@@ -118,10 +118,10 @@ export const sectionLinks = [
 ];
 
 /** Footer links — the same names are the headings of the legal pages. */
-export const legalLinks = [
-    { path: '/terms', label: { ar: 'الشروط والأحكام', en: 'Terms and Conditions' } },
-    { path: '/privacy', label: { ar: 'سياسة الخصوصية', en: 'Privacy Policy' } },
-    { path: '/refund', label: { ar: 'سياسة الاسترجاع', en: 'Refund Policy' } },
+export const legalLinks = [ // shown only when published, see isLegalPagePublished
+    { page: 'terms', path: '/terms', label: { ar: 'الشروط والأحكام', en: 'Terms and Conditions' } },
+    { page: 'privacy', path: '/privacy', label: { ar: 'سياسة الخصوصية', en: 'Privacy Policy' } },
+    { page: 'refund', path: '/refund', label: { ar: 'سياسة الاسترجاع', en: 'Refund Policy' } },
 ];
 
 /** Labels for the footer's contact lines (the values live in company.ts). */

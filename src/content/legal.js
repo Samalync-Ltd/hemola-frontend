@@ -18,4 +18,14 @@ export const legalPages = {
     },
 };
 
+/**
+ * A legal page is published (route + footer link) only once its text exists
+ * in both languages — the "content will be added" placeholder must never
+ * reach production.
+ */
+export const isLegalPagePublished = (page) => {
+    const body = legalPages[page]?.body;
+    return Boolean(body && body.ar.length > 0 && body.en.length > 0);
+};
+
 export const legalPlaceholder = { ar: 'سيتم إضافة المحتوى', en: 'Content will be added' };

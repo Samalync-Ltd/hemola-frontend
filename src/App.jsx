@@ -4,6 +4,7 @@ import { Loader } from './components/common/Loader';
 // Public pages are in the first download: they are what a new visitor opens.
 import { Landing } from './pages/public/Landing';
 import { LegalPage } from './pages/public/LegalPage';
+import { isLegalPagePublished } from './content/legal';
 
 /**
  * Everything behind the landing page is downloaded only when it's opened, so
@@ -68,9 +69,10 @@ function App() {
       <Routes>
         {/* Public pages: landing at /, legal pages in the footer */}
         <Route path="/" element={<Landing />}/>
-        <Route path="/terms" element={<LegalPage page="terms" />}/>
-        <Route path="/privacy" element={<LegalPage page="privacy" />}/>
-        <Route path="/refund" element={<LegalPage page="refund" />}/>
+        {/* A legal page exists only once its text is in content/legal.js. */}
+        {['terms', 'privacy', 'refund'].filter(isLegalPagePublished).map((page) => (
+          <Route key={page} path={`/${page}`} element={<LegalPage page={page} />}/>
+        ))}
 
         {/* Auth Routes */}
         <Route path="/login" element={<Login />}/>
