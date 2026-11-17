@@ -4,7 +4,6 @@ import { Mail, Phone, MapPin, FileText } from 'lucide-react';
 import styles from '../../pages/public/Public.module.css';
 import { landing, legalLinks, contactLabels, sectionLinks } from '../../content/landing';
 import { company } from '../../content/company';
-import { isLegalPagePublished } from '../../content/legal';
 import { Brand, LanguageSwitch } from './PublicHeader';
 
 /**
@@ -14,7 +13,6 @@ import { Brand, LanguageSwitch } from './PublicHeader';
  */
 export const PublicFooter = ({ lang }) => {
     const legalName = company.legalName[lang] || landing.brand[lang];
-    const publishedLegalLinks = legalLinks.filter((link) => isLegalPagePublished(link.page));
     const lines = [
         { key: 'registration', icon: FileText, label: contactLabels.registration[lang], value: company.commercialRegistrationNumber, ltr: true },
         { key: 'email', icon: Mail, label: contactLabels.email[lang], value: company.email, href: company.email && `mailto:${company.email}`, ltr: true },
@@ -42,16 +40,14 @@ export const PublicFooter = ({ lang }) => {
                         </ul>
                     </nav>
 
-                    {publishedLegalLinks.length > 0 && (
-                        <nav aria-labelledby="footer-legal">
-                            <h2 id="footer-legal" className={`${styles.heading} ${styles.footerTitle}`}>{landing.footer.legal[lang]}</h2>
-                            <ul className={styles.footerLinks}>
-                                {publishedLegalLinks.map((link) => (
-                                    <li key={link.path}><Link to={link.path}>{link.label[lang]}</Link></li>
-                                ))}
-                            </ul>
-                        </nav>
-                    )}
+                    <nav aria-labelledby="footer-legal">
+                        <h2 id="footer-legal" className={`${styles.heading} ${styles.footerTitle}`}>{landing.footer.legal[lang]}</h2>
+                        <ul className={styles.footerLinks}>
+                            {legalLinks.map((link) => (
+                                <li key={link.path}><Link to={link.path}>{link.label[lang]}</Link></li>
+                            ))}
+                        </ul>
+                    </nav>
 
                     {lines.length > 0 && (
                         <div>

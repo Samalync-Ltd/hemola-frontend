@@ -118,7 +118,7 @@ export const sectionLinks = [
 ];
 
 /** Footer links — the same names are the headings of the legal pages. */
-export const legalLinks = [ // shown only when published, see isLegalPagePublished
+export const legalLinks = [
     { page: 'terms', path: '/terms', label: { ar: 'الشروط والأحكام', en: 'Terms and Conditions' } },
     { page: 'privacy', path: '/privacy', label: { ar: 'سياسة الخصوصية', en: 'Privacy Policy' } },
     { page: 'refund', path: '/refund', label: { ar: 'سياسة الاسترجاع', en: 'Refund Policy' } },
