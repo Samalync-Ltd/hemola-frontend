@@ -101,7 +101,10 @@ export const Landing = () => {
     // Someone who is already signed in belongs on their dashboard, not here.
     // Firebase is loaded only now, after the page has rendered, so it never
     // delays the first paint for visitors.
+    // Opened on a section on purpose (the account page's «الأسئلة الشائعة»
+    // link goes to /#faq) — stay, even when signed in.
     useEffect(() => {
+        if (window.location.hash) return undefined;
         let isCurrent = true;
         import('../../services/api')
             .then(({ authService }) => authService.getCurrentUser())
