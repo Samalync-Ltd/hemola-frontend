@@ -54,7 +54,7 @@ const PLATFORM_ERROR = 'حدث خطأ في المنصة، حاول لاحقاً'
 export const UNKNOWN_REASON_MESSAGE = 'تعذّر تنفيذ هذا الإجراء حالياً. حدّث الصفحة وحاول مرة أخرى.';
 
 /**
- * Arabic per backend `details.reason` — all 29 in INTEGRATION.md §18, with
+ * Arabic per backend `details.reason` — all 31 in INTEGRATION.md §18, with
  * the values in {braces} filled from `details`. The error text itself is
  * never parsed.
  */
@@ -79,6 +79,7 @@ const REASON_MESSAGES = {
         if (weight != null) return `حمولة الشاحنة أقل من وزن الشحنة (${weight} طن).`;
         return 'حمولة الشاحنة أقل من وزن الشحنة.';
     },
+    TRUCK_TYPE_DISABLED: () => 'هذا النوع من الشاحنات غير متاح حالياً. اختر نوعاً آخر.',
     TRUCK_NOT_APPROVED: () => 'مستندات الشاحنة لم تُعتمد بعد.',
     INSUFFICIENT_BALANCE: ({ availableBalance, required, requested }) => {
         const needed = required ?? requested;
@@ -86,6 +87,7 @@ const REASON_MESSAGES = {
             ? `رصيدك المتاح (${amount(availableBalance)} ر.س) لا يكفي. المبلغ المطلوب ${amount(needed)} ر.س.`
             : 'رصيدك المتاح لا يكفي لهذه العملية. اشحن محفظتك ثم حاول مرة أخرى.';
     },
+    TOPUP_DISABLED: () => 'شحن المحفظة غير متاح حالياً. تواصل مع الدعم لإضافة رصيد.',
     BANK_DETAILS_MISSING: () => 'أضف بيانات حسابك البنكي قبل طلب السحب.',
     TRIP_NOT_ACTIVE: () => 'هذه الرحلة لم تعد نشطة.',
     STAGE_OUT_OF_ORDER: () => 'يجب تحديث مراحل الرحلة بالترتيب.',

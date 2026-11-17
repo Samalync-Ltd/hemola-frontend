@@ -4,7 +4,7 @@ import { Button } from '../../components/common/Button';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { DataTable } from '../../components/common/DataTable';
 import { WithdrawModal } from '../../components/wallet/WithdrawModal';
-import { TopUpModal } from '../../components/wallet/TopUpModal';
+import { TopUpUnavailable } from '../../components/wallet/TopUpUnavailable';
 import { walletService, authService } from '../../services/api';
 import { TransactionType } from '../../constants/enums';
 import { Loader } from '../../components/common/Loader';
@@ -38,8 +38,6 @@ export const CarrierWallet = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [bankDetails, setBankDetails] = useState(null);
     const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
-    const [isTopUpOpen, setIsTopUpOpen] = useState(false);
-    const [isToppingUp, setIsToppingUp] = useState(false);
 
     const fetchData = () => Promise.all([
         walletService.getWallet(),
@@ -62,18 +60,6 @@ export const CarrierWallet = () => {
     const handleWithdrawCompleted = async () => {
         await fetchData();
         setIsWithdrawOpen(false);
-    };
-
-    // Errors propagate to TopUpModal, which shows them and only reports
-    // success once the backend has actually credited the wallet.
-    const handleTopUp = async (amount) => {
-        setIsToppingUp(true);
-        try {
-            await walletService.topUp(amount);
-            await fetchData();
-        } finally {
-            setIsToppingUp(false);
-        }
     };
 
     if (isLoading) return <Loader label="جاري تحميل المحفظة" />;
@@ -109,13 +95,11 @@ export const CarrierWallet = () => {
             <Button variant="secondary" style={{ flex: 1 }} onClick={() => setIsWithdrawOpen(true)} disabled={outstandingDebt > 0}>
               طلب سحب الرصيد
             </Button>
-            <Button variant="outline" style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', borderColor: 'transparent' }} onClick={() => setIsTopUpOpen(true)}>
-              شحن الرصيد
-            </Button>
           </div>
+          <TopUpUnavailable tone="dark" style={{ marginTop: 12 }} />
           {outstandingDebt > 0 && (
             <p style={{ color: '#ffb4b4', fontSize: 13, marginTop: 12 }}>
-              عليك سداد {outstandingDebt} ر.س من عمولة إلغاء سابقة — لا يمكنك تقديم عروض جديدة أو سحب رصيد حتى تُسدد. اشحن رصيدك لسداد الدين تلقائياً والعودة للعمل.
+              عليك سداد {outstandingDebt} ر.س من عمولة إلغاء سابقة — لا يمكنك تقديم عروض جديدة أو سحب رصيد حتى تُسدد. يُخصم المبلغ تلقائياً من أي رصيد يُضاف إلى محفظتك.
             </p>
           )}
         </Card>
@@ -142,11 +126,5 @@ export const CarrierWallet = () => {
         savedBankDetails={bankDetails}
       />
 
-      <TopUpModal
-        isOpen={isTopUpOpen}
-        onClose={() => setIsTopUpOpen(false)}
-        onConfirm={handleTopUp}
-        isLoading={isToppingUp}
-      />
     </div>);
 };

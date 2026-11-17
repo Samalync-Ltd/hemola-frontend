@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Card } from '../../components/common/Card';
-import { Button } from '../../components/common/Button';
 import { walletService } from '../../services/api';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { DataTable } from '../../components/common/DataTable';
-import { TopUpModal } from '../../components/wallet/TopUpModal';
+import { TopUpUnavailable } from '../../components/wallet/TopUpUnavailable';
 import { TransactionType } from '../../constants/enums';
 import { Loader } from '../../components/common/Loader';
 import { formatAmount } from '../../utils/format';
@@ -23,8 +22,6 @@ export const WalletPage = () => {
     const [wallet, setWallet] = useState(null);
     const [transactions, setTransactions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isTopUpOpen, setIsTopUpOpen] = useState(false);
-    const [isToppingUp, setIsToppingUp] = useState(false);
 
     const fetchData = () => {
         return Promise.all([
@@ -44,18 +41,6 @@ export const WalletPage = () => {
     // Live balance — top-ups, reservations, settlements and fees show without a refresh.
     useEffect(() => walletService.subscribe(setWallet, () => {}), []);
     useEffect(() => walletService.subscribeTransactions(setTransactions, () => {}), []);
-
-    // Errors propagate to TopUpModal, which shows them and only reports
-    // success once the backend has actually credited the wallet.
-    const handleTopUp = async (amount) => {
-        setIsToppingUp(true);
-        try {
-            await walletService.topUp(amount);
-            await fetchData();
-        } finally {
-            setIsToppingUp(false);
-        }
-    };
 
     if (isLoading)
         return <Loader label="جاري تحميل المحفظة" />;
@@ -94,9 +79,7 @@ export const WalletPage = () => {
               <path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>
             </svg>
           </div>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <Button variant="secondary" style={{ flex: 1 }} onClick={() => setIsTopUpOpen(true)}>شحن الرصيد</Button>
-          </div>
+          <TopUpUnavailable tone="dark" />
         </Card>
 
         <Card>
@@ -113,11 +96,5 @@ export const WalletPage = () => {
         <DataTable data={transactions} columns={columns} keyExtractor={t => t.id} emptyMessage="لا توجد عمليات سابقة"/>
       </Card>
 
-      <TopUpModal
-        isOpen={isTopUpOpen}
-        onClose={() => setIsTopUpOpen(false)}
-        onConfirm={handleTopUp}
-        isLoading={isToppingUp}
-      />
     </div>);
 };
