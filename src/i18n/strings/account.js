@@ -22,6 +22,12 @@ export default {
     myVehicles: { ar: 'مركباتي', en: 'My vehicles' },
     noTrucks: { ar: 'لا توجد شاحنات مسجلة بعد — أضف شاحنتك الأولى.', en: 'No trucks registered yet — add your first truck.' },
     security: { ar: 'الأمان', en: 'Security' },
+    help: {
+        title: { ar: 'المساعدة والدعم', en: 'Help and support' },
+        faq: { ar: 'الأسئلة الشائعة', en: 'FAQ' },
+        faqText: { ar: 'إجابات عن أكثر الأسئلة شيوعاً حول المنصة.', en: 'Answers to the most common questions about the platform.' },
+        open: { ar: 'عرض الأسئلة الشائعة', en: 'View the FAQ' },
+    },
     change: { ar: 'تغيير', en: 'Change' },
     signOut: { ar: 'تسجيل الخروج', en: 'Sign out' },
     signOutHint: { ar: 'تسجيل الخروج من هذا الجهاز', en: 'Sign out on this device' },

@@ -4,7 +4,7 @@ import { Button } from '../../components/common/Button';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { DataTable } from '../../components/common/DataTable';
 import { WithdrawModal } from '../../components/wallet/WithdrawModal';
-import { TopUpModal } from '../../components/wallet/TopUpModal';
+import { TopUpUnavailable } from '../../components/wallet/TopUpUnavailable';
 import { walletService, authService } from '../../services/api';
 import { TransactionType } from '../../constants/enums';
 import { Loader } from '../../components/common/Loader';
@@ -24,12 +24,9 @@ const TRANSACTION_TYPES = [
     TransactionType.DEBT_FORGIVENESS,
 ];
 
-// Carrier earnings mainly come from TRIP_SETTLEMENT (trip payouts, net of
-// the platform commission) — but topUpWallet is still open to a carrier
-// too, since it's the ONLY way out of outstandingDebt (a carrier who owes
-// money can't take new work otherwise; INTEGRATION.md §10, §16 open
-// question 4). The top-up action is offered for that reason, not for
-// carriers to fund shipments.
+// Carrier earnings come from TRIP_SETTLEMENT (trip payouts, net of the
+// platform commission). Self top-up is switched off (TOPUP_DISABLED); any debt
+// is taken from the next balance added (INTEGRATION.md §10).
 export const CarrierWallet = () => {
     const { t } = useT();
     const [wallet, setWallet] = useState(null);
@@ -41,8 +38,6 @@ export const CarrierWallet = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [bankDetails, setBankDetails] = useState(null);
     const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
-    const [isTopUpOpen, setIsTopUpOpen] = useState(false);
-    const [isToppingUp, setIsToppingUp] = useState(false);
 
     const fetchData = () => Promise.all([
         walletService.getWallet(),
@@ -65,18 +60,6 @@ export const CarrierWallet = () => {
     const handleWithdrawCompleted = async () => {
         await fetchData();
         setIsWithdrawOpen(false);
-    };
-
-    // Errors propagate to TopUpModal, which shows them and only reports
-    // success once the backend has actually credited the wallet.
-    const handleTopUp = async (amount) => {
-        setIsToppingUp(true);
-        try {
-            await walletService.topUp(amount);
-            await fetchData();
-        } finally {
-            setIsToppingUp(false);
-        }
     };
 
     if (isLoading) return <Loader label={t('wallet.loading')} />;
@@ -112,10 +95,8 @@ export const CarrierWallet = () => {
             <Button variant="secondary" style={{ flex: 1 }} onClick={() => setIsWithdrawOpen(true)} disabled={outstandingDebt > 0}>
               {t('wallet.requestWithdrawal')}
             </Button>
-            <Button variant="outline" style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', borderColor: 'transparent' }} onClick={() => setIsTopUpOpen(true)}>
-              {t('wallet.topUp')}
-            </Button>
           </div>
+          <TopUpUnavailable tone="dark" style={{ marginTop: 12 }} />
           {outstandingDebt > 0 && (
             <p style={{ color: '#ffb4b4', fontSize: 13, marginTop: 12 }}>
               {t('wallet.debtNotice', { amount: outstandingDebt })}
@@ -145,11 +126,5 @@ export const CarrierWallet = () => {
         savedBankDetails={bankDetails}
       />
 
-      <TopUpModal
-        isOpen={isTopUpOpen}
-        onClose={() => setIsTopUpOpen(false)}
-        onConfirm={handleTopUp}
-        isLoading={isToppingUp}
-      />
     </div>);
 };

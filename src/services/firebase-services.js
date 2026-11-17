@@ -737,6 +737,7 @@ const loadTripExtras = async (id, data) => {
                 route: `${s.pickupCity} ← ${s.deliveryCity}`,
                 cargoType: s.cargoType || null,
                 cargoTypeName: s.cargoTypeName || null,
+                cargoTypeNameEn: s.cargoTypeNameEn || null,
                 weight: s.weight ?? null,
                 loadingDate: toIso(s.loadingDate),
             });

@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { HelpCircle } from 'lucide-react';
 import { Card } from '../../components/common/Card';
 import { Input } from '../../components/common/Input';
 import { Button } from '../../components/common/Button';
@@ -190,6 +192,22 @@ export const Profile = () => {
       )}
 
       <Card>
+        <h3 style={{ marginBottom: 16 }}>{t('account.help.title')}</h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <HelpCircle size={22} color="var(--color-accent)" style={{ flexShrink: 0, marginTop: 2 }} aria-hidden="true" />
+            <div>
+              <strong>{t('account.help.faq')}</strong>
+              <div className="text-helper">{t('account.help.faqText')}</div>
+            </div>
+          </div>
+          <Link to="/#faq" style={{ fontWeight: 700, color: 'var(--color-primary)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px 16px' }}>
+            {t('account.help.open')}
+          </Link>
+        </div>
+      </Card>
+
+      <Card>
         <h3 style={{ marginBottom: 16 }}>{t('account.security')}</h3>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid var(--color-border)' }}>
           <div>
@@ -204,7 +222,7 @@ export const Profile = () => {
           </div>
           <Button variant="danger" onClick={async () => {
               await authService.logout();
-              window.location.href = '/login';
+              window.location.href = '/';
           }}>{t('account.signOutButton')}</Button>
         </div>
       </Card>

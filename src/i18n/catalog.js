@@ -86,7 +86,9 @@ export const cargoTypeName = (shipment, lang = getLanguage()) => {
     const item = state.cargoTypes?.find((entry) => entry.id === shipment.cargoType);
     const arabic = shipment.cargoTypeName || item?.name || shipment.cargoType || '—';
     if (lang === 'ar') return arabic;
-    return englishName(item) || arabic;
+    // The English name stored on the shipment when it was posted (backend:
+    // cargoTypeNameEn), else the list's current one, else the Arabic.
+    return (shipment.cargoTypeNameEn || '').trim() || englishName(item) || arabic;
 };
 
 /** The lists themselves, live: `{ cargoTypes, truckTypes, loaded }`. Loads them on first use. */

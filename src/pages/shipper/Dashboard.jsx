@@ -8,7 +8,7 @@ import { PriceBlock } from '../../components/common/PriceBlock';
 import { DataTable } from '../../components/common/DataTable';
 import { shipmentService, tripService, walletService, authService } from '../../services/api';
 import { ShipmentStatus } from '../../constants/enums';
-import { TopUpModal } from '../../components/wallet/TopUpModal';
+import { TopUpUnavailable } from '../../components/wallet/TopUpUnavailable';
 import { Loader } from '../../components/common/Loader';
 import { formatMoney, formatRoute } from '../../utils/format';
 import { useT } from '../../i18n';
@@ -21,8 +21,6 @@ export const Dashboard = () => {
     const [trips, setTrips] = useState([]);
     const [wallet, setWallet] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isTopUpOpen, setIsTopUpOpen] = useState(false);
-    const [isToppingUp, setIsToppingUp] = useState(false);
 
     const fetchData = async () => {
         try {
@@ -48,18 +46,6 @@ export const Dashboard = () => {
     }, []);
     // Live balance — top-ups, reservations, settlements and fees show without a refresh.
     useEffect(() => walletService.subscribe(setWallet, () => {}), []);
-
-    // Errors propagate to TopUpModal, which shows them and only reports
-    // success once the backend has actually credited the wallet.
-    const handleTopUp = async (amount) => {
-        setIsToppingUp(true);
-        try {
-            await walletService.topUp(amount);
-            await fetchData();
-        } finally {
-            setIsToppingUp(false);
-        }
-    };
 
     if (isLoading) {
         return <Loader label={t('dashboard.loading')} />;
@@ -140,20 +126,14 @@ export const Dashboard = () => {
             {wallet?.reservedBalance ? (<div style={{ marginBottom: 16 }}>
                 <span className="text-helper" style={{ display: 'block' }}>{t('dashboard.reservedForTrips', { amount: formatMoney(wallet.reservedBalance) })}</span>
               </div>) : null}
+            <TopUpUnavailable tone="dark" style={{ marginBottom: 12 }} />
             <div style={{ display: 'flex', gap: 12 }}>
-              <Button variant="secondary" style={{ flex: 1 }} onClick={() => setIsTopUpOpen(true)}>{t('wallet.topUpWallet')}</Button>
               <Button variant="outline" style={{ flex: 1 }} onClick={() => navigate('/app/wallet')}>{t('wallet.statement')}</Button>
             </div>
           </Card>
         </div>
       </div>
       
-      <TopUpModal
-        isOpen={isTopUpOpen}
-        onClose={() => setIsTopUpOpen(false)}
-        onConfirm={handleTopUp}
-        isLoading={isToppingUp}
-      />
     </div>);
 };
 const WalletIcon = () => (<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>
