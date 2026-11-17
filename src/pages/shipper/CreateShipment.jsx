@@ -10,7 +10,6 @@ import { MapPickerModal } from '../../components/map/MapPickerModal';
 import { TRUCK_TYPE_OPTIONS, TruckTypeAr } from '../../constants/enums';
 import { isValidSaudiPhone } from '../../utils/validators';
 import { toArabicError } from '../../utils/errors';
-const DEFAULT_CARGO_NAMES = ['مواد غذائية', 'أجهزة كهربائية', 'مواد بناء', 'بضائع عامة'];
 const steps = [
     'المواقع',
     'البضاعة',
@@ -46,9 +45,10 @@ export const CreateShipment = () => {
     });
     const [errors, setErrors] = useState({});
     const [pickerOpen, setPickerOpen] = useState(null); // 'pickup' | 'delivery' | null
-    // Admin-managed lists (config/cargoTypes, config/truckTypes); the
-    // built-in defaults apply until the admin saves their own.
-    const [cargoOptions, setCargoOptions] = useState(DEFAULT_CARGO_NAMES);
+    // Admin-managed lists (config/cargoTypes, config/truckTypes). createShipment
+    // takes only a cargo type *id* from config/cargoTypes (INTEGRATION.md §9) —
+    // it refuses a name or free text — so the picker offers exactly that list.
+    const [cargoOptions, setCargoOptions] = useState(null); // [{ id, name }], null while loading
     const [truckLabels, setTruckLabels] = useState(TruckTypeAr);
     const [truckOptions, setTruckOptions] = useState(TRUCK_TYPE_OPTIONS);
 
@@ -56,8 +56,8 @@ export const CreateShipment = () => {
 
     useEffect(() => {
         catalogService.getCargoTypes()
-            .then(items => { if (items) setCargoOptions(items.map(i => i.name)); })
-            .catch(() => { /* keep defaults */ });
+            .then(items => setCargoOptions(items || []))
+            .catch(() => setCargoOptions([]));
         catalogService.getTruckTypeOverrides()
             .then(overrides => {
                 setTruckLabels(Object.fromEntries(TRUCK_TYPE_OPTIONS.map(t => [t, overrides[t]?.label || TruckTypeAr[t]])));
@@ -88,7 +88,6 @@ export const CreateShipment = () => {
             else if (!isValidSaudiPhone(formData.onSiteContact)) newErrors.onSiteContact = 'صيغة رقم الجوال غير صحيحة (05XXXXXXXX)';
         } else if (step === 1) {
             if (!formData.cargoType) newErrors.cargoType = 'يرجى اختيار نوع البضاعة';
-            if (formData.cargoType === 'أخرى' && !formData.customCargoType) newErrors.customCargoType = 'هذا الحقل مطلوب';
             if (!formData.weight || Number(formData.weight) <= 0) newErrors.weight = 'يجب إدخال وزن صحيح أكبر من 0';
         } else if (step === 2) {
             if (!formData.requiredTruckType) newErrors.requiredTruckType = 'يرجى اختيار نوع الشاحنة';
@@ -115,7 +114,6 @@ export const CreateShipment = () => {
         setPublishError('');
         setIsLoading(true);
         try {
-            const finalCargoType = formData.cargoType === 'أخرى' ? formData.customCargoType : formData.cargoType;
             // loadingDate + loadingTime are collected separately in the UI but
             // sent as one ISO-8601 timestamp, as the backend expects.
             const loadingDateTime = new Date(`${formData.loadingDate}T${formData.loadingTime}`).toISOString();
@@ -130,7 +128,7 @@ export const CreateShipment = () => {
                 onSiteContact: formData.onSiteContact,
                 pickupNotes: formData.pickupNotes,
                 deliveryNotes: formData.deliveryNotes,
-                cargoType: finalCargoType,
+                cargoType: formData.cargoType,
                 weight: Number(formData.weight),
                 description: formData.description,
                 requiredTruckType: formData.requiredTruckType,
@@ -156,6 +154,8 @@ export const CreateShipment = () => {
             {' — يمكنك نشر الشحنة الآن، لكن ستحتاج إلى شحن رصيدك قبل قبول أي عرض.'}
         </InsufficientBalanceNotice>
     ) : null;
+
+    const cargoName = (cargoOptions || []).find(item => item.id === formData.cargoType)?.name || '';
 
     const ErrorMsg = ({ error }) => error ? <div style={{ color: 'var(--color-error)', fontSize: 12, marginTop: -8, marginBottom: 8 }}>{error}</div> : null;
 
@@ -257,15 +257,11 @@ export const CreateShipment = () => {
               <h3 style={{ marginBottom: 16 }}>تفاصيل البضاعة</h3>
               <Select name="cargoType" label="نوع البضاعة" value={formData.cargoType} onChange={handleChange} options={[
                 { value: '', label: 'اختر نوع البضاعة' },
-                ...cargoOptions.map(name => ({ value: name, label: name })),
-                { value: 'أخرى', label: 'أخرى' }
+                ...(cargoOptions || []).map(item => ({ value: item.id, label: item.name })),
               ]}/>
               <ErrorMsg error={errors.cargoType} />
-              {formData.cargoType === 'أخرى' && (
-                  <>
-                  <Input name="customCargoType" label="اكتب نوع البضاعة" value={formData.customCargoType} onChange={handleChange}/>
-                  <ErrorMsg error={errors.customCargoType} />
-                  </>
+              {cargoOptions && cargoOptions.length === 0 && (
+                  <p role="alert" className="text-helper" style={{ color: 'var(--color-error)', marginTop: -4 }}>لا توجد أنواع بضائع متاحة حالياً — تواصل مع إدارة المنصة.</p>
               )}
               <Input name="weight" numeric="decimal" label="الوزن (طن)" value={formData.weight} onChange={handleChange}/>
               <ErrorMsg error={errors.weight} />
@@ -309,7 +305,7 @@ export const CreateShipment = () => {
               {balanceWarning && <div style={{ marginBottom: 16 }}>{balanceWarning}</div>}
               <div className="responsive-two-col-even">
                 <div><strong>المسار:</strong> {formData.pickupCity} إلى {formData.deliveryCity}</div>
-                <div><strong>البضاعة:</strong> {formData.cargoType === 'أخرى' ? formData.customCargoType : formData.cargoType} ({formData.weight} طن)</div>
+                <div><strong>البضاعة:</strong> {cargoName} ({formData.weight} طن)</div>
                 <div><strong>الشاحنة:</strong> {truckLabels[formData.requiredTruckType] || formData.requiredTruckType}</div>
                 <div><strong>الجدولة:</strong> {formData.loadingDate} - {formData.loadingTime}</div>
                 <div><strong>السعر المقترح:</strong> {formData.proposedPrice} ر.س</div>
@@ -344,7 +340,7 @@ export const CreateShipment = () => {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span className="text-helper">البضاعة</span>
-                <span>{formData.cargoType || '-'}</span>
+                <span>{cargoName || '-'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span className="text-helper">الشاحنة</span>

@@ -385,6 +385,11 @@ const toIso = (value) => value?.toDate?.().toISOString() ?? value ?? null;
 const toShipmentUiShape = (id, data) => ({
     id,
     ...data,
+    // cargoType is now the id from config/cargoTypes; the screens show the
+    // name copied onto the shipment when it was posted (older shipments have
+    // the name in cargoType itself).
+    cargoTypeId: data.cargoType,
+    cargoType: data.cargoTypeName || data.cargoType,
     proposedPrice: data.suggestedPrice,
     createdAt: toIso(data.createdAt),
     loadingDate: toIso(data.loadingDate),
@@ -734,7 +739,7 @@ const loadTripExtras = async (id, data) => {
                 pickupCity: s.pickupCity,
                 deliveryCity: s.deliveryCity,
                 route: `${s.pickupCity} ← ${s.deliveryCity}`,
-                cargoType: s.cargoType || null,
+                cargoType: s.cargoTypeName || s.cargoType || null,
                 weight: s.weight ?? null,
                 loadingDate: toIso(s.loadingDate),
             });
