@@ -6,8 +6,10 @@ import { Input } from '../../components/common/Input';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { shipmentService, offerService, walletService } from '../../services/api';
 import { UserRole, OfferStatus } from '../../constants/enums';
-import { formatTime, formatDate, formatAmount, formatRating, truckTypeLabel } from '../../utils/format';
-import { toArabicError, errorReason } from '../../utils/errors';
+import { formatTime, formatDate, formatAmount, formatMoney, formatRating, formatRoute, formatWeight } from '../../utils/format';
+import { toUserMessage, errorReason } from '../../utils/errors';
+import { useT } from '../../i18n';
+import { useNames } from '../../i18n/catalog';
 import { Loader } from '../../components/common/Loader';
 import { InsufficientBalanceNotice } from '../../components/wallet/InsufficientBalanceNotice';
 
@@ -31,6 +33,8 @@ import { InsufficientBalanceNotice } from '../../components/wallet/InsufficientB
 export const Negotiation = ({ role = UserRole.SHIPPER }) => {
     const { shipmentId, offerId } = useParams();
     const navigate = useNavigate();
+    const { t } = useT();
+    const { cargoName, truckName } = useNames();
     const isShipper = role === UserRole.SHIPPER;
     const [shipment, setShipment] = useState(undefined); // undefined = loading, null = gone
     const [offer, setOffer] = useState(undefined);
@@ -49,7 +53,7 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
 
     useEffect(() => {
         if (!shipmentId || !offerId) return undefined;
-        const onError = (err) => setError(toArabicError(err));
+        const onError = (err) => setError(toUserMessage(err));
         const unsubscribers = [
             shipmentService.subscribe(shipmentId, setShipment, onError),
             offerService.subscribeThread(shipmentId, offerId, setOffer, onError),
@@ -73,10 +77,10 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
             }
             // The carrier accepted the shipper's price but the shipper can't
             // cover it right now — that's not the carrier's balance.
-            setError('رصيد صاحب الشحنة المتاح لا يغطي هذا السعر حالياً — لم يتم الإسناد. حاول لاحقاً.');
+            setError(t('offers.negotiation.shipperShortOfFunds'));
             return;
         }
-        setError(toArabicError(err));
+        setError(toUserMessage(err));
     };
 
     const handleCounter = async () => {
@@ -104,8 +108,8 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
         // Funds are reserved (not deducted) from the shipper's available
         // balance the moment this finalizes — say so before committing.
         const confirmText = isShipper
-            ? `سيتم حجز ${formatAmount(price)} ر.س من رصيدك المتاح وإسناد الشحنة لهذا الناقل. هل تريد المتابعة؟`
-            : `ستُسند إليك الشحنة بسعر ${formatAmount(price)} ر.س. هل تريد المتابعة؟`;
+            ? t('offers.negotiation.confirmAcceptShipper', { amount: formatAmount(price) })
+            : t('offers.negotiation.confirmAcceptCarrier', { amount: formatAmount(price) });
         if (!window.confirm(confirmText)) return;
         setIsSubmitting(true);
         try {
@@ -121,7 +125,7 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
     const handleReject = async () => {
         // Closes only this thread — other carriers' offers stay open, and a
         // rejected carrier may offer again with a new price.
-        const reason = window.prompt('رفض العرض وإنهاء هذا التفاوض.\nسبب الرفض (اختياري):', '');
+        const reason = window.prompt(t('offers.negotiation.rejectPrompt'), '');
         if (reason === null) return;
         setError('');
         setIsSubmitting(true);
@@ -129,19 +133,19 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
             await offerService.rejectOffer(shipmentId, offer.id, reason.trim());
             navigate(backPath);
         } catch (err) {
-            setError(toArabicError(err));
+            setError(toUserMessage(err));
             setIsSubmitting(false);
         }
     };
 
-    if (shipment === undefined || offer === undefined) return <Loader label="جاري تحميل التفاوض" />;
-    if (!shipment || !offer) return <div>البيانات غير موجودة</div>;
+    if (shipment === undefined || offer === undefined) return <Loader label={t('offers.negotiation.loading')} />;
+    if (!shipment || !offer) return <div>{t('offers.negotiation.notFound')}</div>;
 
     const history = offer.history && offer.history.length > 0
         ? offer.history
         : [{ amount: offer.offeredPrice, senderRole: 'CARRIER', timestamp: offer.submittedAt }];
     const currentPrice = offer.offeredPrice;
-    const counterpartName = role === UserRole.CARRIER ? 'صاحب الشحنة' : offer.carrierName;
+    const counterpartName = role === UserRole.CARRIER ? t('offers.negotiation.theShipper') : offer.carrierName;
     // It's this viewer's turn only when the live offer was proposed by the
     // OTHER side and it's still open (INTEGRATION.md §9).
     const canRespond = offer.status === OfferStatus.PENDING && offer.proposedBy !== role;
@@ -155,10 +159,10 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
     return (<div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h2 style={{ margin: 0 }}>التفاوض مع {counterpartName}</h2>
-          <span className="text-helper">{shipment.pickupCity} ← {shipment.deliveryCity}</span>
+          <h2 style={{ margin: 0 }}>{t('offers.negotiation.title', { name: counterpartName })}</h2>
+          <span className="text-helper">{formatRoute(shipment.pickupCity, shipment.deliveryCity, 'arrowLeft')}</span>
         </div>
-        <Button variant="outline" onClick={() => navigate(backPath)}>عودة</Button>
+        <Button variant="outline" onClick={() => navigate(backPath)}>{t('offers.negotiation.back')}</Button>
       </div>
 
       {tripId && (
@@ -167,12 +171,12 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
           padding: '16px 20px', borderRadius: 12, backgroundColor: 'rgba(16,185,129,0.08)', border: '1px solid var(--color-success)',
         }}>
           <div>
-            <div style={{ fontWeight: 700, color: 'var(--color-success)' }}>تم الاتفاق وإسناد الشحنة — {formatAmount(currentPrice)} ر.س</div>
+            <div style={{ fontWeight: 700, color: 'var(--color-success)' }}>{t('offers.negotiation.agreed', { amount: formatMoney(currentPrice) })}</div>
             <div className="text-helper" style={{ fontSize: 13 }}>
-              {isShipper ? 'تابع الرحلة من صفحتها: حالة الناقل، صور الإثبات والرسائل.' : 'ابدأ الرحلة من صفحتها وحدّث حالتها في كل مرحلة.'}
+              {isShipper ? t('offers.negotiation.agreedHintShipper') : t('offers.negotiation.agreedHintCarrier')}
             </div>
           </div>
-          <Button onClick={() => navigate(`/app/trips/${tripId}/track`)}>عرض الرحلة</Button>
+          <Button onClick={() => navigate(`/app/trips/${tripId}/track`)}>{t('trips.view')}</Button>
         </div>
       )}
 
@@ -194,10 +198,10 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
                     border: isMe ? 'none' : '1px solid var(--color-border)'
                 }}>
                     <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 4 }}>
-                      {isMe ? 'أنت' : counterpartName}
+                      {isMe ? t('offers.negotiation.you') : counterpartName}
                     </div>
                     <div style={{ fontSize: 20, fontWeight: 'bold' }} dir="ltr">
-                      {formatAmount(entry.amount)} ر.س
+                      {formatMoney(entry.amount)}
                     </div>
                   </div>
                   <span style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 4 }}>
@@ -207,12 +211,12 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
             })}
             {offer.status === OfferStatus.ACCEPTED && (
               <div style={{ textAlign: 'center', color: 'var(--color-success)', fontWeight: 'bold', padding: 8 }}>
-                تم قبول السعر وإسناد الشحنة
+                {t('offers.negotiation.acceptedNote')}
               </div>
             )}
             {offer.status === OfferStatus.REJECTED && (
               <div style={{ textAlign: 'center', color: 'var(--color-error)', fontWeight: 'bold', padding: 8 }}>
-                تم إغلاق هذا العرض{offer.rejectReason ? ` — ${offer.rejectReason}` : ''}
+                {t('offers.negotiation.closedNote')}{offer.rejectReason ? ` — ${offer.rejectReason}` : ''}
               </div>
             )}
           </div>
@@ -220,28 +224,28 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
           {!isClosed && (
             <div style={{ marginTop: 24, paddingTop: 24, borderTop: '1px solid var(--color-border)', display: 'flex', gap: 12, alignItems: 'flex-end' }}>
               <div style={{ flex: 1 }}>
-                <Input numeric="integer" placeholder="أدخل السعر المضاد" value={counterAmount} onChange={e => { setCounterAmount(e.target.value); setBalanceShortfall(null); }} style={{ marginBottom: 0 }} disabled={!canRespond}/>
+                <Input numeric="integer" placeholder={t('offers.negotiation.counterPlaceholder')} value={counterAmount} onChange={e => { setCounterAmount(e.target.value); setBalanceShortfall(null); }} style={{ marginBottom: 0 }} disabled={!canRespond}/>
               </div>
-              <Button variant="secondary" onClick={handleCounter} isLoading={isSubmitting} disabled={!canRespond || !counterAmount}>إرسال العرض</Button>
+              <Button variant="secondary" onClick={handleCounter} isLoading={isSubmitting} disabled={!canRespond || !counterAmount}>{t('offers.negotiation.sendOffer')}</Button>
             </div>
           )}
           {!isClosed && !canRespond && (
-            <p className="text-helper" style={{ marginTop: 8, fontSize: 12 }}>بانتظار رد {counterpartName}</p>
+            <p className="text-helper" style={{ marginTop: 8, fontSize: 12 }}>{t('offers.negotiation.waitingFor', { name: counterpartName })}</p>
           )}
         </Card>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           <Card>
-            <h3 style={{ marginBottom: 16 }}>{role === UserRole.CARRIER ? 'تفاصيل الشحنة' : 'تفاصيل الناقل'}</h3>
+            <h3 style={{ marginBottom: 16 }}>{role === UserRole.CARRIER ? t('shipments.detailsButton') : t('offers.negotiation.carrierDetails')}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {role === UserRole.CARRIER ? (<>
-                <div><strong>المسار:</strong> {shipment.pickupCity} ← {shipment.deliveryCity}</div>
-                <div><strong>البضاعة:</strong> {shipment.cargoType} ({shipment.weight} طن)</div>
+                <div><strong>{t('shipments.labels.route')}</strong> {formatRoute(shipment.pickupCity, shipment.deliveryCity, 'arrowLeft')}</div>
+                <div><strong>{t('shipments.labels.cargo')}</strong> {cargoName(shipment)} ({formatWeight(shipment.weight)})</div>
               </>) : (<>
-                <div><strong>الاسم:</strong> {offer.carrierName}</div>
-                <div><strong>التقييم:</strong> ⭐ {formatRating(offer.carrierRating, offer.carrierCompletedTrips)}</div>
-                <div><strong>الرحلات المكتملة:</strong> {offer.carrierCompletedTrips ?? 0}</div>
-                <div><strong>الشاحنة:</strong> {truckTypeLabel(offer.carrierTruckType)}</div>
+                <div><strong>{t('offers.negotiation.labels.name')}</strong> {offer.carrierName}</div>
+                <div><strong>{t('offers.negotiation.labels.rating')}</strong> ⭐ {formatRating(offer.carrierRating, offer.carrierCompletedTrips)}</div>
+                <div><strong>{t('offers.negotiation.labels.completedTrips')}</strong> {offer.carrierCompletedTrips ?? 0}</div>
+                <div><strong>{t('shipments.labels.truck')}</strong> {truckName(offer.carrierTruckType)}</div>
               </>)}
             </div>
           </Card>
@@ -258,16 +262,16 @@ export const Negotiation = ({ role = UserRole.SHIPPER }) => {
 
           {!isClosed && (
             <Card>
-              <h3 style={{ marginBottom: 16 }}>اتخاذ قرار</h3>
+              <h3 style={{ marginBottom: 16 }}>{t('offers.negotiation.decide')}</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <PriceBlock label="السعر الحالي المطروح" amount={currentPrice} size="lg"/>
+                <PriceBlock label={t('offers.negotiation.currentPrice')} amount={currentPrice} size="lg"/>
                 {isShipper && wallet && (
-                  <div className="text-helper" style={{ fontSize: 13 }}>رصيدك المتاح: {formatAmount(wallet.available)} ر.س</div>
+                  <div className="text-helper" style={{ fontSize: 13 }}>{t('offers.negotiation.yourAvailable', { amount: formatMoney(wallet.available) })}</div>
                 )}
                 <Button style={{ marginTop: 16 }} onClick={handleAccept} isLoading={isSubmitting} disabled={!canRespond}>
-                  {isShipper ? 'قبول العرض وإسناد الشحنة' : 'قبول سعر صاحب الشحنة'}
+                  {isShipper ? t('offers.negotiation.acceptShipper') : t('offers.negotiation.acceptCarrier')}
                 </Button>
-                <Button variant="danger" onClick={handleReject} isLoading={isSubmitting} disabled={!canRespond}>رفض وإنهاء التفاوض</Button>
+                <Button variant="danger" onClick={handleReject} isLoading={isSubmitting} disabled={!canRespond}>{t('offers.negotiation.reject')}</Button>
               </div>
             </Card>
           )}

@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useT } from '../../i18n';
 import { Map, AdvancedMarker, Polyline, useMap } from '@vis.gl/react-google-maps';
 import { PickupPin, DeliveryPin, CarrierPin } from './MapPin';
 import { GOOGLE_MAPS_MAP_ID, toLatLng } from './googleMaps';
@@ -27,6 +28,7 @@ const FitToPoints = ({ points, fitKey }) => {
  * rule on SiteDetails.
  */
 export const TripMap = ({ pickup, delivery, carrier = null, height = 220, interactive = true, focus = null }) => {
+    const { t } = useT();
     if (!pickup && !delivery && !carrier) return null;
     // `focus` ('pickup' | 'delivery'): the point the carrier is heading to now.
     const emphasisFor = (point) => (!focus ? undefined : focus === point ? 'focus' : 'muted');
@@ -59,7 +61,7 @@ export const TripMap = ({ pickup, delivery, carrier = null, height = 220, intera
                 )}
                 {pickup && <AdvancedMarker position={toLatLng(pickup)} zIndex={focus === 'pickup' ? 2 : 1}><PickupPin emphasis={emphasisFor('pickup')} /></AdvancedMarker>}
                 {delivery && <AdvancedMarker position={toLatLng(delivery)} zIndex={focus === 'delivery' ? 2 : 1}><DeliveryPin emphasis={emphasisFor('delivery')} /></AdvancedMarker>}
-                {carrier && <AdvancedMarker position={toLatLng(carrier)} zIndex={3} title="موقع الشاحنة"><CarrierPin /></AdvancedMarker>}
+                {carrier && <AdvancedMarker position={toLatLng(carrier)} zIndex={3} title={t('map.truckLocation')}><CarrierPin /></AdvancedMarker>}
             </Map>
         </div>
     );

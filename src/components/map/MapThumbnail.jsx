@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useT } from '../../i18n';
 import { createPortal } from 'react-dom';
 import { TripMap } from './TripMap';
 import { Button } from '../common/Button';
@@ -14,8 +15,9 @@ import { Button } from '../common/Button';
  * pre-acceptance vs. the real pin post-assignment); this component never
  * upgrades the data just because the user zoomed in.
  */
-export const MapThumbnail = ({ pickup, delivery, carrier = null, height = 160, title = 'الخريطة', focus = null }) => {
+export const MapThumbnail = ({ pickup, delivery, carrier = null, height = 160, title, focus = null }) => {
     const [expanded, setExpanded] = useState(false);
+    const { t } = useT();
 
     return (
         <>
@@ -23,7 +25,7 @@ export const MapThumbnail = ({ pickup, delivery, carrier = null, height = 160, t
                 onClick={() => setExpanded(true)}
                 style={{ position: 'relative', cursor: 'pointer' }}
                 role="button"
-                aria-label="اضغط لتكبير الخريطة"
+                aria-label={t('map.expandLabel')}
             >
                 {/* pointerEvents: 'none' keeps the thumbnail's own map gesture
                     layer from swallowing the click meant for the wrapper above. */}
@@ -36,7 +38,7 @@ export const MapThumbnail = ({ pickup, delivery, carrier = null, height = 160, t
                     borderRadius: 999, padding: '3px 8px', fontSize: 11, fontWeight: 600,
                     display: 'flex', alignItems: 'center', gap: 4,
                 }}>
-                    🔍 اضغط للتكبير
+                    🔍 {t('map.expand')}
                 </div>
             </div>
 
@@ -50,8 +52,8 @@ export const MapThumbnail = ({ pickup, delivery, carrier = null, height = 160, t
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <strong>{title}</strong>
-                            <Button variant="outline" size="sm" onClick={() => setExpanded(false)}>إغلاق</Button>
+                            <strong>{title ?? t('map.title')}</strong>
+                            <Button variant="outline" size="sm" onClick={() => setExpanded(false)}>{t('common.close')}</Button>
                         </div>
                         <div style={{ flex: 1 }}>
                             <TripMap pickup={pickup} delivery={delivery} height="100%" interactive focus={focus} carrier={carrier} />

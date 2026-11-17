@@ -3,15 +3,17 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
 import { tripService, shipmentService, authService } from '../../services/api';
-import { TripStage as TripStageEnum, TripStageAr, UserRole } from '../../constants/enums';
+import { TripStage as TripStageEnum, UserRole } from '../../constants/enums';
 import { ProofPhotoCapture, ProofPhotoView } from '../../components/trip/ProofPhotoCapture';
 import { QuickMessagePanel } from '../../components/trip/QuickMessagePanel';
 import { CancelTripModal } from '../../components/trip/CancelTripModal';
 import { openDirections } from '../../components/map/TripMap';
 import { MapThumbnail } from '../../components/map/MapThumbnail';
 import { CallButton } from '../../components/trip/CallButton';
-import { toArabicError } from '../../utils/errors';
-import { formatAmount } from '../../utils/format';
+import { toUserMessage } from '../../utils/errors';
+import { formatDateTime, formatMoney, formatRoute, formatWeight } from '../../utils/format';
+import { useT } from '../../i18n';
+import { useNames } from '../../i18n/catalog';
 import { Loader } from '../../components/common/Loader';
 import { useUnreadTripMessages } from '../../hooks/useUnreadTripMessages';
 
@@ -30,6 +32,8 @@ const PROOF_REQUIRED_STAGES = [TripStageEnum.LOADED, TripStageEnum.DELIVERED];
 export const CarrierTripTrack = () => {
     const { tripId } = useParams();
     const navigate = useNavigate();
+    const { t } = useT();
+    const { cargoName } = useNames();
     const { hash } = useLocation();
     const messagesRef = useRef(null);
     const [trip, setTrip] = useState(undefined); // undefined = loading, null = not found
@@ -45,7 +49,7 @@ export const CarrierTripTrack = () => {
     // Live: stage, proofs and messages update without a refresh.
     useEffect(() => {
         if (!tripId) return undefined;
-        return tripService.subscribe(tripId, setTrip, (err) => { setError(toArabicError(err)); setTrip(null); });
+        return tripService.subscribe(tripId, setTrip, (err) => { setError(toUserMessage(err)); setTrip(null); });
     }, [tripId]);
 
     useEffect(() => { authService.getCurrentUser().then(setUser).catch(() => {}); }, []);
@@ -67,8 +71,8 @@ export const CarrierTripTrack = () => {
         }
     }, [hasTrip, hash]);
 
-    if (trip === undefined) return <Loader label="جاري تحميل الرحلة" />;
-    if (!trip) return <div>{error || 'الرحلة غير موجودة'}</div>;
+    if (trip === undefined) return <Loader label={t('trips.loadingOne')} />;
+    if (!trip) return <div>{error || t('errors.app.tripNotFound')}</div>;
 
     const isCancelled = trip.overallStatus === 'CANCELLED';
     const currentStageIndex = stageOrder.indexOf(trip.currentStage);
@@ -82,7 +86,7 @@ export const CarrierTripTrack = () => {
     // then the delivery point. Nothing once the trip is over.
     const focus = isDelivered || isCancelled ? null
         : currentStageIndex < stageOrder.indexOf(TripStageEnum.LOADED) ? 'pickup' : 'delivery';
-    const cargoType = shipment?.cargoType || trip.cargoType;
+    const cargoType = cargoName(shipment || trip);
     const loadingDate = shipment?.loadingDate || trip.loadingDate;
 
     const stagesList = stageOrder.map((stage) => ({
@@ -103,7 +107,7 @@ export const CarrierTripTrack = () => {
         try {
             await advanceStage(nextStage);
         } catch (err) {
-            setStageError(toArabicError(err, 'حدث خطأ أثناء تحديث حالة الرحلة'));
+            setStageError(toUserMessage(err, t('trips.stageUpdateFailed')));
         } finally {
             setIsUpdating(false);
         }
@@ -114,7 +118,7 @@ export const CarrierTripTrack = () => {
         try {
             await tripService.sendQuickMessage(trip.id, UserRole.CARRIER, key);
         } catch (err) {
-            setStageError(toArabicError(err));
+            setStageError(toUserMessage(err));
         } finally {
             setIsSendingMessage(false);
         }
@@ -125,60 +129,60 @@ export const CarrierTripTrack = () => {
 
     return (<div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 600, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-        <h2 style={{ margin: 0 }}>{trip.route}</h2>
-        <Button variant="outline" size="sm" onClick={() => navigate('/app/trips')}>العودة</Button>
+        <h2 style={{ margin: 0 }}>{formatRoute(trip.pickupCity, trip.deliveryCity, 'arrowLeft')}</h2>
+        <Button variant="outline" size="sm" onClick={() => navigate('/app/trips')}>{t('trips.back')}</Button>
       </div>
 
       <Card style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div className="text-helper" style={{ fontSize: 12 }}>نوع البضاعة</div>
+          <div className="text-helper" style={{ fontSize: 12 }}>{t('shipments.cargoType')}</div>
           <div style={{ fontWeight: 'bold', fontSize: 16 }}>{cargoType || '—'}</div>
           {(shipment?.weight ?? trip.weight) != null && (
-            <div className="text-helper" style={{ fontSize: 12 }}>{shipment?.weight ?? trip.weight} طن</div>
+            <div className="text-helper" style={{ fontSize: 12 }}>{formatWeight(shipment?.weight ?? trip.weight)}</div>
           )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-          <div className="text-helper" style={{ fontSize: 12 }}>تاريخ التحميل</div>
+          <div className="text-helper" style={{ fontSize: 12 }}>{t('shipments.loadingDate')}</div>
           <div style={{ fontWeight: 'bold', fontSize: 14 }}>
-            {loadingDate ? new Date(loadingDate).toLocaleString('ar-SA') : '—'}
+            {formatDateTime(loadingDate)}
           </div>
         </div>
       </Card>
 
-      {!isCancelled && !isDelivered && <CallButton phoneNumber={trip.shipperPhone} label="الاتصال بصاحب الشحنة" />}
+      {!isCancelled && !isDelivered && <CallButton phoneNumber={trip.shipperPhone} label={t('trips.callShipper')} />}
 
       <div style={{ backgroundColor: 'rgba(255,122,41,0.1)', padding: '20px 24px', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontSize: 24, fontWeight: 'bold', color: 'var(--color-accent)' }} dir="ltr">{formatAmount(trip.finalPrice)} ر.س</div>
-        <div style={{ fontWeight: 'bold', fontSize: 16 }}>السعر النهائي المتفق عليه</div>
+        <div style={{ fontSize: 24, fontWeight: 'bold', color: 'var(--color-accent)' }} dir="ltr">{formatMoney(trip.finalPrice)}</div>
+        <div style={{ fontWeight: 'bold', fontSize: 16 }}>{t('shipments.finalPrice')}</div>
       </div>
 
       {settlement && (
         <div role="status" style={{ padding: 16, borderRadius: 12, backgroundColor: 'rgba(16,185,129,0.08)', border: '1px solid var(--color-success)' }}>
-          <div style={{ fontWeight: 700, color: 'var(--color-success)', marginBottom: 8 }}>تم تسليم الشحنة وتسوية الرحلة</div>
-          <div>السعر: {formatAmount(settlement.price)} ر.س</div>
-          <div>عمولة المنصة: {formatAmount(settlement.commission)} ر.س</div>
-          {settlement.debtDeducted > 0 && <div>مبلغ مستحق مخصوم: {formatAmount(settlement.debtDeducted)} ر.س</div>}
-          <div style={{ fontWeight: 700 }}>الصافي المضاف إلى رصيدك: {formatAmount(settlement.netToCarrier)} ر.س</div>
+          <div style={{ fontWeight: 700, color: 'var(--color-success)', marginBottom: 8 }}>{t('trips.settlement.title')}</div>
+          <div>{t('trips.settlement.price', { amount: formatMoney(settlement.price) })}</div>
+          <div>{t('trips.settlement.commission', { amount: formatMoney(settlement.commission) })}</div>
+          {settlement.debtDeducted > 0 && <div>{t('trips.settlement.debt', { amount: formatMoney(settlement.debtDeducted) })}</div>}
+          <div style={{ fontWeight: 700 }}>{t('trips.settlement.net', { amount: formatMoney(settlement.netToCarrier) })}</div>
         </div>
       )}
 
       {isCancelled ? (
         <div style={{ padding: 16, backgroundColor: 'rgba(229,62,62,0.1)', color: 'var(--color-error)', borderRadius: 8, fontWeight: 'bold', textAlign: 'center' }}>
-          تم إلغاء هذه الرحلة
+          {t('trips.cancelled')}
         </div>
       ) : (<>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-        <h3 style={{ margin: 0 }}>حالة الرحلة</h3>
+        <h3 style={{ margin: 0 }}>{t('trips.status')}</h3>
         {!isDelivered && nextStage && !nextStageNeedsProof && (
           <Button size="sm" onClick={handleUpdateStatus} isLoading={isUpdating}>
-            تحديث إلى: {TripStageAr[nextStage]}
+            {t('trips.updateTo', { stage: t(`enums.tripStage.${nextStage}`) })}
           </Button>
         )}
       </div>
-      <p className="text-helper" style={{ margin: '8px 0 0', fontSize: 12 }}>يرجى التأكد من تحديث الحالة فور وصولك لكل مرحلة</p>
+      <p className="text-helper" style={{ margin: '8px 0 0', fontSize: 12 }}>{t('trips.statusHintCarrier')}</p>
       {stageError && <div role="alert" style={{ color: 'var(--color-error)', fontSize: 13 }}>{stageError}</div>}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, paddingRight: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0, paddingInlineStart: 16 }}>
         {stagesList.map((stage, idx) => {
           const stageIdx = stageOrder.indexOf(stage.stage);
           const isCompleted = stageIdx <= currentStageIndex;
@@ -194,8 +198,8 @@ export const CarrierTripTrack = () => {
               {idx < stagesList.length - 1 && (<div style={{ width: 2, height: 40, backgroundColor: 'var(--color-border)', margin: '4px 0' }}></div>)}
             </div>
             <div style={{ paddingBottom: idx < stagesList.length - 1 ? 24 : 0 }}>
-              <div style={{ fontWeight: 'bold', fontSize: 16 }}>{TripStageAr[stage.stage] || stage.stage}</div>
-              {stage.timestamp && <div className="text-helper" style={{ fontSize: 12 }}>{new Date(stage.timestamp).toLocaleString('ar-SA')}</div>}
+              <div style={{ fontWeight: 'bold', fontSize: 16 }}>{t(`enums.tripStage.${stage.stage}`)}</div>
+              {stage.timestamp && <div className="text-helper" style={{ fontSize: 12 }}>{formatDateTime(stage.timestamp)}</div>}
             </div>
           </div>);
         })}
@@ -203,43 +207,43 @@ export const CarrierTripTrack = () => {
 
       {shipment && (shipment.onSiteContact || shipment.pickupNotes || shipment.deliveryNotes || shipment.pickupLat || shipment.deliveryLat) && (
         <>
-          <h3 style={{ marginTop: 8, marginBottom: 8 }}>بيانات الموقع</h3>
+          <h3 style={{ marginTop: 8, marginBottom: 8 }}>{t('trips.locationTitle')}</h3>
           {focus && (
             <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 10, backgroundColor: 'rgba(255,122,41,0.1)', border: '1px solid rgba(255,122,41,0.4)', fontWeight: 700 }}>
               <span aria-hidden="true">{focus === 'pickup' ? '📦' : '🏁'}</span>
-              وجهتك الحالية: {focus === 'pickup' ? 'نقطة التحميل' : 'نقطة التسليم'}
+              {t('trips.heading', { place: focus === 'pickup' ? t('trips.pickupPoint') : t('trips.deliveryPoint') })}
             </div>
           )}
           {(shipment.pickupLat || shipment.deliveryLat) && (
             <MapThumbnail
               pickup={shipment.pickupLat ? [shipment.pickupLat, shipment.pickupLng] : null}
               delivery={shipment.deliveryLat ? [shipment.deliveryLat, shipment.deliveryLng] : null}
-              title="موقع الرحلة"
+              title={t('trips.mapTitle')}
               focus={focus}
             />
           )}
           <Card>
             {shipment.onSiteContact && (
               <div style={{ marginBottom: 16 }}>
-                <div className="text-helper">جوال المسؤول في الموقع</div>
+                <div className="text-helper">{t('shipments.onSiteContact')}</div>
                 <div dir="ltr">☎ {shipment.onSiteContact}</div>
               </div>
             )}
             <div className="responsive-two-col-even">
               {[
-                { key: 'pickup', icon: '📦', name: 'نقطة التحميل', notes: shipment.pickupNotes, lat: shipment.pickupLat, lng: shipment.pickupLng },
-                { key: 'delivery', icon: '🏁', name: 'نقطة التسليم', notes: shipment.deliveryNotes, lat: shipment.deliveryLat, lng: shipment.deliveryLng },
+                { key: 'pickup', icon: '📦', name: t('trips.pickupPoint'), notes: shipment.pickupNotes, lat: shipment.pickupLat, lng: shipment.pickupLng },
+                { key: 'delivery', icon: '🏁', name: t('trips.deliveryPoint'), notes: shipment.deliveryNotes, lat: shipment.deliveryLat, lng: shipment.deliveryLng },
               ].filter(p => p.notes || p.lat).map(p => {
                 const isNext = focus === p.key;
                 return (
                   <div key={p.key} style={{ opacity: focus && !isNext ? 0.6 : 1, ...(isNext ? { padding: 12, margin: -12, borderRadius: 10, backgroundColor: 'rgba(255,122,41,0.06)' } : {}) }}>
                     <div className="text-helper" style={isNext ? { color: 'var(--color-accent)', fontWeight: 700 } : undefined}>
-                      {p.icon} {p.name}{isNext && ' — وجهتك الحالية'}
+                      {p.icon} {p.name}{isNext && t('trips.currentDestinationSuffix')}
                     </div>
                     {p.notes && <div>{p.notes}</div>}
                     {p.lat && (
                       <Button variant={isNext ? 'primary' : 'outline'} size="sm" style={{ marginTop: 8 }} onClick={() => openDirections(p.lat, p.lng)}>
-                        {isNext ? `التوجه إلى ${p.name}` : 'فتح في خرائط جوجل'}
+                        {isNext ? t('trips.goTo', { place: p.name }) : t('trips.openInGoogleMaps')}
                       </Button>
                     )}
                   </div>
@@ -250,32 +254,32 @@ export const CarrierTripTrack = () => {
         </>
       )}
 
-      <h3 style={{ marginTop: 16, marginBottom: 8 }}>مستندات الإثبات</h3>
+      <h3 style={{ marginTop: 16, marginBottom: 8 }}>{t('trips.proofTitle')}</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 8 }}>
         <Card>
-          <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>إثبات التحميل</div>
+          <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>{t('trips.proofOfLoad')}</div>
           {loadProof ? (
-            <ProofPhotoView label="إثبات التحميل" photo={loadProof} />
+            <ProofPhotoView label={t('trips.proofOfLoad')} photo={loadProof} />
           ) : nextStage === TripStageEnum.LOADED ? (
             <ProofPhotoCapture
-              label="التقط صورة إثبات التحميل لتأكيد هذه المرحلة"
+              label={t('trips.captureLoadProof')}
               onConfirm={(proof, onProgress) => advanceStage(TripStageEnum.LOADED, proof, onProgress)}
             />
           ) : (
-            <div className="text-helper" style={{ fontSize: 12 }}>سيُطلب منك التقاط الصورة عند الوصول لهذه المرحلة</div>
+            <div className="text-helper" style={{ fontSize: 12 }}>{t('trips.photoLater')}</div>
           )}
         </Card>
         <Card>
-          <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>إثبات التسليم</div>
+          <div style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>{t('trips.proofOfDelivery')}</div>
           {deliveryProof ? (
-            <ProofPhotoView label="إثبات التسليم" photo={deliveryProof} />
+            <ProofPhotoView label={t('trips.proofOfDelivery')} photo={deliveryProof} />
           ) : nextStage === TripStageEnum.DELIVERED ? (
             <ProofPhotoCapture
-              label="التقط صورة إثبات التسليم لتأكيد هذه المرحلة"
+              label={t('trips.captureDeliveryProof')}
               onConfirm={(proof, onProgress) => advanceStage(TripStageEnum.DELIVERED, proof, onProgress)}
             />
           ) : (
-            <div className="text-helper" style={{ fontSize: 12 }}>سيُطلب منك التقاط الصورة عند الوصول لهذه المرحلة</div>
+            <div className="text-helper" style={{ fontSize: 12 }}>{t('trips.photoLater')}</div>
           )}
         </Card>
       </div>
@@ -283,8 +287,8 @@ export const CarrierTripTrack = () => {
 
       <div ref={messagesRef} id="messages" style={{ scrollMarginTop: 80 }}>
         <h3 style={{ marginTop: 8, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-          رسائل سريعة
-          {unreadCount > 0 && <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, backgroundColor: 'var(--color-accent)', color: 'white' }}>{unreadCount} جديدة</span>}
+          {t('trips.messages.title')}
+          {unreadCount > 0 && <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 999, backgroundColor: 'var(--color-accent)', color: 'white' }}>{t('trips.messages.newCount', { count: unreadCount })}</span>}
         </h3>
         <Card>
           <QuickMessagePanel role={UserRole.CARRIER} currentUserId={trip.carrierId} messages={trip.messages} onSend={handleSendMessage} isSending={isSendingMessage || isCancelled || isDelivered} newMessageIds={newMessageIds} />
@@ -295,11 +299,11 @@ export const CarrierTripTrack = () => {
         <div style={{ marginTop: 8 }}>
           {canCancel ? (
             <Button variant="danger" style={{ width: '100%' }} onClick={() => setIsCancelOpen(true)}>
-              إلغاء الرحلة
+              {t('trips.cancel')}
             </Button>
           ) : (
             <p className="text-helper" style={{ fontSize: 12, textAlign: 'center' }}>
-              لا يمكن إلغاء الرحلة بعد التحميل — يرجى التواصل مع دعم المنصة عند وجود مشكلة.
+              {t('trips.cannotCancel')}
             </p>
           )}
         </div>
@@ -307,7 +311,7 @@ export const CarrierTripTrack = () => {
 
       {isDelivered && (
         <div style={{ padding: 16, backgroundColor: 'rgba(39, 174, 96, 0.1)', color: 'var(--color-success)', borderRadius: 8, fontWeight: 'bold', textAlign: 'center' }}>
-          تم إكمال هذه الرحلة بنجاح! شكراً لك.
+          {t('trips.completedThanks')}
         </div>
       )}
 

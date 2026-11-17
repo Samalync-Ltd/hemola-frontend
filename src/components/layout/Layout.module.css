@@ -69,7 +69,14 @@
     box-shadow: -8px 0 24px rgba(0, 0, 0, 0.2);
   }
 
-  .sidebarOpen {
+  /* English (left-to-right): the drawer opens from the left. */
+  :global(html[dir="ltr"]) .sidebar {
+    transform: translateX(-100%);
+    box-shadow: 8px 0 24px rgba(0, 0, 0, 0.2);
+  }
+
+  .sidebarOpen,
+  :global(html[dir="ltr"]) .sidebarOpen {
     transform: translateX(0);
   }
 

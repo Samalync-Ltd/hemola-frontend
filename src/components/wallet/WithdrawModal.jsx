@@ -5,7 +5,8 @@ import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { walletService } from '../../services/api';
 import { isValidSaudiIban, normalizeIban, formatIban, BANK_ACCOUNT_NAME_MAX } from '../../utils/validators';
-import { toArabicError } from '../../utils/errors';
+import { toUserMessage } from '../../utils/errors';
+import { useT } from '../../i18n';
 
 /**
  * Withdrawal request with the carrier's bank details (IBAN + account holder
@@ -18,6 +19,7 @@ import { toArabicError } from '../../utils/errors';
  * after a successful request so the parent can refresh and close.
  */
 export const WithdrawModal = ({ isOpen, onClose, onCompleted, currentBalance, savedBankDetails }) => {
+    const { t } = useT();
     const [amount, setAmount] = useState('');
     const [iban, setIban] = useState('');
     const [accountName, setAccountName] = useState('');
@@ -43,15 +45,15 @@ export const WithdrawModal = ({ isOpen, onClose, onCompleted, currentBalance, sa
     const validate = () => {
         const next = {};
         const numAmount = Number(amount);
-        if (!amount || isNaN(numAmount) || numAmount <= 0) next.amount = 'يرجى إدخال مبلغ صحيح أكبر من صفر';
-        else if (numAmount > currentBalance) next.amount = 'الرصيد المتاح غير كافٍ لإتمام عملية السحب';
-        else if (Math.round(numAmount * 100) !== numAmount * 100) next.amount = 'المبلغ يقبل خانتين عشريتين كحد أقصى';
+        if (!amount || isNaN(numAmount) || numAmount <= 0) next.amount = t('wallet.withdrawModal.amountPositive');
+        else if (numAmount > currentBalance) next.amount = t('wallet.withdrawModal.notEnough');
+        else if (Math.round(numAmount * 100) !== numAmount * 100) next.amount = t('wallet.twoDecimals');
 
-        if (!iban.trim()) next.iban = 'رقم الآيبان مطلوب';
-        else if (!isValidSaudiIban(iban)) next.iban = 'رقم الآيبان غير صحيح — يبدأ بـ SA ويتكون من 24 خانة، تأكد من عدم وجود خطأ في الأرقام';
+        if (!iban.trim()) next.iban = t('wallet.withdrawModal.ibanRequired');
+        else if (!isValidSaudiIban(iban)) next.iban = t('wallet.withdrawModal.ibanInvalid');
 
-        if (!accountName.trim()) next.accountName = 'اسم صاحب الحساب مطلوب';
-        else if (accountName.trim().length > BANK_ACCOUNT_NAME_MAX) next.accountName = `الاسم يجب ألا يتجاوز ${BANK_ACCOUNT_NAME_MAX} حرفاً`;
+        if (!accountName.trim()) next.accountName = t('wallet.withdrawModal.nameRequired');
+        else if (accountName.trim().length > BANK_ACCOUNT_NAME_MAX) next.accountName = t('wallet.withdrawModal.nameTooLong', { max: BANK_ACCOUNT_NAME_MAX });
 
         setErrors(next);
         return Object.keys(next).length === 0;
@@ -75,7 +77,7 @@ export const WithdrawModal = ({ isOpen, onClose, onCompleted, currentBalance, sa
             setTimeout(() => onCompleted?.(), 1800);
         } catch (err) {
             setStatus('idle');
-            setErrors({ form: toArabicError(err, 'حدث خطأ أثناء إرسال طلب السحب') });
+            setErrors({ form: toUserMessage(err, t('wallet.withdrawModal.failed')) });
         }
     };
 
@@ -96,30 +98,30 @@ export const WithdrawModal = ({ isOpen, onClose, onCompleted, currentBalance, sa
         }}>
             <div style={{ width: 440, maxWidth: '92%' }}>
                 <Card>
-                    <h3 style={{ marginBottom: 16 }}>سحب الرصيد</h3>
+                    <h3 style={{ marginBottom: 16 }}>{t('wallet.withdrawBalance')}</h3>
 
                     <div style={{ marginBottom: 16, padding: '12px', backgroundColor: 'var(--color-surface)', borderRadius: '8px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--color-text-muted)' }}>الرصيد المتاح:</span>
-                            <span style={{ fontWeight: 'bold' }} dir="ltr">{currentBalance} ر.س</span>
+                            <span style={{ color: 'var(--color-text-muted)' }}>{t('wallet.withdrawModal.availableLabel')}</span>
+                            <span style={{ fontWeight: 'bold' }} dir="ltr">{t('common.money', { amount: currentBalance })}</span>
                         </div>
                     </div>
 
                     {status === 'success' ? (
                         <div style={{ textAlign: 'center', padding: '16px 0' }}>
                             <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: 'var(--color-success)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>✓</div>
-                            <h4 style={{ margin: 0, color: 'var(--color-success)' }}>تم إرسال طلب السحب</h4>
-                            <p className="text-helper" style={{ marginTop: 8 }}>سيتم تحويل المبلغ بعد مراجعة الإدارة إلى:</p>
+                            <h4 style={{ margin: 0, color: 'var(--color-success)' }}>{t('wallet.withdrawModal.sent')}</h4>
+                            <p className="text-helper" style={{ marginTop: 8 }}>{t('wallet.withdrawModal.sentTo')}</p>
                             <div style={{ fontWeight: 600 }}>{result?.bankAccountName}</div>
                             <div dir="ltr" style={{ fontFamily: 'monospace', fontSize: 14 }}>{formatIban(result?.iban)}</div>
                         </div>
                     ) : (
                         <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div>
-                                <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>المبلغ المراد سحبه (ر.س)</label>
+                                <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>{t('wallet.withdrawModal.amountSar')}</label>
                                 <Input
                                     numeric="decimal"
-                                    placeholder="أدخل المبلغ"
+                                    placeholder={t('wallet.enterAmount')}
                                     value={amount}
                                     onChange={e => { setAmount(e.target.value); setErrors(prev => ({ ...prev, amount: null, form: null })); }}
                                     max={currentBalance}
@@ -129,13 +131,13 @@ export const WithdrawModal = ({ isOpen, onClose, onCompleted, currentBalance, sa
                             </div>
 
                             <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 16 }}>
-                                <div style={{ fontWeight: 600, marginBottom: 4 }}>بيانات الحساب البنكي</div>
+                                <div style={{ fontWeight: 600, marginBottom: 4 }}>{t('wallet.withdrawModal.bankTitle')}</div>
                                 <p className="text-helper" style={{ fontSize: 12, margin: '0 0 12px' }}>
                                     {hasSaved
-                                        ? 'سيتم التحويل إلى الحساب المحفوظ أدناه. يمكنك تعديله قبل الإرسال.'
-                                        : 'أضف الحساب البنكي الذي سيتم تحويل المبلغ إليه. سيتم حفظه لطلبات السحب القادمة.'}
+                                        ? t('wallet.withdrawModal.bankSaved')
+                                        : t('wallet.withdrawModal.bankNew')}
                                 </p>
-                                <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>رقم الآيبان (IBAN)</label>
+                                <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>{t('wallet.withdrawModal.iban')}</label>
                                 <Input
                                     placeholder="SA00 0000 0000 0000 0000 0000"
                                     value={iban}
@@ -146,9 +148,9 @@ export const WithdrawModal = ({ isOpen, onClose, onCompleted, currentBalance, sa
                                     disabled={busy}
                                 />
                                 {fieldError('iban')}
-                                <label style={{ display: 'block', margin: '12px 0 8px', fontSize: 14 }}>اسم صاحب الحساب</label>
+                                <label style={{ display: 'block', margin: '12px 0 8px', fontSize: 14 }}>{t('wallet.withdrawModal.accountName')}</label>
                                 <Input
-                                    placeholder="كما هو مسجل لدى البنك"
+                                    placeholder={t('wallet.withdrawModal.accountNamePlaceholder')}
                                     value={accountName}
                                     onChange={e => { setAccountName(e.target.value); setErrors(prev => ({ ...prev, accountName: null, form: null })); }}
                                     maxLength={BANK_ACCOUNT_NAME_MAX}
@@ -164,15 +166,15 @@ export const WithdrawModal = ({ isOpen, onClose, onCompleted, currentBalance, sa
                             )}
 
                             <p style={{ fontSize: 12, color: 'var(--color-text-muted)', margin: 0 }}>
-                                سيتم حجز المبلغ فوراً وتحويله بعد موافقة الإدارة على الطلب.
+                                {t('wallet.withdrawModal.holdNote')}
                             </p>
 
                             <div style={{ display: 'flex', gap: 12 }}>
                                 <Button type="submit" disabled={busy} style={{ flex: 1 }} isLoading={busy}>
-                                    {busy ? 'جاري الإرسال' : 'تأكيد سحب الرصيد'}
+                                    {busy ? t('wallet.withdrawModal.sending') : t('wallet.withdrawModal.confirm')}
                                 </Button>
                                 <Button type="button" variant="outline" onClick={onClose} disabled={busy} style={{ flex: 1 }}>
-                                    إلغاء
+                                    {t('common.cancel')}
                                 </Button>
                             </div>
                         </form>

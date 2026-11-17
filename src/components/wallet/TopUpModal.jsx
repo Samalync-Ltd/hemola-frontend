@@ -3,12 +3,14 @@ import { createPortal } from 'react-dom';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
-import { toArabicError } from '../../utils/errors';
+import { toUserMessage } from '../../utils/errors';
+import { useT } from '../../i18n';
 
 export const TopUpModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
     const [amount, setAmount] = useState('');
     const [status, setStatus] = useState('idle'); // idle, processing, success
     const [error, setError] = useState('');
+    const { t } = useT();
 
     useEffect(() => {
         if (isOpen) {
@@ -24,8 +26,8 @@ export const TopUpModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
         e.preventDefault();
         setError('');
         const numAmount = Number(amount);
-        if (!(numAmount > 0)) { setError('أدخل مبلغاً أكبر من صفر'); return; }
-        if (!/^\d+(\.\d{1,2})?$/.test(String(amount).trim())) { setError('المبلغ يقبل خانتين عشريتين كحد أقصى'); return; }
+        if (!(numAmount > 0)) { setError(t('wallet.topUpModal.amountPositive')); return; }
+        if (!/^\d+(\.\d{1,2})?$/.test(String(amount).trim())) { setError(t('wallet.twoDecimals')); return; }
 
         // Success is shown only after topUpWallet has actually credited the
         // wallet (onConfirm awaits it) — never before.
@@ -35,7 +37,7 @@ export const TopUpModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
             setStatus('success');
         } catch (err) {
             setStatus('idle');
-            setError(toArabicError(err, 'تعذّر شحن الرصيد، حاول مرة أخرى'));
+            setError(toUserMessage(err, t('wallet.topUpModal.failed')));
         }
     };
 
@@ -51,20 +53,20 @@ export const TopUpModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
         }}>
             <div style={{ width: 400, maxWidth: '90%' }}>
                 <Card>
-                    <h3 style={{ marginBottom: 16 }}>شحن الرصيد</h3>
+                    <h3 style={{ marginBottom: 16 }}>{t('wallet.topUp')}</h3>
                     {status === 'success' ? (
                         <div style={{ textAlign: 'center', padding: '24px 0' }}>
                             <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: 'var(--color-success)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>✓</div>
-                            <h4 style={{ margin: '0 0 16px', color: 'var(--color-success)' }}>تمت عملية الشحن بنجاح</h4>
-                            <Button type="button" onClick={onClose} style={{ width: '100%' }}>تم</Button>
+                            <h4 style={{ margin: '0 0 16px', color: 'var(--color-success)' }}>{t('wallet.topUpModal.success')}</h4>
+                            <Button type="button" onClick={onClose} style={{ width: '100%' }}>{t('trips.cancelModal.ok')}</Button>
                         </div>
                     ) : (
                         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div>
-                                <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>المبلغ (ر.س)</label>
+                                <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>{t('wallet.topUpModal.amountSar')}</label>
                                 <Input
                                     numeric="decimal"
-                                    placeholder="أدخل المبلغ"
+                                    placeholder={t('wallet.enterAmount')}
                                     value={amount}
                                     onChange={e => setAmount(e.target.value)}
                                     required
@@ -74,10 +76,10 @@ export const TopUpModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
                             {error && <div role="alert" style={{ color: 'var(--color-error)', fontSize: 13 }}>{error}</div>}
                             <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
                                 <Button type="submit" disabled={isLoading || status === 'processing' || !amount || Number(amount) <= 0} style={{ flex: 1 }} isLoading={isLoading || status === 'processing'}>
-                                    {status === 'processing' ? 'جاري شحن الرصيد' : 'تأكيد شحن الرصيد'}
+                                    {status === 'processing' ? t('wallet.topUpModal.processing') : t('wallet.topUpModal.confirm')}
                                 </Button>
                                 <Button type="button" variant="outline" onClick={onClose} disabled={isLoading || status === 'processing'} style={{ flex: 1 }}>
-                                    إلغاء
+                                    {t('common.cancel')}
                                 </Button>
                             </div>
                         </form>

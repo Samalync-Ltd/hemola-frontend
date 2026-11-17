@@ -10,9 +10,13 @@ import { shipmentService, tripService, walletService, authService } from '../../
 import { ShipmentStatus } from '../../constants/enums';
 import { TopUpModal } from '../../components/wallet/TopUpModal';
 import { Loader } from '../../components/common/Loader';
-import { formatAmount } from '../../utils/format';
+import { formatMoney, formatRoute } from '../../utils/format';
+import { useT } from '../../i18n';
+import { useNames } from '../../i18n/catalog';
 export const Dashboard = () => {
     const navigate = useNavigate();
+    const { t } = useT();
+    const { cargoName } = useNames();
     const [shipments, setShipments] = useState([]);
     const [trips, setTrips] = useState([]);
     const [wallet, setWallet] = useState(null);
@@ -58,87 +62,87 @@ export const Dashboard = () => {
     };
 
     if (isLoading) {
-        return <Loader label="جاري تحميل لوحة التحكم" />;
+        return <Loader label={t('dashboard.loading')} />;
     }
     const pendingShipments = shipments.filter(s => s.status === ShipmentStatus.PENDING_OFFERS ||
         s.status === ShipmentStatus.NEGOTIATING);
     // Read status before stage — a cancelled trip keeps the stage it stopped at.
     const activeTrips = trips.filter(t => t.overallStatus ? t.overallStatus === 'ACTIVE' : t.currentStage !== 'DELIVERED');
     const columns = [
-        { key: 'id', header: 'رقم الشحنة', render: (s) => <strong>{s.id}</strong> },
-        { key: 'route', header: 'المسار', render: (s) => `${s.pickupCity} -> ${s.deliveryCity}` },
-        { key: 'cargo', header: 'البضاعة', render: (s) => s.cargoType },
-        { key: 'status', header: 'الحالة', render: (s) => <StatusBadge status={s.status}/> },
-        { key: 'offers', header: 'العروض', render: (s) => s.offerCount > 0 ? `${s.offerCount} عروض` : '-' },
+        { key: 'id', header: t('shipments.columns.id'), render: (s) => <strong>{s.id}</strong> },
+        { key: 'route', header: t('shipments.columns.route'), render: (s) => t('shipments.routeArrow', { from: s.pickupCity, to: s.deliveryCity }) },
+        { key: 'cargo', header: t('shipments.cargo'), render: (s) => cargoName(s) },
+        { key: 'status', header: t('common.status'), render: (s) => <StatusBadge status={s.status}/> },
+        { key: 'offers', header: t('shipments.columns.offers'), render: (s) => s.offerCount > 0 ? t('shipments.offerCount', { count: s.offerCount }) : '-' },
         {
             key: 'actions',
-            header: 'الإجراء',
+            header: t('common.action'),
             render: (s) => (<Button size="sm" variant="outline" onClick={() => navigate(`/app/shipments/${s.id}`)}>
-          {s.offerCount > 0 ? 'عرض العروض' : 'التفاصيل'}
+          {s.offerCount > 0 ? t('shipments.viewOffers') : t('common.details')}
         </Button>)
         },
     ];
     return (<div className={styles.dashboard}>
       <div className={styles.kpiGrid}>
         <Card className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>بانتظار العروض</span>
+          <span className={styles.kpiLabel}>{t('enums.shipmentStatus.PENDING_OFFERS')}</span>
           <span className={styles.kpiValue}>{shipments.filter(s => s.status === ShipmentStatus.PENDING_OFFERS).length}</span>
         </Card>
         <Card className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>قيد التفاوض</span>
+          <span className={styles.kpiLabel}>{t('enums.shipmentStatus.NEGOTIATING')}</span>
           <span className={styles.kpiValue}>{shipments.filter(s => s.status === ShipmentStatus.NEGOTIATING).length}</span>
         </Card>
         <Card className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>رحلات جارية</span>
+          <span className={styles.kpiLabel}>{t('dashboard.activeTripsKpi')}</span>
           <span className={styles.kpiValue}>{activeTrips.length}</span>
         </Card>
         <Card className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>الرصيد المتاح</span>
-          <span className={styles.kpiValue}>{wallet ? `${formatAmount(wallet.available)} ر.س` : '-'}</span>
+          <span className={styles.kpiLabel}>{t('wallet.available')}</span>
+          <span className={styles.kpiValue}>{wallet ? formatMoney(wallet.available) : '-'}</span>
         </Card>
       </div>
 
       <div className={styles.sections}>
         <div>
           <div className={styles.sectionHeader}>
-            <h3 className={styles.sectionTitle}>شحنات تتطلب إجراء</h3>
-            <Button variant="outline" size="sm" onClick={() => navigate('/app/shipments')}>عرض الكل</Button>
+            <h3 className={styles.sectionTitle}>{t('dashboard.needsAction')}</h3>
+            <Button variant="outline" size="sm" onClick={() => navigate('/app/shipments')}>{t('common.viewAll')}</Button>
           </div>
-          <DataTable data={pendingShipments.slice(0, 5)} columns={columns} keyExtractor={(s) => s.id} emptyMessage="لا توجد شحنات تتطلب إجراء حالياً"/>
+          <DataTable data={pendingShipments.slice(0, 5)} columns={columns} keyExtractor={(s) => s.id} emptyMessage={t('dashboard.needsActionEmpty')}/>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           {activeTrips.length > 0 && (<div>
-              <h3 className={styles.sectionTitle} style={{ marginBottom: 16 }}>الرحلات الجارية</h3>
+              <h3 className={styles.sectionTitle} style={{ marginBottom: 16 }}>{t('dashboard.activeTrips')}</h3>
               {activeTrips.slice(0, 2).map(trip => (<Card key={trip.id} style={{ marginBottom: 16 }}>
                   <div className={styles.tripCard}>
                     <div className={styles.tripInfo}>
                       <strong>{trip.shipmentId}</strong>
-                      <span className="text-helper">{trip.route}</span>
+                      <span className="text-helper">{formatRoute(trip.pickupCity, trip.deliveryCity, 'arrowLeft')}</span>
                       <StatusBadge status={trip.currentStage}/>
                     </div>
                     <div>
                       <PriceBlock amount={trip.finalPrice}/>
                     </div>
                   </div>
-                  <Button style={{ width: '100%' }} onClick={() => navigate(`/app/trips/${trip.id}/track`)}>متابعة الرحلة</Button>
+                  <Button style={{ width: '100%' }} onClick={() => navigate(`/app/trips/${trip.id}/track`)}>{t('trips.follow')}</Button>
                 </Card>))}
             </div>)}
 
           <Card variant="dark">
             <div className={styles.walletHeader}>
               <div className={styles.walletBalance}>
-                <span className="text-helper">الرصيد المتاح</span>
-                <h2>{formatAmount(wallet?.available)} ر.س</h2>
+                <span className="text-helper">{t('wallet.available')}</span>
+                <h2>{formatMoney(wallet?.available)}</h2>
               </div>
               <WalletIcon />
             </div>
             {wallet?.reservedBalance ? (<div style={{ marginBottom: 16 }}>
-                <span className="text-helper" style={{ display: 'block' }}>مبالغ محجوزة لرحلات جارية: {formatAmount(wallet.reservedBalance)} ر.س</span>
+                <span className="text-helper" style={{ display: 'block' }}>{t('dashboard.reservedForTrips', { amount: formatMoney(wallet.reservedBalance) })}</span>
               </div>) : null}
             <div style={{ display: 'flex', gap: 12 }}>
-              <Button variant="secondary" style={{ flex: 1 }} onClick={() => setIsTopUpOpen(true)}>شحن المحفظة</Button>
-              <Button variant="outline" style={{ flex: 1 }} onClick={() => navigate('/app/wallet')}>كشف حساب</Button>
+              <Button variant="secondary" style={{ flex: 1 }} onClick={() => setIsTopUpOpen(true)}>{t('wallet.topUpWallet')}</Button>
+              <Button variant="outline" style={{ flex: 1 }} onClick={() => navigate('/app/wallet')}>{t('wallet.statement')}</Button>
             </div>
           </Card>
         </div>

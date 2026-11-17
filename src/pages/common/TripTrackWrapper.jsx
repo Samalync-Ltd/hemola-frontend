@@ -3,6 +3,7 @@ import { TripTrack as ShipperTripTrack } from '../shipper/TripTrack';
 import { CarrierTripTrack } from '../carrier/CarrierTripTrack';
 import { authService } from '../../services/api';
 import { Loader } from '../../components/common/Loader';
+import { NotSignedIn } from './NotSignedIn';
 
 export const TripTrackWrapper = () => {
     const [user, setUser] = useState(null);
@@ -15,7 +16,7 @@ export const TripTrackWrapper = () => {
     }, []);
 
     if (isLoading) return <Loader />;
-    if (!user) return <div>لم يتم تسجيل الدخول</div>;
+    if (!user) return <NotSignedIn />;
 
     if (user.role === 'CARRIER') {
         return <CarrierTripTrack />;

@@ -3,6 +3,7 @@ import { WalletPage as ShipperWallet } from '../shipper/Wallet';
 import { CarrierWallet } from '../carrier/CarrierWallet';
 import { authService } from '../../services/api';
 import { Loader } from '../../components/common/Loader';
+import { NotSignedIn } from './NotSignedIn';
 
 export const WalletWrapper = () => {
     const [user, setUser] = useState(null);
@@ -15,7 +16,7 @@ export const WalletWrapper = () => {
     }, []);
 
     if (isLoading) return <Loader />;
-    if (!user) return <div>لم يتم تسجيل الدخول</div>;
+    if (!user) return <NotSignedIn />;
 
     if (user.role === 'CARRIER') {
         return <CarrierWallet />;

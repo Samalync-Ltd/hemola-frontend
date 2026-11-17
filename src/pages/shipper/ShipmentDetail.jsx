@@ -5,12 +5,17 @@ import { Card } from '../../components/common/Card';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { PriceBlock } from '../../components/common/PriceBlock';
 import { shipmentService } from '../../services/api';
-import { ShipmentStatus, TruckTypeAr } from '../../constants/enums';
-import { toArabicError } from '../../utils/errors';
+import { ShipmentStatus } from '../../constants/enums';
+import { toUserMessage } from '../../utils/errors';
+import { useT } from '../../i18n';
+import { useNames } from '../../i18n/catalog';
+import { formatDateTime, formatWeight } from '../../utils/format';
 import { Loader } from '../../components/common/Loader';
 export const ShipmentDetail = () => {
     const { shipmentId } = useParams();
     const navigate = useNavigate();
+    const { t } = useT();
+    const { cargoName, truckName } = useNames();
     const [shipment, setShipment] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
@@ -19,14 +24,14 @@ export const ShipmentDetail = () => {
         if (shipmentId) {
             shipmentService.getShipmentById(shipmentId)
                 .then(setShipment)
-                .catch(err => setError(toArabicError(err)))
+                .catch(err => setError(toUserMessage(err)))
                 .finally(() => setIsLoading(false));
         }
     }, [shipmentId]);
     if (isLoading)
-        return <Loader label="جاري تحميل الشحنة" />;
+        return <Loader label={t('shipments.loadingOne')} />;
     if (error || !shipment)
-        return <div>{error || 'الشحنة غير موجودة'}</div>;
+        return <div>{error || t('errors.app.shipmentNotFound')}</div>;
 
     // Free before assignment — no trip/reservation exists yet, so there's
     // nothing to charge. Once a carrier is assigned, cancellation moves to
@@ -34,13 +39,13 @@ export const ShipmentDetail = () => {
     const canCancelFree = shipment.status !== ShipmentStatus.ACTIVE && shipment.status !== ShipmentStatus.COMPLETED && shipment.status !== ShipmentStatus.CANCELLED;
 
     const handleCancel = async () => {
-        if (!window.confirm('هل تريد إلغاء هذه الشحنة؟ لم يتم إسنادها لناقل بعد، فلن يتم خصم أي مبلغ.')) return;
+        if (!window.confirm(t('shipments.detail.cancelConfirm'))) return;
         setIsCancelling(true);
         try {
             const updated = await shipmentService.cancelShipment(shipment.id);
             setShipment(updated);
         } catch (err) {
-            alert(toArabicError(err));
+            alert(toUserMessage(err));
         } finally {
             setIsCancelling(false);
         }
@@ -49,14 +54,14 @@ export const ShipmentDetail = () => {
     return (<div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h2 style={{ margin: 0, marginBottom: 8 }}>تفاصيل الشحنة {shipment.id}</h2>
+          <h2 style={{ margin: 0, marginBottom: 8 }}>{t('shipments.detail.title', { id: shipment.id })}</h2>
           <StatusBadge status={shipment.status}/>
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
-          <Button variant="outline" onClick={() => navigate('/app/shipments')}>عودة للقائمة</Button>
-          {shipment.offerCount > 0 && (<Button onClick={() => navigate(`/app/shipments/${shipment.id}/offers`)}>فتح التفاوض / العروض</Button>)}
+          <Button variant="outline" onClick={() => navigate('/app/shipments')}>{t('shipments.detail.backToList')}</Button>
+          {shipment.offerCount > 0 && (<Button onClick={() => navigate(`/app/shipments/${shipment.id}/offers`)}>{t('shipments.detail.openOffers')}</Button>)}
           {canCancelFree && (
-            <Button variant="danger" onClick={handleCancel} isLoading={isCancelling}>إلغاء الشحنة</Button>
+            <Button variant="danger" onClick={handleCancel} isLoading={isCancelling}>{t('shipments.detail.cancel')}</Button>
           )}
         </div>
       </div>
@@ -64,55 +69,55 @@ export const ShipmentDetail = () => {
       <div className="responsive-two-col">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           <Card>
-            <h3 style={{ marginBottom: 16 }}>تفاصيل المسار والبضاعة</h3>
+            <h3 style={{ marginBottom: 16 }}>{t('shipments.detail.routeAndCargo')}</h3>
             <div className="responsive-two-col-even">
               <div>
-                <div className="text-helper">مدينة التحميل</div>
+                <div className="text-helper">{t('shipments.pickupCity')}</div>
                 <div style={{ fontWeight: 700 }}>{shipment.pickupCity}</div>
               </div>
               <div>
-                <div className="text-helper">مدينة التسليم</div>
+                <div className="text-helper">{t('shipments.deliveryCity')}</div>
                 <div style={{ fontWeight: 700 }}>{shipment.deliveryCity}</div>
               </div>
               <div>
-                <div className="text-helper">نوع البضاعة</div>
-                <div style={{ fontWeight: 700 }}>{shipment.cargoType}</div>
+                <div className="text-helper">{t('shipments.cargoType')}</div>
+                <div style={{ fontWeight: 700 }}>{cargoName(shipment)}</div>
               </div>
               <div>
-                <div className="text-helper">الوزن</div>
-                <div style={{ fontWeight: 700 }}>{shipment.weight} طن</div>
+                <div className="text-helper">{t('shipments.weight')}</div>
+                <div style={{ fontWeight: 700 }}>{formatWeight(shipment.weight)}</div>
               </div>
               <div>
-                <div className="text-helper">نوع الشاحنة المطلوبة</div>
-                <div style={{ fontWeight: 700 }}>{TruckTypeAr[shipment.requiredTruckType] || shipment.requiredTruckType}</div>
+                <div className="text-helper">{t('shipments.requiredTruckType')}</div>
+                <div style={{ fontWeight: 700 }}>{truckName(shipment.requiredTruckType)}</div>
               </div>
               <div>
-                <div className="text-helper">تاريخ ووقت التحميل</div>
-                <div style={{ fontWeight: 700 }}>{shipment.loadingDate ? new Date(shipment.loadingDate).toLocaleString('ar-SA') : '—'}</div>
+                <div className="text-helper">{t('shipments.loadingDateTime')}</div>
+                <div style={{ fontWeight: 700 }}>{formatDateTime(shipment.loadingDate)}</div>
               </div>
             </div>
             {shipment.description && (<div style={{ marginTop: 16 }}>
-                <div className="text-helper">ملاحظات إضافية</div>
+                <div className="text-helper">{t('shipments.extraNotes')}</div>
                 <div>{shipment.description}</div>
               </div>)}
           </Card>
 
           <Card>
-            <h3 style={{ marginBottom: 16 }}>بيانات الموقع (تظهر للناقل بعد الإسناد فقط)</h3>
+            <h3 style={{ marginBottom: 16 }}>{t('shipments.detail.siteTitle')}</h3>
             <p className="text-helper" style={{ fontSize: 12, marginBottom: 12 }}>
-              لا يمكن تعديل بيانات الموقع بعد نشر الشحنة.
+              {t('shipments.detail.siteLocked')}
             </p>
             <div className="responsive-two-col-even">
               <div>
-                <div className="text-helper">جوال المسؤول في الموقع</div>
+                <div className="text-helper">{t('shipments.onSiteContact')}</div>
                 <div dir="ltr">{shipment.onSiteContact || '—'}</div>
               </div>
               <div>
-                <div className="text-helper">ملاحظات موقع التحميل</div>
+                <div className="text-helper">{t('shipments.pickupNotes')}</div>
                 <div>{shipment.pickupNotes || '—'}</div>
               </div>
               <div>
-                <div className="text-helper">ملاحظات موقع التسليم</div>
+                <div className="text-helper">{t('shipments.deliveryNotes')}</div>
                 <div>{shipment.deliveryNotes || '—'}</div>
               </div>
             </div>
@@ -121,21 +126,21 @@ export const ShipmentDetail = () => {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           <Card>
-            <h3 style={{ marginBottom: 16 }}>ملخص السعر</h3>
+            <h3 style={{ marginBottom: 16 }}>{t('shipments.detail.priceSummary')}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <PriceBlock label="السعر المقترح من قبلك" amount={shipment.proposedPrice} size="lg"/>
+              <PriceBlock label={t('shipments.detail.yourProposedPrice')} amount={shipment.proposedPrice} size="lg"/>
               {shipment.finalPrice && (<div style={{ paddingTop: 12, borderTop: '1px solid var(--color-border)' }}>
-                  <PriceBlock label="السعر النهائي المتفق عليه" amount={shipment.finalPrice} size="lg"/>
+                  <PriceBlock label={t('shipments.finalPrice')} amount={shipment.finalPrice} size="lg"/>
                 </div>)}
             </div>
           </Card>
 
           <Card>
-            <h3 style={{ marginBottom: 16 }}>سجل النشاط</h3>
+            <h3 style={{ marginBottom: 16 }}>{t('shipments.detail.activity')}</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span className="text-helper">{shipment.createdAt ? new Date(shipment.createdAt).toLocaleString('ar-SA') : '—'}</span>
-                <strong>تم نشر الشحنة</strong>
+                <span className="text-helper">{formatDateTime(shipment.createdAt)}</span>
+                <strong>{t('shipments.detail.posted')}</strong>
               </div>
             </div>
           </Card>

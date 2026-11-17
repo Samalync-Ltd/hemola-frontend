@@ -25,7 +25,7 @@ export const PublicHeader = ({ lang }) => (
     <header className={styles.topbar}>
         <div className={`${styles.container} ${styles.topbarInner}`}>
             <Brand lang={lang} />
-            <nav className={styles.topnav} aria-label={lang === 'ar' ? 'أقسام الصفحة' : 'Page sections'}>
+            <nav className={styles.topnav} aria-label={landing.sectionsLabel[lang]}>
                 {sectionLinks.filter((link) => link.href !== '/#app').map((link) => (
                     <a key={link.href} href={link.href} className={styles.topnavLink}>{link.label[lang]}</a>
                 ))}

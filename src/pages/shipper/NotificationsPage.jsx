@@ -5,11 +5,15 @@ import { notificationService } from '../../services/api';
 import { Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Loader } from '../../components/common/Loader';
+import { useT } from '../../i18n';
+import { localizeNotification } from '../../i18n/notifications';
+import { formatDateTime } from '../../utils/format';
 
 export const NotificationsPage = () => {
     const [notifications, setNotifications] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const navigate = useNavigate();
+    const { t, lang } = useT();
 
     useEffect(() => notificationService.subscribe(
         (data) => { setNotifications(data); setIsLoading(false); },
@@ -32,17 +36,17 @@ export const NotificationsPage = () => {
         }
     };
 
-    if (isLoading) return <Loader label="جاري تحميل الإشعارات" />;
+    if (isLoading) return <Loader label={t('notifications.loading')} />;
 
     const unreadCount = notifications.filter(n => !n.isRead).length;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0 }}>الإشعارات</h2>
+                <h2 style={{ margin: 0 }}>{t('notifications.title')}</h2>
                 {unreadCount > 0 && (
                     <Button variant="outline" onClick={handleMarkAllAsRead}>
-                        تعليم الكل كمقروء
+                        {t('notifications.markAllRead')}
                     </Button>
                 )}
             </div>
@@ -50,11 +54,13 @@ export const NotificationsPage = () => {
             <Card style={{ padding: 0 }}>
                 {notifications.length === 0 ? (
                     <div style={{ padding: 48, textAlign: 'center', color: 'var(--color-text-muted)' }}>
-                        لا توجد إشعارات حالياً
+                        {t('notifications.emptyPage')}
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        {notifications.map((notif, idx) => (
+                        {notifications.map((notif, idx) => {
+                            const text = localizeNotification(notif, lang);
+                            return (
                             <div 
                                 key={notif.id}
                                 onClick={() => handleNotificationClick(notif)}
@@ -71,13 +77,13 @@ export const NotificationsPage = () => {
                             >
                                 <div style={{ flex: 1 }}>
                                     <h3 style={{ margin: '0 0 8px 0', fontSize: 16, fontWeight: notif.isRead ? 'normal' : 'bold' }}>
-                                        {notif.title}
+                                        {text.title}
                                     </h3>
                                     <p style={{ margin: '0 0 12px 0', color: 'var(--color-text-muted)' }}>
-                                        {notif.message}
+                                        {text.message}
                                     </p>
                                     <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
-                                        {new Date(notif.timestamp).toLocaleString('ar-SA')}
+                                        {formatDateTime(notif.timestamp)}
                                     </div>
                                 </div>
                                 {!notif.isRead && (
@@ -86,11 +92,12 @@ export const NotificationsPage = () => {
                                         onClick={(e) => handleMarkAsRead(notif.id, e)}
                                         style={{ padding: '8px 12px' }}
                                     >
-                                        <Check size={16} style={{ marginLeft: 4 }} /> تعليم
+                                        <Check size={16} style={{ marginInlineEnd: 4 }} /> {t('notifications.markReadShort')}
                                     </Button>
                                 )}
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </Card>

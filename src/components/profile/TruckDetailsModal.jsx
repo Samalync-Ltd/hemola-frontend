@@ -6,8 +6,11 @@ import { Input } from '../common/Input';
 import { FileInput } from '../common/FileInput';
 import { StatusBadge } from '../common/StatusBadge';
 import { authService } from '../../services/api';
-import { TRUCK_TYPE_OPTIONS, TruckTypeAr } from '../../constants/enums';
-import { toArabicError } from '../../utils/errors';
+import { TRUCK_TYPE_OPTIONS } from '../../constants/enums';
+import { toUserMessage } from '../../utils/errors';
+import { useT } from '../../i18n';
+import { useNames } from '../../i18n/catalog';
+import { formatWeight } from '../../utils/format';
 
 /**
  * Detail/edit view for ONE truck in the carrier's fleet (see
@@ -24,6 +27,8 @@ export const TruckDetailsModal = ({ isOpen, onClose, user, truck, onSaved, onDel
     const [files, setFiles] = useState({});
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState('');
+    const { t } = useT();
+    const { truckName } = useNames();
 
     useEffect(() => {
         if (isOpen) {
@@ -50,7 +55,7 @@ export const TruckDetailsModal = ({ isOpen, onClose, user, truck, onSaved, onDel
     const handleSave = async () => {
         setError('');
         if (isNew && (!files.operatingCard || !files.registration)) {
-            setError('يرجى إرفاق بطاقة تشغيل المركبة والاستمارة (رخصة السير)');
+            setError(t('account.truck.papersRequired'));
             return;
         }
         // Type, capacity and plate were checked by the admin against the
@@ -58,7 +63,7 @@ export const TruckDetailsModal = ({ isOpen, onClose, user, truck, onSaved, onDel
         if (!isNew) {
             const reviewed = (t) => [t.type, t.customType || '', Number(t.capacityTons), t.plateNumber].join('|');
             if (reviewed(form) !== reviewed(truck)
-                && !window.confirm('تغيير نوع الشاحنة أو حمولتها أو رقم لوحتها يعيدها للمراجعة، ولن تتمكن من تقديم عروض بها حتى توافق الإدارة على مستنداتها مجدداً. هل تريد المتابعة؟')) {
+                && !window.confirm(t('account.truck.reviewConfirm'))) {
                 return;
             }
         }
@@ -70,14 +75,14 @@ export const TruckDetailsModal = ({ isOpen, onClose, user, truck, onSaved, onDel
             onSaved?.(updatedUser);
             if (isNew) onClose(); else setIsEditing(false);
         } catch (err) {
-            setError(toArabicError(err));
+            setError(toUserMessage(err));
         } finally {
             setIsSaving(false);
         }
     };
 
     const handleDelete = async () => {
-        if (!window.confirm('هل تريد حذف هذه الشاحنة من أسطولك؟')) return;
+        if (!window.confirm(t('account.truck.deleteConfirm'))) return;
         setIsSaving(true);
         try {
             const updatedUser = await authService.removeTruck(user.id, truck.id);
@@ -93,9 +98,9 @@ export const TruckDetailsModal = ({ isOpen, onClose, user, truck, onSaved, onDel
             <div style={{ width: 420, maxWidth: '90%' }}>
                 <Card>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                        <h3 style={{ margin: 0 }}>{isNew ? 'إضافة شاحنة' : isEditing ? 'تعديل بيانات الشاحنة' : 'تفاصيل الشاحنة'}</h3>
+                        <h3 style={{ margin: 0 }}>{isNew ? t('account.truck.add') : isEditing ? t('account.truck.editTitle') : t('account.truck.detailsTitle')}</h3>
                         {!isNew && !isEditing && (
-                            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>تعديل</Button>
+                            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>{t('account.truck.edit')}</Button>
                         )}
                     </div>
 
@@ -107,10 +112,10 @@ export const TruckDetailsModal = ({ isOpen, onClose, user, truck, onSaved, onDel
 
                     {isEditing ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <Input name="brand" label="الشركة المصنّعة" value={form.brand} onChange={handleFieldChange} />
-                            <Input name="model" label="الطراز" value={form.model} onChange={handleFieldChange} />
+                            <Input name="brand" label={t('account.truck.brand')} value={form.brand} onChange={handleFieldChange} />
+                            <Input name="model" label={t('account.truck.model')} value={form.model} onChange={handleFieldChange} />
                             <div>
-                                <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>نوع الشاحنة</label>
+                                <label style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>{t('account.truck.type')}</label>
                                 <select
                                     name="type"
                                     value={form.type}
@@ -123,67 +128,67 @@ export const TruckDetailsModal = ({ isOpen, onClose, user, truck, onSaved, onDel
                                     {form.type && !TRUCK_TYPE_OPTIONS.includes(form.type) && (
                                         <option value={form.type}>{form.type}</option>
                                     )}
-                                    {TRUCK_TYPE_OPTIONS.map(t => <option key={t} value={t}>{TruckTypeAr[t] || t}</option>)}
+                                    {TRUCK_TYPE_OPTIONS.map(code => <option key={code} value={code}>{truckName(code)}</option>)}
                                 </select>
                             </div>
-                            <Input name="capacityTons" numeric="decimal" label="الحمولة القصوى (طن)" value={form.capacityTons} onChange={handleFieldChange} />
-                            <Input name="plateNumber" label="رقم اللوحة" value={form.plateNumber} onChange={handleFieldChange} />
+                            <Input name="capacityTons" numeric="decimal" label={t('account.truck.capacity')} value={form.capacityTons} onChange={handleFieldChange} />
+                            <Input name="plateNumber" label={t('account.truck.plate')} value={form.plateNumber} onChange={handleFieldChange} />
 
                             {isNew && (<>
-                                <FileInput name="operatingCard" label="بطاقة تشغيل مركبة" file={files.operatingCard} onChange={handleFileChange} />
-                                <FileInput name="registration" label="الاستمارة (رخصة السير)" file={files.registration} onChange={handleFileChange} />
+                                <FileInput name="operatingCard" label={t('account.truck.operatingCard')} file={files.operatingCard} onChange={handleFileChange} />
+                                <FileInput name="registration" label={t('account.truck.registration')} file={files.registration} onChange={handleFileChange} />
                             </>)}
 
                             <div style={{ display: 'flex', gap: 12 }}>
-                                <Button style={{ flex: 1 }} onClick={handleSave} isLoading={isSaving}>حفظ</Button>
+                                <Button style={{ flex: 1 }} onClick={handleSave} isLoading={isSaving}>{t('common.save')}</Button>
                                 <Button
                                     variant="outline"
                                     style={{ flex: 1 }}
                                     onClick={() => (isNew ? onClose() : setIsEditing(false))}
                                     disabled={isSaving}
                                 >
-                                    إلغاء
+                                    {t('common.cancel')}
                                 </Button>
                             </div>
                         </div>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span className="text-helper">نوع الشاحنة</span>
+                                <span className="text-helper">{t('account.truck.type')}</span>
                                 {/* Older truck records may still carry a raw Arabic label
                                     instead of one of the real TruckType enum keys — fall back to
                                     showing it as-is rather than losing the information. */}
-                                <strong>{(truck.type === 'OTHER' ? truck.customType : TruckTypeAr[truck.type]) || truck.type || '—'}</strong>
+                                <strong>{truckName(truck.type, truck.customType)}</strong>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span className="text-helper">الشركة المصنّعة / الطراز</span>
+                                <span className="text-helper">{t('account.truck.brandModel')}</span>
                                 <strong>{[truck.brand, truck.model].filter(Boolean).join(' / ') || '—'}</strong>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span className="text-helper">الحمولة القصوى</span>
-                                <strong>{truck.capacityTons ?? '—'} طن</strong>
+                                <span className="text-helper">{t('account.truck.capacityShort')}</span>
+                                <strong>{formatWeight(truck.capacityTons ?? '—')}</strong>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span className="text-helper">رقم اللوحة</span>
+                                <span className="text-helper">{t('account.truck.plate')}</span>
                                 <strong dir="ltr">{truck.plateNumber || '—'}</strong>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span className="text-helper">بطاقة التشغيل</span>
+                                <span className="text-helper">{t('account.truck.operatingCardShort')}</span>
                                 <StatusBadge status={truck.operatingCard?.status} />
                             </div>
                             {truck.operatingCard?.expiryDate && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <span className="text-helper">تاريخ انتهاء بطاقة التشغيل</span>
+                                    <span className="text-helper">{t('account.truck.operatingCardExpiry')}</span>
                                     <strong dir="ltr">{truck.operatingCard.expiryDate}</strong>
                                 </div>
                             )}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span className="text-helper">الاستمارة (رخصة السير)</span>
+                                <span className="text-helper">{t('account.truck.registration')}</span>
                                 <StatusBadge status={truck.registration?.status} />
                             </div>
                             <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-                                <Button variant="outline" style={{ flex: 1 }} onClick={onClose}>إغلاق</Button>
-                                <Button variant="danger" style={{ flex: 1 }} onClick={handleDelete} isLoading={isSaving}>حذف</Button>
+                                <Button variant="outline" style={{ flex: 1 }} onClick={onClose}>{t('common.close')}</Button>
+                                <Button variant="danger" style={{ flex: 1 }} onClick={handleDelete} isLoading={isSaving}>{t('account.truck.delete')}</Button>
                             </div>
                         </div>
                     )}

@@ -8,7 +8,9 @@
 // reason submitOffer would give. submitOffer and acceptOffer both verify
 // truck capacity (TRUCK_CAPACITY_TOO_LOW) against shipment weight.
 
-import { ShipmentStatus, TruckTypeAr } from '../constants/enums';
+import { ShipmentStatus } from '../constants/enums';
+import { t } from '../i18n';
+import { truckTypeName } from '../i18n/catalog';
 
 const OPEN_STATUSES = [ShipmentStatus.PENDING_OFFERS, ShipmentStatus.NEGOTIATING];
 
@@ -45,11 +47,11 @@ export const isShipmentForCarrier = (shipment, carrier) =>
  */
 export const carrierBlockReason = (carrier) => {
     if (!carrier) return null;
-    if (carrier.accountStatus !== 'VERIFIED') return 'حسابك لم يُوثّق بعد — تتم مراجعة مستنداتك من قبل الإدارة.';
-    if (carrier.isSuspended) return 'حسابك موقوف حالياً بسبب تكرار الإلغاء — تواصل مع الدعم لرفع الإيقاف.';
-    if (carrier.isBusy) return 'لديك رحلة نشطة — أكملها أولاً قبل تقديم عروض جديدة.';
+    if (carrier.accountStatus !== 'VERIFIED') return t('shipments.carrier.block.notVerified');
+    if (carrier.isSuspended) return t('shipments.carrier.block.suspended');
+    if (carrier.isBusy) return t('shipments.carrier.block.busy');
     if ((carrier.outstandingDebt ?? 0) > 0) {
-        return `عليك مبلغ مستحق للمنصة (${carrier.outstandingDebt} ر.س) — اشحن محفظتك لسداده قبل تقديم عروض جديدة.`;
+        return t('shipments.carrier.block.debt', { amount: carrier.outstandingDebt });
     }
     return null;
 };
@@ -62,21 +64,21 @@ export const usableTrucksFor = (carrier, shipment) =>
 export const offerBlockReason = (carrier, shipment) => {
     const accountReason = carrierBlockReason(carrier);
     if (accountReason) return accountReason;
-    if (!OPEN_STATUSES.includes(shipment.status)) return 'هذه الشحنة لم تعد متاحة لتقديم العروض.';
+    if (!OPEN_STATUSES.includes(shipment.status)) return t('shipments.carrier.offerBlock.closed');
 
-    const typeLabel = TruckTypeAr[shipment.requiredTruckType] || shipment.requiredTruckType;
+    const typeLabel = truckTypeName(shipment.requiredTruckType);
     const matching = (carrier.trucks || []).filter(t => truckCanCarry(t, shipment));
     if (matching.length === 0) {
         const sameType = (carrier.trucks || []).some(t => t.type === shipment.requiredTruckType);
         return sameType
-            ? `حمولة شاحنتك من نوع ${typeLabel} أقل من وزن هذه الشحنة (${shipment.weight} طن).`
-            : `هذه الشحنة تتطلب شاحنة من نوع ${typeLabel} — لا تملك شاحنة من هذا النوع.`;
+            ? t('shipments.carrier.offerBlock.tooSmall', { type: typeLabel, weight: shipment.weight })
+            : t('shipments.carrier.offerBlock.wrongType', { type: typeLabel });
     }
     if (!matching.some(isTruckApproved)) {
         const rejected = matching.some(t => t.operatingCard?.status === 'REJECTED' || t.registration?.status === 'REJECTED');
         return rejected
-            ? 'أحد مستندات شاحنتك مرفوض — أعد رفعه من صفحة الحساب لتتمكن من تقديم العروض.'
-            : 'مستندات شاحنتك قيد المراجعة — يمكنك تقديم العروض بعد اعتماد بطاقة التشغيل والاستمارة.';
+            ? t('shipments.carrier.offerBlock.docRejected')
+            : t('shipments.carrier.offerBlock.docsInReview');
     }
     return null;
 };

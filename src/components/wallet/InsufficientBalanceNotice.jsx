@@ -4,6 +4,7 @@ import { Button } from '../common/Button';
 import { TopUpModal } from './TopUpModal';
 import { walletService } from '../../services/api';
 import { formatAmount } from '../../utils/format';
+import { useT } from '../../i18n';
 
 /**
  * "Your available balance (X) is below the offer (Y)" plus a top-up button
@@ -12,7 +13,8 @@ import { formatAmount } from '../../utils/format';
  *
  * `warning` softens the tone where nothing is blocked (posting a shipment).
  */
-export const InsufficientBalanceNotice = ({ available, required, label = 'قيمة العرض', warning = false, children }) => {
+export const InsufficientBalanceNotice = ({ available, required, label, warning = false, children }) => {
+    const { t } = useT();
     const [isTopUpOpen, setIsTopUpOpen] = useState(false);
     const color = warning ? '#B45309' : 'var(--color-error)';
     return (
@@ -23,10 +25,10 @@ export const InsufficientBalanceNotice = ({ available, required, label = 'قيم
         }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', color, fontWeight: 600, fontSize: 14 }}>
                 <Wallet size={18} style={{ flexShrink: 0, marginTop: 2 }} aria-hidden="true" />
-                <span>رصيدك المتاح ({formatAmount(available)} ر.س) أقل من {label} ({formatAmount(required)} ر.س){children}</span>
+                <span>{t('wallet.insufficient', { available: formatAmount(available), label: label ?? t('wallet.offerValue'), required: formatAmount(required) })}{children}</span>
             </div>
             <Button size="sm" variant={warning ? 'outline' : 'primary'} onClick={() => setIsTopUpOpen(true)} style={{ alignSelf: 'flex-start' }}>
-                شحن الرصيد
+                {t('wallet.topUp')}
             </Button>
             <TopUpModal
                 isOpen={isTopUpOpen}

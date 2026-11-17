@@ -20,6 +20,7 @@ import { TripStage } from '../constants/enums';
 import { normalizeSaudiPhone } from '../utils/validators';
 import { DOCUMENT_KEYS } from '../constants/documentKeys';
 import { AUTH_EMAIL_CONTINUE_URL } from '../constants/config';
+import { userError } from '../utils/errors';
 
 // Every Cloud Function below is documented in hemooltak-backend/INTEGRATION.md
 // — request/response shapes, error codes, and the exact enum spellings all
@@ -128,23 +129,23 @@ export const firebaseAuthService = {
                 const res = await call('signInWithPhone')({ phone: value.replace(/\s/g, ''), password });
                 uid = (await signInWithCustomToken(auth, res.data.token)).user.uid;
             } catch (err) {
-                if (err.code === 'functions/unauthenticated') throw new Error('رقم الجوال أو كلمة المرور غير صحيحة');
-                if (err.code === 'functions/resource-exhausted') throw new Error('محاولات كثيرة فاشلة — انتظر قليلاً أو سجّل الدخول بالبريد الإلكتروني');
+                if (err.code === 'functions/unauthenticated') throw userError('errors.app.wrongPhoneOrPassword');
+                if (err.code === 'functions/resource-exhausted') throw userError('errors.app.phoneLoginLocked');
                 throw err;
             }
         } else if (value.includes('@')) {
             uid = (await signInWithEmailAndPassword(auth, value, password)).user.uid;
         } else {
-            throw new Error('أدخل بريداً إلكترونياً أو رقم جوال سعودي صحيح (05xxxxxxxx)');
+            throw userError('errors.app.badIdentifier');
         }
         const profile = await loadFullProfile(uid);
         if (!profile) {
             await signOut(auth);
-            throw new Error('لا يوجد ملف تعريف مرتبط بهذا الحساب');
+            throw userError('errors.app.noProfile');
         }
         if (profile.role !== role) {
             await signOut(auth);
-            throw new Error('هذا الحساب غير مسجل بهذا النوع من الحسابات');
+            throw userError('errors.app.wrongRole');
         }
         return profile;
     },
@@ -224,9 +225,9 @@ export const firebaseAuthService = {
             try {
                 await call('updatePhoneNumber')({ phone: normalizeSaudiPhone(phone) });
             } catch (err) {
-                if (err.code === 'functions/already-exists') throw new Error('رقم الجوال مستخدم في حساب آخر');
-                if (err.code === 'functions/invalid-argument') throw new Error('رقم الجوال غير صحيح — أدخل رقم جوال سعودي (05xxxxxxxx)');
-                throw new Error('تعذّر تحديث رقم الجوال، حاول مرة أخرى');
+                if (err.code === 'functions/already-exists') throw userError('errors.app.phoneInUse');
+                if (err.code === 'functions/invalid-argument') throw userError('errors.app.phoneInvalid');
+                throw userError('errors.app.phoneUpdateFailed');
             }
         }
 
@@ -260,7 +261,7 @@ export const firebaseAuthService = {
     },
     resendEmailVerification: async () => {
         await auth.authStateReady();
-        if (!auth.currentUser) throw new Error('انتهت الجلسة — سجّل الدخول مرة أخرى');
+        if (!auth.currentUser) throw userError('errors.app.sessionExpired');
         await sendEmailVerification(auth.currentUser, prepareAuthEmail());
     },
     /**
@@ -271,21 +272,21 @@ export const firebaseAuthService = {
      */
     changePassword: async (currentPassword, newPassword) => {
         const user = auth.currentUser;
-        if (!user || !user.email) throw new Error('انتهت الجلسة — سجّل الدخول مرة أخرى ثم أعد المحاولة');
+        if (!user || !user.email) throw userError('errors.app.sessionExpiredRetry');
         try {
             await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, currentPassword));
         } catch (err) {
             if (['auth/wrong-password', 'auth/invalid-credential', 'auth/invalid-login-credentials'].includes(err.code)) {
-                throw new Error('كلمة المرور الحالية غير صحيحة');
+                throw userError('errors.app.currentPasswordWrong');
             }
-            if (err.code === 'auth/too-many-requests') throw new Error('محاولات كثيرة فاشلة — انتظر قليلاً ثم حاول مرة أخرى');
-            throw new Error('تعذّر التحقق من كلمة المرور الحالية، حاول مرة أخرى');
+            if (err.code === 'auth/too-many-requests') throw userError('errors.app.tooManyAttempts');
+            throw userError('errors.app.currentPasswordCheckFailed');
         }
         try {
             await updatePassword(user, newPassword);
         } catch (err) {
-            if (err.code === 'auth/weak-password') throw new Error('كلمة المرور الجديدة ضعيفة — استخدم 8 أحرف على الأقل');
-            throw new Error('تعذّر تغيير كلمة المرور، حاول مرة أخرى');
+            if (err.code === 'auth/weak-password') throw userError('errors.app.newPasswordWeak');
+            throw userError('errors.app.passwordChangeFailed');
         }
         return { success: true };
     },
@@ -408,7 +409,7 @@ export const firebaseShipmentService = {
     },
     getShipmentById: async (id) => {
         const docSnap = await getDoc(doc(db, 'shipments', id));
-        if (!docSnap.exists()) throw new Error('الشحنة غير موجودة');
+        if (!docSnap.exists()) throw userError('errors.app.shipmentNotFound');
         return attachSiteDetails(toShipmentUiShape(docSnap.id, docSnap.data()));
     },
     /** Live public shipment (status, tripId once assigned). Site details are not re-read per change. */
@@ -457,7 +458,7 @@ export const firebaseShipmentService = {
      * gap versus the mock's editable behavior, not something to fake.
      */
     updateSiteDetails: async () => {
-        throw new Error('لا يمكن تعديل بيانات الموقع بعد نشر الشحنة — هذه الميزة غير مدعومة حالياً من الخادم.');
+        throw userError('errors.app.siteDetailsNotEditable');
     }
 };
 
@@ -725,7 +726,7 @@ const tripBaseShape = (id, data) => {
  * don't change during a trip, so a live view reads them once.
  */
 const loadTripExtras = async (id, data) => {
-    const extras = { route: '—', pickupCity: '', deliveryCity: '', cargoType: null, weight: null, loadingDate: null };
+    const extras = { route: '—', pickupCity: '', deliveryCity: '', cargoType: null, cargoTypeName: null, weight: null, loadingDate: null };
     try {
         const shipmentSnap = await getDoc(doc(db, 'shipments', data.shipmentId));
         if (shipmentSnap.exists()) {
@@ -735,6 +736,7 @@ const loadTripExtras = async (id, data) => {
                 deliveryCity: s.deliveryCity,
                 route: `${s.pickupCity} ← ${s.deliveryCity}`,
                 cargoType: s.cargoType || null,
+                cargoTypeName: s.cargoTypeName || null,
                 weight: s.weight ?? null,
                 loadingDate: toIso(s.loadingDate),
             });
@@ -788,7 +790,7 @@ export const firebaseTripService = {
     },
     getTripById: async (id) => {
         const snap = await getDoc(doc(db, 'trips', id));
-        if (!snap.exists()) throw new Error('الرحلة غير موجودة');
+        if (!snap.exists()) throw userError('errors.app.tripNotFound');
         return toTripUiShape(snap.id, snap.data());
     },
     /**
@@ -843,7 +845,7 @@ export const firebaseTripService = {
     /** Resolves the trip's shipmentId and cancels through the same cancelShipment function the pre-assignment path uses — there is no separate trip-level cancel endpoint. */
     cancelTrip: async (tripId) => {
         const tripSnap = await getDoc(doc(db, 'trips', tripId));
-        if (!tripSnap.exists()) throw new Error('الرحلة غير موجودة');
+        if (!tripSnap.exists()) throw userError('errors.app.tripNotFound');
         const res = await call('cancelShipment')({ shipmentId: tripSnap.data().shipmentId });
         const trip = await firebaseTripService.getTripById(tripId);
         trip.cancellationResult = res.data; // { chargedTo, commission, ... } for an immediate confirmation message
@@ -929,7 +931,7 @@ export const firebaseWalletService = {
     },
     topUp: async (amount) => {
         const res = await call('topUpWallet')({ amount: Number(amount) });
-        return { id: `topup-${Date.now()}`, type: 'TOP_UP', amount: res.data.credited, description: 'شحن رصيد', timestamp: new Date().toISOString() };
+        return { id: `topup-${Date.now()}`, type: 'TOP_UP', amount: res.data.credited, description: '', timestamp: new Date().toISOString() };
     },
     /** Only holds the amount (reservedAmount rises) — settlement happens later when an admin calls processWithdrawal, not instantly like the mock. */
     /**
@@ -942,9 +944,9 @@ export const firebaseWalletService = {
             return (await call('updateBankDetails')({ iban, bankAccountName })).data;
         } catch (err) {
             if (err.code === 'functions/invalid-argument') {
-                throw new Error(/bankAccountName/.test(err.message)
-                    ? 'اسم صاحب الحساب مطلوب (100 حرف كحد أقصى).'
-                    : 'رقم الآيبان غير صحيح — تأكد من كتابته (SA متبوعاً بـ 22 خانة).');
+                throw userError(/bankAccountName/.test(err.message)
+                    ? 'errors.app.bankAccountNameInvalid'
+                    : 'errors.app.ibanInvalid');
             }
             throw err;
         }
@@ -957,7 +959,7 @@ export const firebaseWalletService = {
         return {
             id: res.data.withdrawalId, type: 'WITHDRAWAL', amount: -res.data.amount,
             iban: res.data.iban, bankAccountName: res.data.bankAccountName,
-            description: 'طلب سحب رصيد (قيد مراجعة الإدارة)', timestamp: new Date().toISOString(),
+            description: '', timestamp: new Date().toISOString(),
         };
     },
 };

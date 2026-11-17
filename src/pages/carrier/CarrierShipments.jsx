@@ -9,15 +9,16 @@ import { isShipmentForCarrier, carrierBlockReason, offerBlockReason } from '../.
 import { CarrierBlockNotice } from '../../components/carrier/CarrierBlockNotice';
 import { getCurrentPositionSafe, haversineKm, lookupCityCoordinates } from '../../utils/geo';
 import { SkeletonRows } from '../../components/common/Loader';
+import { useT } from '../../i18n';
+import { useNames } from '../../i18n/catalog';
+import { formatDateTime, formatRoute, formatWeight } from '../../utils/format';
 
-const SORT_OPTIONS = [
-    { value: 'newest', label: 'الأحدث' },
-    { value: 'priceHighToLow', label: 'السعر: الأعلى أولاً' },
-    { value: 'nearest', label: 'الأقرب أولاً' },
-];
+const SORT_OPTIONS = ['newest', 'priceHighToLow', 'nearest'];
 
 export const CarrierShipments = () => {
     const navigate = useNavigate();
+    const { t } = useT();
+    const { cargoName } = useNames();
     const [shipments, setShipments] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [sortOrder, setSortOrder] = useState('newest');
@@ -84,20 +85,20 @@ export const CarrierShipments = () => {
     const accountBlock = carrierBlockReason(carrier);
 
     const columns = [
-        { key: 'route', header: 'المسار', render: (s) => `${s.pickupCity} -> ${s.deliveryCity}` },
-        { key: 'cargo', header: 'البضاعة', render: (s) => s.cargoType },
-        { key: 'weight', header: 'الوزن', render: (s) => `${s.weight} طن` },
-        { key: 'date', header: 'تاريخ التحميل', render: (s) => s.loadingDate },
-        { key: 'price', header: 'السعر المقترح', render: (s) => <PriceBlock amount={s.proposedPrice}/> },
+        { key: 'route', header: t('shipments.columns.route'), render: (s) => formatRoute(s.pickupCity, s.deliveryCity) },
+        { key: 'cargo', header: t('shipments.cargo'), render: (s) => cargoName(s) },
+        { key: 'weight', header: t('shipments.weight'), render: (s) => formatWeight(s.weight) },
+        { key: 'date', header: t('shipments.loadingDate'), render: (s) => formatDateTime(s.loadingDate) },
+        { key: 'price', header: t('shipments.proposedPrice'), render: (s) => <PriceBlock amount={s.proposedPrice}/> },
         {
             key: 'actions',
-            header: 'الإجراء',
+            header: t('common.action'),
             render: (s) => {
                 const existingOffer = myOffersByShipment[s.id];
                 if (existingOffer && existingOffer.status !== 'REJECTED') {
                     return (
                         <Button size="sm" variant="outline" onClick={() => navigate(`/app/shipments/${s.id}/negotiation/${existingOffer.id}`)}>
-                            متابعة عرضي
+                            {t('shipments.carrier.followMyOffer')}
                         </Button>
                     );
                 }
@@ -105,7 +106,7 @@ export const CarrierShipments = () => {
                 if (reason) {
                     return (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end', maxWidth: 220 }}>
-                            <Button size="sm" variant="outline" onClick={() => navigate(`/app/shipments/${s.id}`)}>عرض التفاصيل</Button>
+                            <Button size="sm" variant="outline" onClick={() => navigate(`/app/shipments/${s.id}`)}>{t('shipments.carrier.viewDetails')}</Button>
                             {/* Account-level reasons are in the banner above; only truck-specific ones repeat per row. */}
                             {!accountBlock && (
                                 <span style={{ fontSize: 11, color: 'var(--color-text-muted)', textAlign: 'end' }}>{reason}</span>
@@ -115,7 +116,7 @@ export const CarrierShipments = () => {
                 }
                 return (
                     <Button size="sm" onClick={() => navigate(`/app/shipments/${s.id}`)}>
-                        تقديم عرض
+                        {t('shipments.carrier.makeOffer')}
                     </Button>
                 );
             }
@@ -125,14 +126,14 @@ export const CarrierShipments = () => {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0 }}>تصفح الشحنات المتاحة</h2>
+                <h2 style={{ margin: 0 }}>{t('shipments.carrier.browseTitle')}</h2>
                 <select
                     value={sortOrder}
                     onChange={(e) => setSortOrder(e.target.value)}
                     style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--color-border)' }}
                 >
-                    {SORT_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    {SORT_OPTIONS.map(value => (
+                        <option key={value} value={value}>{t(`shipments.carrier.sort.${value}`)}</option>
                     ))}
                 </select>
             </div>
@@ -141,13 +142,13 @@ export const CarrierShipments = () => {
 
             <Card>
                 {isLoading ? (
-                    <SkeletonRows rows={4} columns={3} label="جاري تحميل الشحنات المتاحة" />
+                    <SkeletonRows rows={4} columns={3} label={t('shipments.carrier.loadingAvailable')} />
                 ) : (
                     <DataTable
                         data={sortedShipments}
                         columns={columns}
                         keyExtractor={(s) => s.id}
-                        emptyMessage="لا توجد حالياً شحنات تناسب نوع شاحنتك وحمولتها"
+                        emptyMessage={t('dashboard.noMatchingShipments')}
                     />
                 )}
             </Card>

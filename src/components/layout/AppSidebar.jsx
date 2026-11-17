@@ -4,54 +4,49 @@ import { Home, Package, Truck, Wallet, User as UserIcon, Plus, X } from 'lucide-
 import styles from './Layout.module.css';
 import { Button } from '../common/Button';
 import { authService } from '../../services/api';
+import { useT } from '../../i18n';
 
 export const AppSidebar = ({ isOpen = false, onClose }) => {
     const navigate = useNavigate();
+    const { t } = useT();
     const [user, setUser] = useState(null);
 
     useEffect(() => {
         authService.getCurrentUser().then(u => setUser(u));
     }, []);
 
-    const navItems = user?.role === 'CARRIER' 
-      ? [
-          { label: 'الرئيسية', path: '/app', icon: <Home size={20}/> },
-          { label: 'الشحنات', path: '/app/shipments', icon: <Package size={20}/> },
-          { label: 'الرحلات', path: '/app/trips', icon: <Truck size={20}/> },
-          { label: 'المحفظة', path: '/app/wallet', icon: <Wallet size={20}/> },
-          { label: 'الحساب', path: '/app/account', icon: <UserIcon size={20}/> },
-        ]
-      : [
-          { label: 'الرئيسية', path: '/app', icon: <Home size={20}/> },
-          { label: 'شحناتي', path: '/app/shipments', icon: <Package size={20}/> },
-          { label: 'الرحلات', path: '/app/trips', icon: <Truck size={20}/> },
-          { label: 'المحفظة', path: '/app/wallet', icon: <Wallet size={20}/> },
-          { label: 'الحساب', path: '/app/account', icon: <UserIcon size={20}/> },
-        ];
+    const isCarrier = user?.role === 'CARRIER';
+    const navItems = [
+        { label: t('nav.home'), path: '/app', icon: <Home size={20}/> },
+        { label: isCarrier ? t('nav.shipments') : t('nav.myShipments'), path: '/app/shipments', icon: <Package size={20}/> },
+        { label: t('nav.trips'), path: '/app/trips', icon: <Truck size={20}/> },
+        { label: t('nav.wallet'), path: '/app/wallet', icon: <Wallet size={20}/> },
+        { label: t('nav.account'), path: '/app/account', icon: <UserIcon size={20}/> },
+    ];
 
     return (<aside className={`${styles.sidebar} ${isOpen ? styles.sidebarOpen : ''}`}>
       <div className={styles.brand}>
-        <img src="/logos/1.png" alt="Hemooltak Logo" style={{ width: 48, height: 48, borderRadius: '5px', objectFit: 'contain', background: 'transparent' }} />
+        <img src="/logos/1.png" alt={t('brand.logoAlt')} style={{ width: 48, height: 48, borderRadius: '5px', objectFit: 'contain', background: 'transparent' }} />
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-          <span style={{ fontSize: 24, fontWeight: 700, color: 'white', lineHeight: 1, marginBottom: 4 }}>حمولتك</span>
-          <span style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.7)' }}>منصة نقل البضائع</span>
+          <span style={{ fontSize: 24, fontWeight: 700, color: 'white', lineHeight: 1, marginBottom: 4 }}>{t('brand.name')}</span>
+          <span style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.7)' }}>{t('brand.tagline')}</span>
         </div>
         <button
           type="button"
           onClick={onClose}
           className={styles.menuButton}
-          aria-label="إغلاق القائمة"
+          aria-label={t('nav.closeMenu')}
           style={{ color: 'white' }}
         >
           <X size={22} />
         </button>
       </div>
 
-      {user?.role !== 'CARRIER' && (
+      {!isCarrier && (
         <div className={styles.ctaContainer}>
           <Button variant="secondary" style={{ width: '100%' }} onClick={() => navigate('/app/shipments/new')}>
-            <Plus size={18} style={{ marginLeft: 8 }}/>
-            إنشاء شحنة
+            <Plus size={18} style={{ marginInlineEnd: 8 }}/>
+            {t('nav.createShipment')}
           </Button>
         </div>
       )}

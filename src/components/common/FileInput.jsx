@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { useT } from '../../i18n';
 import { FileText, Image as ImageIcon, Upload } from 'lucide-react';
 import styles from './FileInput.module.css';
 
@@ -10,9 +11,9 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 const ALLOWED_EXTENSION = /\.(jpe?g|png|pdf)$/i;
 const MAX_BYTES = 5 * 1024 * 1024;
 
-const formatSize = (bytes) => (bytes < 1024 * 1024
-    ? `${Math.max(1, Math.round(bytes / 1024))} ك.ب`
-    : `${(bytes / (1024 * 1024)).toFixed(1)} م.ب`);
+const formatSize = (bytes, t) => (bytes < 1024 * 1024
+    ? t('files.kb', { value: Math.max(1, Math.round(bytes / 1024)) })
+    : t('files.mb', { value: (bytes / (1024 * 1024)).toFixed(1) }));
 
 /**
  * A document picker that shows what was chosen. The browser's own file input
@@ -25,6 +26,7 @@ const formatSize = (bytes) => (bytes < 1024 * 1024
 export const FileInput = ({ name, label, file, onChange, error, disabled }) => {
     const inputRef = useRef(null);
     const [localError, setLocalError] = useState('');
+    const { t } = useT();
 
     const handleChange = (e) => {
         const picked = e.target.files?.[0];
@@ -32,11 +34,11 @@ export const FileInput = ({ name, label, file, onChange, error, disabled }) => {
         if (!picked) return;
         const typeOk = ALLOWED_TYPES.includes(picked.type) || (!picked.type && ALLOWED_EXTENSION.test(picked.name));
         if (!typeOk) {
-            setLocalError('نوع الملف غير مدعوم — اختر صورة (JPG أو PNG) أو ملف PDF');
+            setLocalError(t('files.badType'));
             return;
         }
         if (picked.size >= MAX_BYTES) {
-            setLocalError('حجم الملف أكبر من 5 ميجابايت — اختر ملفاً أصغر');
+            setLocalError(t('files.tooLarge'));
             return;
         }
         setLocalError('');
@@ -66,10 +68,10 @@ export const FileInput = ({ name, label, file, onChange, error, disabled }) => {
                     <Icon size={22} className={styles.fileIcon} aria-hidden="true" />
                     <div className={styles.fileText}>
                         <span className={styles.fileName} dir="ltr" title={file.name}>{file.name}</span>
-                        <span className={styles.fileMeta}>{formatSize(file.size)}</span>
+                        <span className={styles.fileMeta}>{formatSize(file.size, t)}</span>
                     </div>
                     <button type="button" className={styles.changeButton} onClick={() => inputRef.current?.click()} disabled={disabled}>
-                        تغيير الملف
+                        {t('files.change')}
                     </button>
                 </div>
             ) : (
@@ -80,8 +82,8 @@ export const FileInput = ({ name, label, file, onChange, error, disabled }) => {
                     disabled={disabled}
                 >
                     <Upload size={20} aria-hidden="true" />
-                    <span className={styles.emptyTitle}>اختيار ملف</span>
-                    <span className={styles.hint}>JPG أو PNG أو PDF — حتى 5 ميجابايت</span>
+                    <span className={styles.emptyTitle}>{t('files.choose')}</span>
+                    <span className={styles.hint}>{t('files.hint')}</span>
                 </button>
             )}
             {shownError && <span className={styles.errorText} role="alert">{shownError}</span>}

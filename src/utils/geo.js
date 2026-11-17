@@ -24,8 +24,21 @@ export const SAUDI_CITY_COORDINATES = {
     'القصيم': [26.3260, 43.9750],
 };
 
-/** Returns `[lat, lng]` for a known city, or `null` if unrecognized. */
-export const lookupCityCoordinates = (city) => SAUDI_CITY_COORDINATES[(city || '').trim()] ?? null;
+// The same cities by their English names, for a city typed or filled in
+// while the site is in English.
+const ENGLISH_CITY_NAMES = {
+    riyadh: 'الرياض', jeddah: 'جدة', makkah: 'مكة المكرمة', mecca: 'مكة المكرمة', medina: 'المدينة المنورة',
+    madinah: 'المدينة المنورة', dammam: 'الدمام', khobar: 'الخبر', 'al khobar': 'الخبر', taif: 'الطائف',
+    tabuk: 'تبوك', abha: 'أبها', hail: 'حائل', "ha'il": 'حائل', jazan: 'جازان', jizan: 'جازان', najran: 'نجران',
+    yanbu: 'ينبع', 'al ahsa': 'الأحساء', hofuf: 'الأحساء', buraydah: 'بريدة', 'khamis mushait': 'خميس مشيط',
+    jubail: 'الجبيل', 'al jubail': 'الجبيل', qassim: 'القصيم', 'al qassim': 'القصيم',
+};
+
+/** Returns `[lat, lng]` for a known city (Arabic or English name), or `null` if unrecognized. */
+export const lookupCityCoordinates = (city) => {
+    const name = (city || '').trim();
+    return SAUDI_CITY_COORDINATES[name] ?? SAUDI_CITY_COORDINATES[ENGLISH_CITY_NAMES[name.toLowerCase()]] ?? null;
+};
 
 const toRad = (deg) => (deg * Math.PI) / 180;
 

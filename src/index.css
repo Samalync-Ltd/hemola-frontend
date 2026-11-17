@@ -59,6 +59,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* English: Latin text reads best in Poppins (Cairo stays for any Arabic a
+   user typed, e.g. a city or a name). */
+html[lang="en"] body {
+  font-family: 'Poppins', 'Cairo', sans-serif;
+}
+
 /* Shared "main content + sidebar" two-column layout used across shipment
    details, negotiation, trip tracking, and profile screens — collapses to a
    single column on narrow viewports instead of squeezing both columns down

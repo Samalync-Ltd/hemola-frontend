@@ -1,5 +1,6 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { useT } from '../../i18n';
 
 /**
  * Why the carrier can't take new work right now (from carrierBlockReason).
@@ -7,6 +8,7 @@ import { AlertTriangle } from 'lucide-react';
  * always tell the carrier the same thing.
  */
 export const CarrierBlockNotice = ({ reason }) => {
+    const { t } = useT();
     if (!reason) return null;
     return (
         <div role="status" style={{
@@ -16,7 +18,7 @@ export const CarrierBlockNotice = ({ reason }) => {
             color: '#B45309', fontSize: 14, fontWeight: 600,
         }}>
             <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 2 }} aria-hidden="true" />
-            <span>لا يمكنك تقديم عروض حالياً: {reason}</span>
+            <span>{t('shipments.carrier.block.prefix', { reason })}</span>
         </div>
     );
 };

@@ -8,19 +8,21 @@ import { TopUpModal } from '../../components/wallet/TopUpModal';
 import { walletService, authService } from '../../services/api';
 import { TransactionType } from '../../constants/enums';
 import { Loader } from '../../components/common/Loader';
-import { formatAmount } from '../../utils/format';
+import { formatDateTime, formatMoney } from '../../utils/format';
+import { transactionDescription } from '../../utils/transactions';
+import { useT } from '../../i18n';
 
 // INTEGRATION.md §8/§9. Rows with amount 0 and a `withheld` figure
 // (commission, debt recovered) explain money taken before it reached the
 // wallet — shown as explanation, not as a further deduction.
-const TRANSACTION_LABELS = {
-    [TransactionType.TOP_UP]: 'شحن رصيد',
-    [TransactionType.TRIP_SETTLEMENT]: 'أرباح رحلة',
-    [TransactionType.COMMISSION_DEDUCTION]: 'عمولة المنصة',
-    [TransactionType.WITHDRAWAL]: 'سحب رصيد',
-    [TransactionType.FEE_DEDUCTION]: 'سداد مديونية',
-    [TransactionType.DEBT_FORGIVENESS]: 'إعفاء من المديونية',
-};
+const TRANSACTION_TYPES = [
+    TransactionType.TOP_UP,
+    TransactionType.TRIP_SETTLEMENT,
+    TransactionType.COMMISSION_DEDUCTION,
+    TransactionType.WITHDRAWAL,
+    TransactionType.FEE_DEDUCTION,
+    TransactionType.DEBT_FORGIVENESS,
+];
 
 // Carrier earnings mainly come from TRIP_SETTLEMENT (trip payouts, net of
 // the platform commission) — but topUpWallet is still open to a carrier
@@ -29,6 +31,7 @@ const TRANSACTION_LABELS = {
 // question 4). The top-up action is offered for that reason, not for
 // carriers to fund shipments.
 export const CarrierWallet = () => {
+    const { t } = useT();
     const [wallet, setWallet] = useState(null);
     const [transactions, setTransactions] = useState([]);
     // outstandingDebt lives on the carrier's own profile (users/{uid}), not
@@ -45,11 +48,11 @@ export const CarrierWallet = () => {
         walletService.getWallet(),
         walletService.getTransactions(),
         authService.getCurrentUser(),
-    ]).then(([w, t, user]) => {
+    ]).then(([w, list, user]) => {
         setWallet(w);
         // Carrier earnings come only from trip settlements — filter out any
         // stray transaction types that don't apply to this role.
-        setTransactions(t.filter(txn => txn.type in TRANSACTION_LABELS));
+        setTransactions(list.filter(txn => TRANSACTION_TYPES.includes(txn.type)));
         setOutstandingDebt(user?.outstandingDebt ?? 0);
         setBankDetails(user ? { iban: user.iban || '', bankAccountName: user.bankAccountName || '' } : null);
     }).finally(() => setIsLoading(false));
@@ -57,7 +60,7 @@ export const CarrierWallet = () => {
     useEffect(() => { fetchData(); }, []);
     // Live balance — top-ups, reservations, settlements and fees show without a refresh.
     useEffect(() => walletService.subscribe(setWallet, () => {}), []);
-    useEffect(() => walletService.subscribeTransactions((t) => setTransactions(t.filter(txn => txn.type in TRANSACTION_LABELS)), () => {}), []);
+    useEffect(() => walletService.subscribeTransactions((list) => setTransactions(list.filter(txn => TRANSACTION_TYPES.includes(txn.type))), () => {}), []);
 
     const handleWithdrawCompleted = async () => {
         await fetchData();
@@ -76,62 +79,62 @@ export const CarrierWallet = () => {
         }
     };
 
-    if (isLoading) return <Loader label="جاري تحميل المحفظة" />;
-    if (!wallet) return <div>لا توجد بيانات للمحفظة</div>;
+    if (isLoading) return <Loader label={t('wallet.loading')} />;
+    if (!wallet) return <div>{t('wallet.noData')}</div>;
 
     const columns = [
-        { key: 'id', header: 'رقم العملية', render: (t) => <strong>{t.id}</strong> },
-        { key: 'type', header: 'النوع', render: (t) => TRANSACTION_LABELS[t.type] || t.type },
-        { key: 'amount', header: 'المبلغ', render: (t) => (t.amount === 0 && t.withheld
-            ? <span className="text-helper">خُصم {t.withheld} ر.س من المستحق</span>
-            : <span style={{ color: t.amount >= 0 ? 'var(--color-success)' : 'var(--color-error)' }} dir="ltr">
-        {t.amount > 0 ? '+' : ''}{t.amount} ر.س
+        { key: 'id', header: t('wallet.columns.id'), render: (tx) => <strong>{tx.id}</strong> },
+        { key: 'type', header: t('wallet.columns.type'), render: (tx) => (TRANSACTION_TYPES.includes(tx.type) ? t(`wallet.tx.carrier.${tx.type}`) : tx.type) },
+        { key: 'amount', header: t('wallet.columns.amount'), render: (tx) => (tx.amount === 0 && tx.withheld
+            ? <span className="text-helper">{t('wallet.withheldFromDue', { amount: tx.withheld })}</span>
+            : <span style={{ color: tx.amount >= 0 ? 'var(--color-success)' : 'var(--color-error)' }} dir="ltr">
+        {tx.amount > 0 ? '+' : ''}{t('common.money', { amount: tx.amount })}
       </span>) },
-        { key: 'date', header: 'التاريخ', render: (t) => <span dir="ltr">{new Date(t.timestamp).toLocaleString('ar-SA')}</span> },
-        { key: 'desc', header: 'الوصف', render: (t) => t.description || '-' },
+        { key: 'date', header: t('common.date'), render: (tx) => <span dir="ltr">{formatDateTime(tx.timestamp)}</span> },
+        { key: 'desc', header: t('wallet.columns.description'), render: (tx) => transactionDescription(tx.description) },
     ];
 
     return (<div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <h2 style={{ margin: 0 }}>المحفظة</h2>
+      <h2 style={{ margin: 0 }}>{t('nav.wallet')}</h2>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
         <Card variant="dark">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
             <div>
-              <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: 8 }}>المتاح للسحب</div>
-              <div style={{ fontSize: 36, fontWeight: 'bold' }}>{formatAmount(wallet.available)} ر.س</div>
+              <div style={{ color: 'rgba(255,255,255,0.7)', marginBottom: 8 }}>{t('wallet.availableToWithdraw')}</div>
+              <div style={{ fontSize: 36, fontWeight: 'bold' }}>{formatMoney(wallet.available)}</div>
               <div style={{ color: 'rgba(255,255,255,0.7)', marginTop: 4, fontSize: 13 }}>
-                الرصيد الإجمالي: {formatAmount(wallet.balance)} ر.س{wallet.reservedBalance > 0 ? ` — منها ${formatAmount(wallet.reservedBalance)} ر.س بطلبات سحب قيد المراجعة` : ''}
+                {t('wallet.total', { amount: formatMoney(wallet.balance) })}{wallet.reservedBalance > 0 ? t('wallet.ofWhichPendingWithdrawals', { amount: formatMoney(wallet.reservedBalance) }) : ''}
               </div>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
             <Button variant="secondary" style={{ flex: 1 }} onClick={() => setIsWithdrawOpen(true)} disabled={outstandingDebt > 0}>
-              طلب سحب الرصيد
+              {t('wallet.requestWithdrawal')}
             </Button>
             <Button variant="outline" style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', borderColor: 'transparent' }} onClick={() => setIsTopUpOpen(true)}>
-              شحن الرصيد
+              {t('wallet.topUp')}
             </Button>
           </div>
           {outstandingDebt > 0 && (
             <p style={{ color: '#ffb4b4', fontSize: 13, marginTop: 12 }}>
-              عليك سداد {outstandingDebt} ر.س من عمولة إلغاء سابقة — لا يمكنك تقديم عروض جديدة أو سحب رصيد حتى تُسدد. اشحن رصيدك لسداد الدين تلقائياً والعودة للعمل.
+              {t('wallet.debtNotice', { amount: outstandingDebt })}
             </p>
           )}
         </Card>
 
         <Card>
-          <h3 style={{ marginBottom: 16 }}>الرصيد المعلق (طلبات سحب قيد المعالجة)</h3>
+          <h3 style={{ marginBottom: 16 }}>{t('wallet.reservedCarrierTitle')}</h3>
           <PriceBlock amount={wallet.reservedBalance} size="lg"/>
           <p className="text-helper" style={{ marginTop: 8 }}>
-            هذا الرصيد محجوز ريثما تتم معالجة طلب السحب.
+            {t('wallet.reservedCarrierText')}
           </p>
         </Card>
       </div>
 
       <Card>
-        <h3 style={{ marginBottom: 16 }}>سجل العمليات</h3>
-        <DataTable data={transactions} columns={columns} keyExtractor={t => t.id} emptyMessage="لا توجد عمليات سابقة"/>
+        <h3 style={{ marginBottom: 16 }}>{t('wallet.history')}</h3>
+        <DataTable data={transactions} columns={columns} keyExtractor={tx => tx.id} emptyMessage={t('wallet.noTransactions')}/>
       </Card>
 
       <WithdrawModal

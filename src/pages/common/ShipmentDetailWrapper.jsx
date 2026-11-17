@@ -3,6 +3,7 @@ import { ShipmentDetail as ShipperShipmentDetail } from '../shipper/ShipmentDeta
 import { CarrierShipmentDetail } from '../carrier/CarrierShipmentDetail';
 import { authService } from '../../services/api';
 import { Loader } from '../../components/common/Loader';
+import { NotSignedIn } from './NotSignedIn';
 
 export const ShipmentDetailWrapper = () => {
     const [user, setUser] = useState(null);
@@ -15,7 +16,7 @@ export const ShipmentDetailWrapper = () => {
     }, []);
 
     if (isLoading) return <Loader />;
-    if (!user) return <div>لم يتم تسجيل الدخول</div>;
+    if (!user) return <NotSignedIn />;
 
     if (user.role === 'CARRIER') {
         return <CarrierShipmentDetail user={user} />;

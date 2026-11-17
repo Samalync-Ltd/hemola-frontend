@@ -3,6 +3,7 @@ import { Dashboard as ShipperDashboard } from '../shipper/Dashboard';
 import { CarrierDashboard } from '../carrier/CarrierDashboard';
 import { authService } from '../../services/api';
 import { Loader } from '../../components/common/Loader';
+import { NotSignedIn } from './NotSignedIn';
 
 export const DashboardWrapper = () => {
     const [user, setUser] = useState(null);
@@ -15,7 +16,7 @@ export const DashboardWrapper = () => {
     }, []);
 
     if (isLoading) return <Loader />;
-    if (!user) return <div>لم يتم تسجيل الدخول</div>;
+    if (!user) return <NotSignedIn />;
 
     if (user.role === 'CARRIER') {
         return <CarrierDashboard />;

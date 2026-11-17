@@ -8,10 +8,14 @@ import { ChangePasswordModal } from '../../components/profile/ChangePasswordModa
 import { TruckDetailsModal } from '../../components/profile/TruckDetailsModal';
 import { isValidSaudiPhone } from '../../utils/validators';
 import { PROFILE_UPDATED_EVENT } from '../../constants/config';
-import { toArabicError } from '../../utils/errors';
+import { toUserMessage } from '../../utils/errors';
+import { useT } from '../../i18n';
 import { Loader } from '../../components/common/Loader';
-import { truckTypeLabel } from '../../utils/format';
+import { formatWeight } from '../../utils/format';
+import { useNames } from '../../i18n/catalog';
 export const Profile = () => {
+    const { t, lang } = useT();
+    const { truckName } = useNames();
     const [user, setUser] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -51,17 +55,17 @@ export const Profile = () => {
         setIsResending(true);
         try {
             await authService.resendEmailVerification();
-            setVerificationNotice('تم إرسال رابط التأكيد إلى بريدك الإلكتروني.');
+            setVerificationNotice(t('account.verificationSent'));
         } catch (err) {
-            setVerificationNotice(toArabicError(err, 'تعذّر إرسال رابط التأكيد، حاول لاحقاً'));
+            setVerificationNotice(toUserMessage(err, t('account.verificationFailed')));
         } finally {
             setIsResending(false);
         }
     };
     if (isLoading)
-        return <Loader label="جاري تحميل بيانات الحساب" />;
+        return <Loader label={t('account.loading')} />;
     if (!user)
-        return <div>حدث خطأ</div>;
+        return <div>{t('account.error')}</div>;
     const startEditing = () => {
         setSaveError('');
         setSaveMessage('');
@@ -75,9 +79,9 @@ export const Profile = () => {
     const handleSave = async () => {
         setSaveError('');
         setSaveMessage('');
-        if (!formData.name.trim()) { setSaveError('اسم المسؤول مطلوب'); return; }
-        if (user.accountType === 'COMPANY' && !formData.companyName.trim()) { setSaveError('اسم المنشأة مطلوب'); return; }
-        if (!isValidSaudiPhone(formData.phone)) { setSaveError('رقم الجوال غير صحيح — أدخل رقم جوال سعودي (05xxxxxxxx)'); return; }
+        if (!formData.name.trim()) { setSaveError(t('account.nameRequired')); return; }
+        if (user.accountType === 'COMPANY' && !formData.companyName.trim()) { setSaveError(t('account.companyRequired')); return; }
+        if (!isValidSaudiPhone(formData.phone)) { setSaveError(t('errors.app.phoneInvalid')); return; }
 
         setIsSaving(true);
         try {
@@ -89,16 +93,16 @@ export const Profile = () => {
             setUser(updated);
             resetForm(updated);
             setIsEditing(false);
-            setSaveMessage('تم حفظ التغييرات بنجاح');
+            setSaveMessage(t('account.saved'));
             window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT, { detail: updated }));
         } catch (err) {
-            setSaveError(toArabicError(err, 'تعذّر حفظ التغييرات، حاول مرة أخرى'));
+            setSaveError(toUserMessage(err, t('account.saveFailed')));
         } finally {
             setIsSaving(false);
         }
     };
     return (<div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 800, margin: '0 auto' }}>
-      <h2 style={{ margin: 0 }}>إعدادات الحساب</h2>
+      <h2 style={{ margin: 0 }}>{t('account.title')}</h2>
       
       <Card>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
@@ -111,37 +115,37 @@ export const Profile = () => {
               <StatusBadge status={user.accountStatus}/>
               {user.role === 'CARRIER' && (
                   <div style={{ marginTop: 8, fontSize: 14 }}>
-                      <span className="text-helper">التقييم: </span>
+                      <span className="text-helper">{t('account.rating')} </span>
                       <strong style={{ color: 'var(--color-accent)' }}>⭐ {user.rating}</strong>
                       <span className="text-helper" style={{ margin: '0 8px' }}>|</span>
-                      <span className="text-helper">رحلات مكتملة: </span>
+                      <span className="text-helper">{t('account.completedTrips')} </span>
                       <strong>{user.completedTrips}</strong>
                   </div>
               )}
             </div>
           </div>
           <Button variant={isEditing ? "outline" : "primary"} onClick={isEditing ? cancelEditing : startEditing} disabled={isSaving}>
-            {isEditing ? 'إلغاء التعديل' : 'تعديل البيانات'}
+            {isEditing ? t('account.cancelEdit') : t('account.edit')}
           </Button>
         </div>
 
         <div className="responsive-two-col-even">
-          {user.accountType === 'COMPANY' && (<Input label="اسم المنشأة" value={formData.companyName} onChange={e => setFormData({ ...formData, companyName: e.target.value })} disabled={!isEditing}/>)}
-          <Input label="اسم المسؤول" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} disabled={!isEditing}/>
-          <Input label="رقم الجوال" numeric="phone" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} disabled={!isEditing} dir="ltr" style={{ textAlign: 'right' }}/>
+          {user.accountType === 'COMPANY' && (<Input label={t('account.companyName')} value={formData.companyName} onChange={e => setFormData({ ...formData, companyName: e.target.value })} disabled={!isEditing}/>)}
+          <Input label={t('auth.register.contactName')} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} disabled={!isEditing}/>
+          <Input label={t('auth.mobile')} numeric="phone" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} disabled={!isEditing} dir="ltr" style={{ textAlign: lang === 'ar' ? 'right' : 'left' }}/>
           <div>
             {/* The email is the Firebase Auth login and there is no backend
                 path for a user to change it, so it is shown, not edited. */}
-            <Input label="البريد الإلكتروني" value={formData.email} disabled dir="ltr" style={{ textAlign: 'right' }}/>
-            {isEditing && <div className="text-helper" style={{ marginTop: -8, fontSize: 12 }}>لا يمكن تغيير البريد الإلكتروني من هنا — تواصل مع الدعم لتغييره.</div>}
+            <Input label={t('auth.email')} value={formData.email} disabled dir="ltr" style={{ textAlign: lang === 'ar' ? 'right' : 'left' }}/>
+            {isEditing && <div className="text-helper" style={{ marginTop: -8, fontSize: 12 }}>{t('account.emailLocked')}</div>}
             {!isEditing && emailVerified === true && (
-              <div style={{ marginTop: -8, fontSize: 12, color: 'var(--color-success)', fontWeight: 600 }}>✓ تم تأكيد البريد الإلكتروني</div>
+              <div style={{ marginTop: -8, fontSize: 12, color: 'var(--color-success)', fontWeight: 600 }}>✓ {t('account.emailVerified')}</div>
             )}
             {!isEditing && emailVerified === false && (
               <div style={{ marginTop: -8, fontSize: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ color: '#B45309', fontWeight: 600 }}>البريد غير مؤكد</span>
+                <span style={{ color: '#B45309', fontWeight: 600 }}>{t('account.emailNotVerified')}</span>
                 <button type="button" onClick={resendVerification} disabled={isResending} style={{ background: 'none', border: 'none', padding: 0, fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: 'var(--color-primary)', cursor: 'pointer', textDecoration: 'underline' }}>
-                  {isResending ? 'جاري الإرسال' : 'إعادة إرسال رابط التأكيد'}
+                  {isResending ? t('wallet.withdrawModal.sending') : t('account.resendVerification')}
                 </button>
                 {verificationNotice && <span className="text-helper" style={{ fontSize: 12 }}>{verificationNotice}</span>}
               </div>
@@ -153,30 +157,30 @@ export const Profile = () => {
         {saveMessage && !isEditing && <div role="status" style={{ marginTop: 16, color: 'var(--color-success)', fontSize: 14 }}>{saveMessage}</div>}
 
         {isEditing && (<div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end' }}>
-            <Button onClick={handleSave} isLoading={isSaving} disabled={isSaving}>حفظ التغييرات</Button>
+            <Button onClick={handleSave} isLoading={isSaving} disabled={isSaving}>{t('account.saveChanges')}</Button>
           </div>)}
       </Card>
 
       {user.role === 'CARRIER' && (
           <Card>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <h3 style={{ margin: 0 }}>مركباتي</h3>
-                  <Button size="sm" onClick={() => { setSelectedTruck(null); setIsTruckOpen(true); }}>إضافة شاحنة</Button>
+                  <h3 style={{ margin: 0 }}>{t('account.myVehicles')}</h3>
+                  <Button size="sm" onClick={() => { setSelectedTruck(null); setIsTruckOpen(true); }}>{t('account.truck.add')}</Button>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {(user.trucks || []).length === 0 && (
-                      <p className="text-helper">لا توجد شاحنات مسجلة بعد — أضف شاحنتك الأولى.</p>
+                      <p className="text-helper">{t('account.noTrucks')}</p>
                   )}
                   {(user.trucks || []).map(truck => (
                       <button
                           key={truck.id}
                           type="button"
                           onClick={() => { setSelectedTruck(truck); setIsTruckOpen(true); }}
-                          style={{ padding: 16, border: '1px solid var(--color-border)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', cursor: 'pointer', width: '100%', textAlign: 'right', font: 'inherit', color: 'inherit' }}
+                          style={{ padding: 16, border: '1px solid var(--color-border)', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'none', cursor: 'pointer', width: '100%', textAlign: 'start', font: 'inherit', color: 'inherit' }}
                       >
                           <div>
-                              <strong style={{ display: 'block', marginBottom: 4 }}>{truck.type ? truckTypeLabel(truck.type, truck.customType) : 'لم يتم تحديد نوع الشاحنة'} {truck.brand ? `— ${truck.brand} ${truck.model}` : ''}</strong>
-                              <span className="text-helper">اللوحة: {truck.plateNumber || '—'} | السعة: {truck.capacityTons ?? '—'} طن</span>
+                              <strong style={{ display: 'block', marginBottom: 4 }}>{truck.type ? truckName(truck.type, truck.customType) : t('account.truck.noType')} {truck.brand ? `— ${truck.brand} ${truck.model}` : ''}</strong>
+                              <span className="text-helper">{t('account.truck.summary', { plate: truck.plateNumber || '—', capacity: formatWeight(truck.capacityTons ?? '—') })}</span>
                           </div>
                           <StatusBadge status={truck.operatingCard?.status} />
                       </button>
@@ -186,22 +190,22 @@ export const Profile = () => {
       )}
 
       <Card>
-        <h3 style={{ marginBottom: 16 }}>الأمان</h3>
+        <h3 style={{ marginBottom: 16 }}>{t('account.security')}</h3>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', borderBottom: '1px solid var(--color-border)' }}>
           <div>
-            <strong>تغيير كلمة المرور</strong>
+            <strong>{t('account.password.title')}</strong>
           </div>
-          <Button variant="outline" onClick={() => setIsPasswordOpen(true)}>تغيير</Button>
+          <Button variant="outline" onClick={() => setIsPasswordOpen(true)}>{t('account.change')}</Button>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0' }}>
           <div>
-            <strong style={{ color: 'var(--color-error)' }}>تسجيل الخروج</strong>
-            <div className="text-helper">تسجيل الخروج من هذا الجهاز</div>
+            <strong style={{ color: 'var(--color-error)' }}>{t('account.signOut')}</strong>
+            <div className="text-helper">{t('account.signOutHint')}</div>
           </div>
           <Button variant="danger" onClick={async () => {
               await authService.logout();
               window.location.href = '/login';
-          }}>خروج</Button>
+          }}>{t('account.signOutButton')}</Button>
         </div>
       </Card>
 

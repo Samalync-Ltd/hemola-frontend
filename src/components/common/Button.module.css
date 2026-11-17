@@ -67,7 +67,7 @@
 }
 
 .spinner {
-  margin-left: 8px; /* RTL space */
+  margin-inline-end: 8px; /* space between the spinner and the label */
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: #fff;
   border-radius: 50%;

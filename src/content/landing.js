@@ -102,6 +102,9 @@ export const landing = {
         platform: { ar: 'المنصة', en: 'Platform' },
         legal: { ar: 'روابط قانونية', en: 'Legal' },
     },
+    // Legal pages' link back, and the header's section menu (for screen readers).
+    backHome: { ar: '← الصفحة الرئيسية', en: '← Home' },
+    sectionsLabel: { ar: 'أقسام الصفحة', en: 'Page sections' },
     // Alt text for the real platform screenshots in the hero.
     screens: {
         shipments: { ar: 'قائمة الشحنات في منصة حمولتك', en: 'The shipments list on the Hemooltak platform' },

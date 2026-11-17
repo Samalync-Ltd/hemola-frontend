@@ -6,13 +6,6 @@ export var ShipmentStatus;
     ShipmentStatus["COMPLETED"] = "COMPLETED";
     ShipmentStatus["CANCELLED"] = "CANCELLED";
 })(ShipmentStatus || (ShipmentStatus = {}));
-export const ShipmentStatusAr = {
-    [ShipmentStatus.PENDING_OFFERS]: 'بانتظار العروض',
-    [ShipmentStatus.NEGOTIATING]: 'قيد التفاوض',
-    [ShipmentStatus.ACTIVE]: 'قيد التنفيذ',
-    [ShipmentStatus.COMPLETED]: 'مكتملة',
-    [ShipmentStatus.CANCELLED]: 'ملغاة'
-};
 export var OfferStatus;
 (function (OfferStatus) {
     OfferStatus["PENDING"] = "PENDING";
@@ -20,12 +13,6 @@ export var OfferStatus;
     OfferStatus["ACCEPTED"] = "ACCEPTED";
     OfferStatus["REJECTED"] = "REJECTED";
 })(OfferStatus || (OfferStatus = {}));
-export const OfferStatusAr = {
-    [OfferStatus.PENDING]: 'بانتظار الرد',
-    [OfferStatus.COUNTERED]: 'عرض مضاد',
-    [OfferStatus.ACCEPTED]: 'مقبول',
-    [OfferStatus.REJECTED]: 'مرفوض'
-};
 // Whoever proposed the current live (PENDING) offer in a negotiation
 // thread — the OTHER side is the one who may accept or counter it. The
 // single most important field in the negotiation flow (INTEGRATION.md §9).
@@ -43,14 +30,6 @@ export var TripStage;
     TripStage["EN_ROUTE_DELIVERY"] = "EN_ROUTE_DELIVERY";
     TripStage["DELIVERED"] = "DELIVERED";
 })(TripStage || (TripStage = {}));
-export const TripStageAr = {
-    [TripStage.ASSIGNED]: 'تم إسناد الشحنة',
-    [TripStage.EN_ROUTE_PICKUP]: 'في الطريق لموقع التحميل',
-    [TripStage.ARRIVED_PICKUP]: 'تم الوصول للتحميل',
-    [TripStage.LOADED]: 'تم التحميل',
-    [TripStage.EN_ROUTE_DELIVERY]: 'في الطريق للتسليم',
-    [TripStage.DELIVERED]: 'تم التسليم'
-};
 // A field separate from `stage` — TripStage has no cancelled member, so a
 // cancelled trip keeps whatever stage it died at; ALWAYS read `status`
 // before `stage` (INTEGRATION.md §8).
@@ -94,15 +73,8 @@ export var TruckType;
     TruckType["LOW_LOADER"] = "LOW_LOADER";
     TruckType["OTHER"] = "OTHER";
 })(TruckType || (TruckType = {}));
-export const TruckTypeAr = {
-    [TruckType.FLATBED]: 'مسطحة',
-    [TruckType.HEAVY_CARGO]: 'شحن ثقيل',
-    [TruckType.REFRIGERATED]: 'مبردة',
-    [TruckType.BOX_TRUCK]: 'صندوق مغلق',
-    [TruckType.TANKER]: 'صهريج',
-    [TruckType.LOW_LOADER]: 'لودر منخفض',
-    [TruckType.OTHER]: 'أخرى',
-};
+// Display names: src/i18n/strings/enums.js (enums.*) and, for truck types,
+// the admin's names (src/i18n/catalog.js).
 export const TRUCK_TYPE_OPTIONS = Object.values(TruckType);
 // Matches hemooltak-backend/INTEGRATION.md §8 exactly. FEE_DEDUCTION is
 // only debt recovered; a payout is WITHDRAWAL and an admin write-off is

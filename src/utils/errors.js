@@ -1,107 +1,68 @@
 // Errors from Firebase (Auth, Firestore, Storage) and from the backend's
 // Cloud Functions arrive as technical English — e.g. "Firebase: Error
 // (auth/invalid-credential)." — and must never reach the user as-is. This
-// turns any of them into an Arabic sentence the user can act on.
+// turns any of them into a sentence the user can act on, in the current
+// language (texts: src/i18n/strings/errors.js).
 //
-// Messages that are already Arabic (thrown deliberately by the services
-// with a specific explanation) pass through unchanged.
+// The services throw their own explanations with `userError(key)`; those
+// are shown as they are, in whichever language is current when shown.
+import { t, hasText } from '../i18n';
 
-const ARABIC = /[؀-ۿ]/;
+const ARABIC = /[\u0600-\u06FF]/;
 
-const AUTH_MESSAGES = {
-    'auth/invalid-credential': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
-    'auth/invalid-login-credentials': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
-    'auth/wrong-password': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
-    'auth/user-not-found': 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
-    'auth/invalid-email': 'صيغة البريد الإلكتروني غير صحيحة',
-    'auth/user-disabled': 'هذا الحساب موقوف — تواصل مع الدعم',
-    'auth/too-many-requests': 'محاولات كثيرة فاشلة — انتظر قليلاً ثم حاول مرة أخرى',
-    'auth/network-request-failed': 'تعذّر الاتصال بالخادم. تحقق من اتصالك بالإنترنت وحاول مرة أخرى',
-    'auth/email-already-in-use': 'هذا البريد الإلكتروني مسجل مسبقاً',
-    'auth/weak-password': 'كلمة المرور ضعيفة — استخدم 8 أحرف على الأقل',
-    'auth/requires-recent-login': 'لأمان حسابك، سجّل الدخول مرة أخرى ثم أعد المحاولة',
-    'auth/user-token-expired': 'انتهت الجلسة — سجّل الدخول مرة أخرى',
-    'auth/popup-closed-by-user': 'تم إلغاء العملية',
-};
+const AUTH_CODES = new Set([
+    'auth/invalid-credential', 'auth/invalid-login-credentials', 'auth/wrong-password', 'auth/user-not-found',
+    'auth/invalid-email', 'auth/user-disabled', 'auth/too-many-requests', 'auth/network-request-failed',
+    'auth/email-already-in-use', 'auth/weak-password', 'auth/requires-recent-login', 'auth/user-token-expired',
+    'auth/popup-closed-by-user',
+]);
 
 // Cloud Functions ("functions/<code>"), Firestore and Storage share these
 // canonical codes once the prefix is stripped.
-const CODE_MESSAGES = {
-    'unauthenticated': 'انتهت الجلسة — سجّل الدخول مرة أخرى',
-    'permission-denied': 'ليست لديك صلاحية لتنفيذ هذا الإجراء',
-    'unauthorized': 'ليست لديك صلاحية لتنفيذ هذا الإجراء',
-    'not-found': 'العنصر المطلوب غير موجود — ربما حُذف أو تغيّر. حدّث الصفحة وحاول مرة أخرى',
-    'object-not-found': 'الملف المطلوب غير موجود',
-    'already-exists': 'هذه البيانات مسجلة مسبقاً',
-    'invalid-argument': 'البيانات المدخلة غير صحيحة — تأكد منها وحاول مرة أخرى',
-    'failed-precondition': 'لا يمكن تنفيذ هذا الإجراء في الحالة الحالية. حدّث الصفحة وحاول مرة أخرى',
-    'resource-exhausted': 'محاولات كثيرة — انتظر قليلاً ثم حاول مرة أخرى',
-    'quota-exceeded': 'تم تجاوز الحد المسموح — حاول لاحقاً',
-    'unavailable': 'تعذّر الاتصال بالخادم. تحقق من اتصالك بالإنترنت وحاول مرة أخرى',
-    'deadline-exceeded': 'استغرق الطلب وقتاً طويلاً — حاول مرة أخرى',
-    'retry-limit-exceeded': 'استغرق الرفع وقتاً طويلاً — تحقق من الاتصال وحاول مرة أخرى',
-    'canceled': 'تم إلغاء العملية',
-    'cancelled': 'تم إلغاء العملية',
-};
-
-const DEFAULT_MESSAGE = 'حدث خطأ غير متوقع، حاول مرة أخرى';
+const CODES = new Set([
+    'unauthenticated', 'permission-denied', 'unauthorized', 'not-found', 'object-not-found', 'already-exists',
+    'invalid-argument', 'failed-precondition', 'resource-exhausted', 'quota-exceeded', 'unavailable',
+    'deadline-exceeded', 'retry-limit-exceeded', 'canceled', 'cancelled',
+]);
 
 const amount = (n) => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
-const PLATFORM_ERROR = 'حدث خطأ في المنصة، حاول لاحقاً';
+/** An error a service throws on purpose, with a message key (and values for it). */
+export const userError = (key, params) => Object.assign(new Error(t(key, params)), { userMessageKey: key, userMessageParams: params });
 
-/** Shown for a reason code the backend sends that isn't in the table below (new ones may be added). */
-export const UNKNOWN_REASON_MESSAGE = 'تعذّر تنفيذ هذا الإجراء حالياً. حدّث الصفحة وحاول مرة أخرى.';
+/** Shown for a reason code the backend sends that isn't in the table (new ones may be added). */
+export const unknownReasonMessage = () => t('errors.unknownReason');
 
 /**
- * Arabic per backend `details.reason` — all 29 in INTEGRATION.md §18, with
- * the values in {braces} filled from `details`. The error text itself is
- * never parsed.
+ * The message for a backend `details.reason` (INTEGRATION.md §18), with the
+ * values in {braces} filled from `details`. The error text itself is never
+ * parsed. A few reasons read differently depending on which values came.
  */
-const REASON_MESSAGES = {
-    // Users
-    ACCOUNT_NOT_VERIFIED: () => 'حسابك قيد المراجعة. ستتمكن من ذلك بعد توثيق الحساب.',
-    CARRIER_SUSPENDED: () => 'حسابك موقوف مؤقتاً بسبب تكرار الإلغاء. تواصل مع الدعم.',
-    CARRIER_BUSY: () => 'لديك رحلة نشطة. أكملها قبل قبول شحنة جديدة.',
-    CARRIER_IN_DEBT: ({ debt }) => (debt != null
-        ? `عليك مبلغ مستحق للمنصة (${amount(debt)} ر.س). اشحن محفظتك لتسديده أولاً.`
-        : 'عليك مبلغ مستحق للمنصة. اشحن محفظتك لتسديده أولاً.'),
-    PHONE_UNCHANGED: () => 'هذا هو رقم جوالك الحالي.',
-    SHIPMENT_NOT_OPEN: () => 'هذه الشحنة لم تعد متاحة.',
-    SITE_DETAILS_LOCKED: () => 'لا يمكن تعديل تفاصيل الموقع بعد إسناد الشحنة.',
-    OWN_SHIPMENT: () => 'لا يمكنك تقديم عرض على شحنتك.',
-    OFFER_ALREADY_OPEN: () => 'لديك عرض بانتظار الرد على هذه الشحنة.',
-    OFFER_NOT_PENDING: () => 'هذا العرض لم يعد متاحاً. حدّث الصفحة.',
-    NOT_YOUR_TURN: () => 'بانتظار رد الطرف الآخر على عرضك.',
-    TRUCK_WRONG_TYPE: () => 'نوع الشاحنة لا يطابق النوع المطلوب لهذه الشحنة.',
-    TRUCK_CAPACITY_TOO_LOW: ({ capacityTons, weight }) => {
-        if (capacityTons != null && weight != null) return `حمولة الشاحنة (${capacityTons} طن) أقل من وزن الشحنة (${weight} طن).`;
-        if (weight != null) return `حمولة الشاحنة أقل من وزن الشحنة (${weight} طن).`;
-        return 'حمولة الشاحنة أقل من وزن الشحنة.';
-    },
-    TRUCK_NOT_APPROVED: () => 'مستندات الشاحنة لم تُعتمد بعد.',
-    INSUFFICIENT_BALANCE: ({ availableBalance, required, requested }) => {
-        const needed = required ?? requested;
-        return availableBalance != null && needed != null
-            ? `رصيدك المتاح (${amount(availableBalance)} ر.س) لا يكفي. المبلغ المطلوب ${amount(needed)} ر.س.`
-            : 'رصيدك المتاح لا يكفي لهذه العملية. اشحن محفظتك ثم حاول مرة أخرى.';
-    },
-    BANK_DETAILS_MISSING: () => 'أضف بيانات حسابك البنكي قبل طلب السحب.',
-    TRIP_NOT_ACTIVE: () => 'هذه الرحلة لم تعد نشطة.',
-    STAGE_OUT_OF_ORDER: () => 'يجب تحديث مراحل الرحلة بالترتيب.',
-    PROOF_MISSING: () => 'يرجى رفع صورة الإثبات أولاً.',
-    TRIP_NOT_DELIVERED: () => 'يمكنك التقييم بعد تسليم الشحنة.',
-    NOTHING_TO_CANCEL: () => 'لا يوجد إسناد لإلغائه في هذه الشحنة.',
-    CANCEL_NOT_ALLOWED: () => 'لا يمكن الإلغاء بعد تحميل الشحنة. تواصل مع الدعم.',
-    // Admin dashboard (listed for completeness — the website never calls these)
-    DOCUMENTS_NOT_APPROVED: () => 'لا يمكن توثيق الحساب قبل اعتماد جميع المستندات المطلوبة.',
-    TRUCK_DOCUMENT_MISSING: () => 'لم يُرفع هذا المستند بعد.',
-    NOT_SUSPENDED: () => 'هذا الحساب غير موقوف.',
-    WITHDRAWAL_ALREADY_PROCESSED: () => 'تمت معالجة طلب السحب هذا مسبقاً.',
-    NO_DEBT: () => 'لا يوجد مبلغ مستحق على هذا الحساب.',
-    // Platform setup — should never reach a user
-    PLATFORM_NOT_CONFIGURED: () => PLATFORM_ERROR,
-    PHONE_LOGIN_UNAVAILABLE: () => PLATFORM_ERROR,
+const reasonMessage = (reason, details = {}) => {
+    switch (reason) {
+        case 'CARRIER_IN_DEBT':
+            return details.debt != null
+                ? t('errors.reason.CARRIER_IN_DEBT_amount', { debt: amount(details.debt) })
+                : t('errors.reason.CARRIER_IN_DEBT');
+        case 'TRUCK_CAPACITY_TOO_LOW': {
+            const { capacityTons, weight } = details;
+            if (capacityTons != null && weight != null) return t('errors.reason.TRUCK_CAPACITY_TOO_LOW_both', { capacityTons, weight });
+            if (weight != null) return t('errors.reason.TRUCK_CAPACITY_TOO_LOW_weight', { weight });
+            return t('errors.reason.TRUCK_CAPACITY_TOO_LOW');
+        }
+        case 'INSUFFICIENT_BALANCE': {
+            const needed = details.required ?? details.requested;
+            return details.availableBalance != null && needed != null
+                ? t('errors.reason.INSUFFICIENT_BALANCE_amounts', { availableBalance: amount(details.availableBalance), required: amount(needed) })
+                : t('errors.reason.INSUFFICIENT_BALANCE');
+        }
+        // Platform setup — should never reach a user (§18).
+        case 'PLATFORM_NOT_CONFIGURED':
+        case 'PHONE_LOGIN_UNAVAILABLE':
+            return t('errors.platform');
+        default:
+            return hasText(`errors.reason.${reason}`) ? t(`errors.reason.${reason}`) : unknownReasonMessage();
+    }
 };
 
 /** The backend reason code on an error, if any — for screens that react to a specific one (e.g. offer a top-up). */
@@ -118,31 +79,36 @@ export const errorReason = (err) => {
  * @param {unknown} err  anything thrown — Error, FirebaseError, string
  * @param {string} [fallback]  shown when nothing more specific is known
  */
-export const toArabicError = (err, fallback = DEFAULT_MESSAGE) => {
-    if (!err) return fallback;
+export const toUserMessage = (err, fallback) => {
+    const otherwise = fallback ?? t('errors.default');
+    if (!err) return otherwise;
+
+    if (typeof err === 'object' && err.userMessageKey) return t(err.userMessageKey, err.userMessageParams);
 
     // A machine-readable reason, when the backend gives one, decides the
     // message — never the English error text (INTEGRATION.md §12).
     const details = (typeof err === 'object' && err !== null) ? (err.details || err.customData?.details) : null;
     const reason = errorReason(err) || (typeof err === 'object' && err?.reason);
     if (reason) {
-        // Report setup problems — they should never reach a user (§18).
         if (reason === 'PLATFORM_NOT_CONFIGURED' || reason === 'PHONE_LOGIN_UNAVAILABLE') console.error('Platform misconfigured:', reason);
-        return REASON_MESSAGES[reason] ? REASON_MESSAGES[reason](details || err || {}) : UNKNOWN_REASON_MESSAGE;
+        return reasonMessage(reason, details || err || {});
     }
 
     const message = typeof err === 'string' ? err : (err.message || '');
     if (ARABIC.test(message)) return message;
 
     const code = typeof err === 'object' ? (err.code || '') : '';
-    if (AUTH_MESSAGES[code]) return AUTH_MESSAGES[code];
+    if (AUTH_CODES.has(code)) return t(`errors.auth.${code.slice('auth/'.length)}`);
 
     const bare = code.replace(/^(functions|firestore|storage)\//, '');
     // signUp's already-exists names which field collided (INTEGRATION.md §3).
-    if (bare === 'already-exists' && /phone/i.test(message)) return 'رقم الجوال مسجل مسبقاً في حساب آخر';
-    if (bare === 'already-exists' && /email/i.test(message)) return 'البريد الإلكتروني مسجل مسبقاً في حساب آخر';
-    if (CODE_MESSAGES[bare]) return CODE_MESSAGES[bare];
+    if (bare === 'already-exists' && /phone/i.test(message)) return t('errors.phoneTaken');
+    if (bare === 'already-exists' && /email/i.test(message)) return t('errors.emailTaken');
+    if (CODES.has(bare)) return t(`errors.code.${bare}`);
 
-    if (err instanceof TypeError && /fetch|network/i.test(message)) return CODE_MESSAGES.unavailable;
-    return fallback;
+    if (err instanceof TypeError && /fetch|network/i.test(message)) return t('errors.code.unavailable');
+    return otherwise;
 };
+
+/** The old name, kept so nothing that still imports it breaks. */
+export const toArabicError = toUserMessage;

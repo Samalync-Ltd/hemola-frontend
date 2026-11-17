@@ -24,7 +24,7 @@ export const LegalPage = ({ page }) => {
             <PublicHeader lang={lang} />
             <main className={styles.legalMain}>
                 <div className={styles.container}>
-                    <Link to="/" className={styles.backLink}>{lang === 'ar' ? '← الصفحة الرئيسية' : '← Home'}</Link>
+                    <Link to="/" className={styles.backLink}>{landing.backHome[lang]}</Link>
                     <article className={styles.legalCard}>
                         <h1 className={`${styles.heading} ${styles.legalTitle}`}>{content.title[lang]}</h1>
                         {paragraphs.length > 0 ? (

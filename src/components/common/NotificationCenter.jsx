@@ -3,12 +3,16 @@ import { Bell, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { notificationService } from '../../services/api';
 import { useShakeOnNew } from '../../hooks/useShakeOnNew';
+import { useT } from '../../i18n';
+import { localizeNotification } from '../../i18n/notifications';
+import { formatDateTime } from '../../utils/format';
 
 export const NotificationCenter = () => {
     const [notifications, setNotifications] = useState(null); // null until the first snapshot
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
+    const { t, lang } = useT();
 
     // Live — a notification sent while the page is open shows up (and the
     // unread count moves) without a reload.
@@ -49,6 +53,8 @@ export const NotificationCenter = () => {
         <div ref={dropdownRef} style={{ position: 'relative' }}>
             <button 
                 onClick={() => setIsOpen(!isOpen)}
+                aria-label={t('notifications.bellLabel')}
+                aria-expanded={isOpen}
                 style={{ 
                     color: 'var(--color-text-muted)', 
                     cursor: 'pointer', 
@@ -84,7 +90,9 @@ export const NotificationCenter = () => {
                 <div style={{
                     position: 'absolute',
                     top: '100%',
-                    left: 0, // Align right relative to bell
+                    // Opens towards the page: the bell is at the end of the top bar.
+                    insetInlineEnd: 0,
+                    maxWidth: 'calc(100vw - 24px)',
                     width: 320,
                     backgroundColor: 'white',
                     borderRadius: 8,
@@ -102,7 +110,7 @@ export const NotificationCenter = () => {
                         borderBottom: '1px solid var(--color-border)',
                         backgroundColor: 'var(--color-background)'
                     }}>
-                        <h3 style={{ margin: 0, fontSize: 16 }}>الإشعارات</h3>
+                        <h3 style={{ margin: 0, fontSize: 16 }}>{t('notifications.title')}</h3>
                         {unreadCount > 0 && (
                             <button 
                                 onClick={handleMarkAllAsRead}
@@ -114,7 +122,7 @@ export const NotificationCenter = () => {
                                     cursor: 'pointer' 
                                 }}
                             >
-                                تعليم الكل كمقروء
+                                {t('notifications.markAllRead')}
                             </button>
                         )}
                     </div>
@@ -122,10 +130,12 @@ export const NotificationCenter = () => {
                     <div style={{ maxHeight: 300, overflowY: 'auto' }}>
                         {!notifications || notifications.length === 0 ? (
                             <div style={{ padding: 32, textAlign: 'center', color: 'var(--color-text-muted)' }}>
-                                لا توجد إشعارات
+                                {t('notifications.empty')}
                             </div>
                         ) : (
-                            notifications.map(notif => (
+                            notifications.map(notif => {
+                                const text = localizeNotification(notif, lang);
+                                return (
                                 <div 
                                     key={notif.id}
                                     onClick={() => handleNotificationClick(notif)}
@@ -141,13 +151,13 @@ export const NotificationCenter = () => {
                                 >
                                     <div style={{ flex: 1 }}>
                                         <div style={{ fontWeight: notif.isRead ? 'normal' : 'bold', marginBottom: 4, fontSize: 14 }}>
-                                            {notif.title}
+                                            {text.title}
                                         </div>
                                         <div style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 8 }}>
-                                            {notif.message}
+                                            {text.message}
                                         </div>
                                         <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
-                                            {new Date(notif.timestamp).toLocaleString('ar-SA')}
+                                            {formatDateTime(notif.timestamp)}
                                         </div>
                                     </div>
                                     {!notif.isRead && (
@@ -161,13 +171,15 @@ export const NotificationCenter = () => {
                                                 padding: 4,
                                                 height: 'fit-content'
                                             }}
-                                            title="تعليم كمقروء"
+                                            title={t('notifications.markRead')}
+                                            aria-label={t('notifications.markRead')}
                                         >
                                             <Check size={16} />
                                         </button>
                                     )}
                                 </div>
-                            ))
+                                );
+                            })
                         )}
                     </div>
 
@@ -188,7 +200,7 @@ export const NotificationCenter = () => {
                                 textAlign: 'center'
                             }}
                         >
-                            عرض كل الإشعارات
+                            {t('notifications.viewAll')}
                         </button>
                     </div>
                 </div>

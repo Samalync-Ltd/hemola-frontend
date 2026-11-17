@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '../common/Button';
 import { Loader } from '../common/Loader';
-import { toArabicError } from '../../utils/errors';
+import { toUserMessage } from '../../utils/errors';
+import { useT } from '../../i18n';
+import { formatDateTime } from '../../utils/format';
 
 /**
  * A saved proof photo: a thumbnail that opens full size. Read-only — once a
@@ -11,6 +13,7 @@ import { toArabicError } from '../../utils/errors';
 export const ProofPhotoView = ({ photo, label }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [failed, setFailed] = useState(false);
+    const { t } = useT();
 
     useEffect(() => {
         if (!isOpen) return undefined;
@@ -23,22 +26,22 @@ export const ProofPhotoView = ({ photo, label }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             {failed ? (
                 <div style={{ width: 72, height: 72, borderRadius: 8, border: '1px dashed var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--color-text-muted)', textAlign: 'center', padding: 4 }}>
-                    تعذّر تحميل الصورة
+                    {t('trips.photo.loadFailed')}
                 </div>
             ) : (
-                <button type="button" onClick={() => setIsOpen(true)} aria-label={`عرض ${label} بالحجم الكامل`} style={{ padding: 0, border: 'none', background: 'none', cursor: 'zoom-in' }}>
+                <button type="button" onClick={() => setIsOpen(true)} aria-label={t('trips.photo.viewFull', { label })} style={{ padding: 0, border: 'none', background: 'none', cursor: 'zoom-in' }}>
                     <img src={photo.photoDataUrl} alt={label} onError={() => setFailed(true)} style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--color-border)', display: 'block', backgroundColor: 'var(--color-background)' }} />
                 </button>
             )}
             <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
-                {photo.capturedAt && <div>{new Date(photo.capturedAt).toLocaleString('ar-SA')}</div>}
+                {photo.capturedAt && <div>{formatDateTime(photo.capturedAt)}</div>}
                 {photo.lat != null && <div dir="ltr">{photo.lat.toFixed(5)}, {photo.lng.toFixed(5)}</div>}
-                {!failed && <div>اضغط على الصورة لعرضها بالحجم الكامل</div>}
+                {!failed && <div>{t('trips.photo.tapToEnlarge')}</div>}
             </div>
             {isOpen && createPortal(
                 <div role="dialog" aria-label={label} onClick={() => setIsOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 10000, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, padding: 16 }}>
                     <img src={photo.photoDataUrl} alt={label} style={{ maxWidth: '100%', maxHeight: 'calc(100vh - 96px)', objectFit: 'contain', borderRadius: 8 }} />
-                    <Button variant="outline" onClick={() => setIsOpen(false)} style={{ backgroundColor: 'white' }}>إغلاق</Button>
+                    <Button variant="outline" onClick={() => setIsOpen(false)} style={{ backgroundColor: 'white' }}>{t('common.close')}</Button>
                 </div>,
                 document.body
             )}
@@ -62,6 +65,7 @@ export const ProofPhotoCapture = ({ label, onConfirm }) => {
     const [proof, setProof] = useState(null); // { photoDataUrl, lat, lng, capturedAt }
     const [progress, setProgress] = useState(0);
     const [error, setError] = useState('');
+    const { t } = useT();
 
     useEffect(() => () => stopCamera(), []);
 
@@ -82,7 +86,7 @@ export const ProofPhotoCapture = ({ label, onConfirm }) => {
                 if (videoRef.current) videoRef.current.srcObject = stream;
             }, 0);
         } catch {
-            setError('تعذّر الوصول إلى الكاميرا. يرجى السماح بالوصول للكاميرا من إعدادات المتصفح، أو اختر صورة من الجهاز.');
+            setError(t('trips.photo.cameraDenied'));
         }
     };
 
@@ -102,7 +106,7 @@ export const ProofPhotoCapture = ({ label, onConfirm }) => {
         setStep('locating');
         const location = await getLocation();
         if (!location) {
-            setError('تعذّر تحديد موقعك — اسمح للمتصفح بالوصول إلى الموقع ثم أعد المحاولة.');
+            setError(t('trips.photo.locationDenied'));
             setStep('idle');
             return;
         }
@@ -130,11 +134,11 @@ export const ProofPhotoCapture = ({ label, onConfirm }) => {
         e.target.value = '';
         if (!file) return;
         if (!['image/jpeg', 'image/png'].includes(file.type)) {
-            setError('يرجى اختيار صورة بصيغة JPG أو PNG.');
+            setError(t('trips.photo.badType'));
             return;
         }
         if (file.size >= 5 * 1024 * 1024) {
-            setError('حجم الصورة يجب أن يكون أقل من 5 ميجابايت.');
+            setError(t('trips.photo.tooLarge'));
             return;
         }
         const reader = new FileReader();
@@ -156,7 +160,7 @@ export const ProofPhotoCapture = ({ label, onConfirm }) => {
             await onConfirm(proof, setProgress);
             // On success the parent re-renders with the saved photo instead.
         } catch (err) {
-            setError(toArabicError(err, 'تعذّر رفع الصورة — تحقق من الاتصال وحاول مرة أخرى.'));
+            setError(toUserMessage(err, t('trips.photo.uploadFailed')));
             setStep('preview');
         }
     };
@@ -179,20 +183,20 @@ export const ProofPhotoCapture = ({ label, onConfirm }) => {
                         style={{ width: '100%', maxWidth: 360, borderRadius: 8, backgroundColor: '#000' }}
                     />
                     <div style={{ display: 'flex', gap: 8 }}>
-                        <Button size="sm" onClick={capture} disabled={!isVideoReady}>{isVideoReady ? 'التقاط الصورة' : 'جاري تشغيل الكاميرا'}</Button>
-                        <Button size="sm" variant="outline" onClick={() => { stopCamera(); setStep('idle'); }}>إلغاء</Button>
+                        <Button size="sm" onClick={capture} disabled={!isVideoReady}>{isVideoReady ? t('trips.photo.capture') : t('trips.photo.startingCamera')}</Button>
+                        <Button size="sm" variant="outline" onClick={() => { stopCamera(); setStep('idle'); }}>{t('common.cancel')}</Button>
                     </div>
                 </div>
             )}
 
-            {step === 'locating' && <Loader variant="inline" label="جاري تحديد موقعك" />}
+            {step === 'locating' && <Loader variant="inline" label={t('trips.photo.locating')} />}
 
             {(step === 'preview' || step === 'uploading') && proof && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <img src={proof.photoDataUrl} alt="معاينة الصورة" style={{ width: '100%', maxWidth: 360, borderRadius: 8, border: '1px solid var(--color-border)' }} />
+                    <img src={proof.photoDataUrl} alt={t('trips.photo.previewAlt')} style={{ width: '100%', maxWidth: 360, borderRadius: 8, border: '1px solid var(--color-border)' }} />
                     {step === 'preview' && (
                         <p className="text-helper" style={{ margin: 0, fontSize: 12 }}>
-                            تأكد من وضوح الصورة — بعد التأكيد تُحفظ كإثبات ولا يمكن تغييرها.
+                            {t('trips.photo.checkClear')}
                         </p>
                     )}
                     {isBusy && (
@@ -201,13 +205,13 @@ export const ProofPhotoCapture = ({ label, onConfirm }) => {
                                 <div style={{ width: `${progress}%`, height: '100%', backgroundColor: 'var(--color-accent)', transition: 'width 0.2s ease' }} />
                             </div>
                             <div className="text-helper" style={{ fontSize: 12, marginTop: 4 }}>
-                                {progress < 100 ? `جاري رفع الصورة ${progress}%` : 'جاري تأكيد المرحلة'}
+                                {progress < 100 ? t('trips.photo.uploading', { progress }) : t('trips.photo.confirmingStage')}
                             </div>
                         </div>
                     )}
                     <div style={{ display: 'flex', gap: 8 }}>
-                        <Button size="sm" variant="outline" onClick={retake} disabled={isBusy}>إعادة التقاط</Button>
-                        <Button size="sm" onClick={confirm} isLoading={isBusy} disabled={isBusy}>تأكيد</Button>
+                        <Button size="sm" variant="outline" onClick={retake} disabled={isBusy}>{t('trips.photo.retake')}</Button>
+                        <Button size="sm" onClick={confirm} isLoading={isBusy} disabled={isBusy}>{t('trips.photo.confirm')}</Button>
                     </div>
                 </div>
             )}
@@ -215,7 +219,7 @@ export const ProofPhotoCapture = ({ label, onConfirm }) => {
             {step === 'idle' && (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                     <Button variant="outline" size="sm" onClick={openCamera}>{label}</Button>
-                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>أو اختر صورة من الجهاز</Button>
+                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>{t('trips.photo.pickFromDevice')}</Button>
                     <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" onChange={pickFile} style={{ display: 'none' }} />
                 </div>
             )}

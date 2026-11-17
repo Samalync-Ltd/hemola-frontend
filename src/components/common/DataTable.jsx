@@ -1,6 +1,8 @@
 import React from 'react';
+import { useT } from '../../i18n';
 import styles from './DataTable.module.css';
-export function DataTable({ data, columns, keyExtractor, emptyMessage = 'لا توجد بيانات' }) {
+export function DataTable({ data, columns, keyExtractor, emptyMessage }) {
+    const { t } = useT();
     return (<div className={styles.tableContainer}>
       <table className={styles.table}>
         <thead>
@@ -11,7 +13,7 @@ export function DataTable({ data, columns, keyExtractor, emptyMessage = 'لا ت
         <tbody>
           {data.length === 0 ? (<tr>
               <td colSpan={columns.length} className={styles.emptyState}>
-                {emptyMessage}
+                {emptyMessage ?? t('common.noData')}
               </td>
             </tr>) : (data.map(item => (<tr key={keyExtractor(item)} className={styles.tr}>
                 {columns.map(col => (<td key={col.key} className={styles.td} data-label={col.header}>

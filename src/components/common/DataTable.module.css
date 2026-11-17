@@ -9,7 +9,7 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  text-align: right;
+  text-align: start;
 }
 
 .th {

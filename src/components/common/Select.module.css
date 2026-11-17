@@ -27,6 +27,11 @@
   background-size: 16px;
 }
 
+/* English: the arrow sits at the end of the field, on the right. */
+:global(html[dir="ltr"]) .select {
+  background-position: right 12px center;
+}
+
 .select:focus {
   border-color: var(--color-primary);
 }

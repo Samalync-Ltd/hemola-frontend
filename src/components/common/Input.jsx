@@ -1,4 +1,5 @@
 import React, { forwardRef, useState } from 'react';
+import { useT } from '../../i18n';
 import { Eye, EyeOff } from 'lucide-react';
 import styles from './Input.module.css';
 
@@ -31,6 +32,7 @@ const INPUT_MODE = { integer: 'numeric', decimal: 'decimal', phone: 'tel' };
 export const Input = forwardRef(({ label, error, className = '', type, style, numeric, onChange, ...props }, ref) => {
     // Every password field gets a show/hide toggle; nothing else changes.
     const [isVisible, setIsVisible] = useState(false);
+    const { t } = useT();
     const isPassword = type === 'password';
     return (<div className={`${styles.container} ${className}`}>
         {label && <label className={styles.label}>{label}</label>}
@@ -53,9 +55,9 @@ export const Input = forwardRef(({ label, error, className = '', type, style, nu
               type="button"
               className={styles.visibilityToggle}
               onClick={() => setIsVisible(v => !v)}
-              aria-label={isVisible ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+              aria-label={isVisible ? t('common.hidePassword') : t('common.showPassword')}
               aria-pressed={isVisible}
-              title={isVisible ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+              title={isVisible ? t('common.hidePassword') : t('common.showPassword')}
               disabled={props.disabled}
             >
               {isVisible ? <EyeOff size={18} /> : <Eye size={18} />}

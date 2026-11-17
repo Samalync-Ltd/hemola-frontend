@@ -115,3 +115,8 @@
   font-size: 13px;
   margin-top: var(--spacing-xs);
 }
+
+/* English: the file name lines up with the rest of the left-to-right page. */
+:global(html[dir="ltr"]) .fileName {
+  text-align: left;
+}

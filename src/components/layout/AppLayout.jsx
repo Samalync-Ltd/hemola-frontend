@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { useT, usePageTitle } from '../../i18n';
+import { LanguageSwitch } from '../common/LanguageSwitch';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { AppSidebar } from './AppSidebar';
 import { Topbar } from './Topbar';
@@ -12,6 +14,8 @@ const AppLayout = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
+    const { t } = useT();
+    usePageTitle('brand.pageTitle');
 
     useEffect(() => {
         authService.getCurrentUser().then(user => {
@@ -31,24 +35,26 @@ const AppLayout = () => {
     // Close the mobile drawer automatically whenever the route changes.
     useEffect(() => { setIsMenuOpen(false); }, [location.pathname]);
 
-    if (isLoading) return <Loader variant="screen" label="جاري تحميل حسابك" />;
+    if (isLoading) return <Loader variant="screen" label={t('layout.loadingAccount')} />;
 
     if (accountStatus === 'UNDER_REVIEW') {
         return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 24, textAlign: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, minHeight: '100vh', padding: 24, textAlign: 'center' }}>
+                <LanguageSwitch />
                 <div>
-                    <h2>حسابك قيد المراجعة</h2>
-                    <p className="text-helper">بانتظار موافقة الإدارة لتفعيل الحساب.</p>
+                    <h2>{t('layout.underReviewTitle')}</h2>
+                    <p className="text-helper">{t('layout.underReviewText')}</p>
                 </div>
             </div>
         );
     }
     if (accountStatus === 'REJECTED') {
         return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: 24, textAlign: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, minHeight: '100vh', padding: 24, textAlign: 'center' }}>
+                <LanguageSwitch />
                 <div>
-                    <h2>تم رفض الحساب</h2>
-                    <p className="text-helper">يرجى التواصل مع دعم المنصة لمزيد من التفاصيل.</p>
+                    <h2>{t('layout.rejectedTitle')}</h2>
+                    <p className="text-helper">{t('layout.rejectedText')}</p>
                 </div>
             </div>
         );
