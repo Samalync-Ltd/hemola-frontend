@@ -19,11 +19,22 @@ import { httpsCallable } from 'firebase/functions';
 import { TripStage } from '../constants/enums';
 import { normalizeSaudiPhone } from '../utils/validators';
 import { DOCUMENT_KEYS } from '../constants/documentKeys';
+import { AUTH_EMAIL_CONTINUE_URL } from '../constants/config';
 
 // Every Cloud Function below is documented in hemooltak-backend/INTEGRATION.md
 // — request/response shapes, error codes, and the exact enum spellings all
 // come from that file, not from guessing at what the backend probably does.
 const call = (name) => httpsCallable(functions, name);
+
+/**
+ * Call right before sending any Firebase auth email (verification, password
+ * reset): the email goes out in Arabic, and Firebase's page at the end offers
+ * a «متابعة» (Continue) button back to our login.
+ */
+const prepareAuthEmail = () => {
+    auth.languageCode = 'ar';
+    return { url: AUTH_EMAIL_CONTINUE_URL };
+};
 
 /** INTEGRATION.md §6 — a value matching this is a phone login, not an email. */
 const PHONE_PATTERN = /^(?:\+9665|9665|05)\d{8}$/;
@@ -167,7 +178,7 @@ export const firebaseAuthService = {
         // Firebase's built-in verification email. It never blocks sign-in —
         // admin document review is what gates the account — so a failure to
         // send is not a failure to register.
-        sendEmailVerification(authUser).catch((err) => console.warn('Email verification was not sent:', err?.code || err));
+        sendEmailVerification(authUser, prepareAuthEmail()).catch((err) => console.warn('Email verification was not sent:', err?.code || err));
 
         // Every uploaded document (payload.files, keyed by the stable
         // DOCUMENT_KEYS constants — NATIONAL_ID, PUBLIC_DRIVING_LICENCE,
@@ -235,7 +246,7 @@ export const firebaseAuthService = {
      */
     sendPasswordReset: async (email) => {
         try {
-            await sendPasswordResetEmail(auth, email.trim());
+            await sendPasswordResetEmail(auth, email.trim(), prepareAuthEmail());
         } catch (err) {
             if (err.code === 'auth/user-not-found') return;
             throw err;
@@ -250,7 +261,7 @@ export const firebaseAuthService = {
     resendEmailVerification: async () => {
         await auth.authStateReady();
         if (!auth.currentUser) throw new Error('انتهت الجلسة — سجّل الدخول مرة أخرى');
-        await sendEmailVerification(auth.currentUser);
+        await sendEmailVerification(auth.currentUser, prepareAuthEmail());
     },
     /**
      * Firebase Auth owns the password. Changing it needs a recent sign-in,
