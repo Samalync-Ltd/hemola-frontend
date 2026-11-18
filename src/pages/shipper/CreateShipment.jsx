@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { displayAmount } from '../../utils/format';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/common/Button';
 import { Card } from '../../components/common/Card';
@@ -297,7 +298,7 @@ export const CreateShipment = () => {
                 <div><strong>{t('shipments.labels.cargo')}</strong> {cargoItemName(selectedCargo)} ({t('common.tons', { value: formData.weight })})</div>
                 <div><strong>{t('shipments.labels.truck')}</strong> {truckName(formData.requiredTruckType)}</div>
                 <div><strong>{t('shipments.labels.schedule')}</strong> {formData.loadingDate} - {formData.loadingTime}</div>
-                <div><strong>{t('shipments.labels.proposedPrice')}</strong> {t('common.money', { amount: formData.proposedPrice })}</div>
+                <div><strong>{t('shipments.labels.proposedPrice')}</strong> {t('common.money', { amount: displayAmount(formData.proposedPrice) })}</div>
               </div>
               <div style={{ marginTop: 24, padding: 16, backgroundColor: 'rgba(15, 36, 64, 0.05)', borderRadius: 8 }}>
                 <p style={{ margin: 0, fontWeight: 'bold' }}>{t('shipments.create.afterTitle')}</p>
@@ -337,7 +338,7 @@ export const CreateShipment = () => {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span className="text-helper">{t('shipments.price')}</span>
-                <strong>{formData.proposedPrice ? t('common.money', { amount: formData.proposedPrice }) : '-'}</strong>
+                <strong>{formData.proposedPrice ? t('common.money', { amount: displayAmount(formData.proposedPrice) }) : '-'}</strong>
               </div>
             </div>
           </Card>

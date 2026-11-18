@@ -8,7 +8,7 @@ import { TopUpUnavailable } from '../../components/wallet/TopUpUnavailable';
 import { walletService, authService } from '../../services/api';
 import { TransactionType } from '../../constants/enums';
 import { Loader } from '../../components/common/Loader';
-import { formatDateTime, formatMoney } from '../../utils/format';
+import { formatDateTime, formatMoney, displayAmount } from '../../utils/format';
 import { transactionDescription } from '../../utils/transactions';
 import { useT } from '../../i18n';
 
@@ -69,9 +69,9 @@ export const CarrierWallet = () => {
         { key: 'id', header: t('wallet.columns.id'), render: (tx) => <strong>{tx.id}</strong> },
         { key: 'type', header: t('wallet.columns.type'), render: (tx) => (TRANSACTION_TYPES.includes(tx.type) ? t(`wallet.tx.carrier.${tx.type}`) : tx.type) },
         { key: 'amount', header: t('wallet.columns.amount'), render: (tx) => (tx.amount === 0 && tx.withheld
-            ? <span className="text-helper">{t('wallet.withheldFromDue', { amount: tx.withheld })}</span>
+            ? <span className="text-helper">{t('wallet.withheldFromDue', { amount: displayAmount(tx.withheld) })}</span>
             : <span style={{ color: tx.amount >= 0 ? 'var(--color-success)' : 'var(--color-error)' }} dir="ltr">
-        {tx.amount > 0 ? '+' : ''}{t('common.money', { amount: tx.amount })}
+        {tx.amount > 0 ? '+' : ''}{t('common.money', { amount: displayAmount(tx.amount) })}
       </span>) },
         { key: 'date', header: t('common.date'), render: (tx) => <span dir="ltr">{formatDateTime(tx.timestamp)}</span> },
         { key: 'desc', header: t('wallet.columns.description'), render: (tx) => transactionDescription(tx.description) },
@@ -99,7 +99,7 @@ export const CarrierWallet = () => {
           <TopUpUnavailable tone="dark" style={{ marginTop: 12 }} />
           {outstandingDebt > 0 && (
             <p style={{ color: '#ffb4b4', fontSize: 13, marginTop: 12 }}>
-              {t('wallet.debtNotice', { amount: outstandingDebt })}
+              {t('wallet.debtNotice', { amount: displayAmount(outstandingDebt) })}
             </p>
           )}
         </Card>

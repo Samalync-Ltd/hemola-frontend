@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { displayAmount } from '../../utils/format';
 import { createPortal } from 'react-dom';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
@@ -103,7 +104,7 @@ export const WithdrawModal = ({ isOpen, onClose, onCompleted, currentBalance, sa
                     <div style={{ marginBottom: 16, padding: '12px', backgroundColor: 'var(--color-surface)', borderRadius: '8px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span style={{ color: 'var(--color-text-muted)' }}>{t('wallet.withdrawModal.availableLabel')}</span>
-                            <span style={{ fontWeight: 'bold' }} dir="ltr">{t('common.money', { amount: currentBalance })}</span>
+                            <span style={{ fontWeight: 'bold' }} dir="ltr">{t('common.money', { amount: displayAmount(currentBalance) })}</span>
                         </div>
                     </div>
 

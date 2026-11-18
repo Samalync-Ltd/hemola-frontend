@@ -47,6 +47,12 @@ export const formatClock = (value, { seconds = true } = {}) => {
 export const formatAmount = (amount) =>
     Number(amount || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
+/**
+ * An amount inside a text: English always "1,200" (as in the mobile app:
+ * "1,200 SAR"); Arabic exactly as that screen has always shown it.
+ */
+export const displayAmount = (amount) => (getLanguage() === 'ar' ? amount : formatAmount(amount));
+
 /** 1800 -> «1,800 ر.س» / "1,800 SAR" — formatAmount with the currency. */
 export const formatMoney = (amount) => t('common.money', { amount: formatAmount(amount) });
 

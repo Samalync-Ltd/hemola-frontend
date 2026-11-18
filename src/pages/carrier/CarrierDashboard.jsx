@@ -12,7 +12,7 @@ import { WithdrawModal } from '../../components/wallet/WithdrawModal';
 import { Loader } from '../../components/common/Loader';
 import { isShipmentForCarrier, carrierBlockReason } from '../../utils/carrierEligibility';
 import { CarrierBlockNotice } from '../../components/carrier/CarrierBlockNotice';
-import { formatDateTime, formatMoney, formatRoute, formatWeight } from '../../utils/format';
+import { formatDateTime, formatMoney, formatRoute, formatWeight, displayAmount } from '../../utils/format';
 import { useT } from '../../i18n';
 import { useNames } from '../../i18n/catalog';
 
@@ -78,7 +78,7 @@ export const CarrierDashboard = () => {
         { key: 'route', header: t('shipments.columns.route'), render: (s) => formatRoute(s.pickupCity, s.deliveryCity) },
         { key: 'cargo', header: t('shipments.cargo'), render: (s) => `${cargoName(s)} (${formatWeight(s.weight)})` },
         { key: 'date', header: t('common.date'), render: (s) => formatDateTime(s.loadingDate) },
-        { key: 'price', header: t('shipments.price'), render: (s) => <span dir="ltr">{t('common.money', { amount: s.proposedPrice })}</span> },
+        { key: 'price', header: t('shipments.price'), render: (s) => <span dir="ltr">{t('common.money', { amount: displayAmount(s.proposedPrice) })}</span> },
         {
             key: 'actions',
             header: t('common.action'),

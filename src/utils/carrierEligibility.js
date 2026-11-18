@@ -9,6 +9,7 @@
 // truck capacity (TRUCK_CAPACITY_TOO_LOW) against shipment weight.
 
 import { ShipmentStatus } from '../constants/enums';
+import { displayAmount } from './format';
 import { t } from '../i18n';
 import { truckTypeName } from '../i18n/catalog';
 
@@ -51,7 +52,7 @@ export const carrierBlockReason = (carrier) => {
     if (carrier.isSuspended) return t('shipments.carrier.block.suspended');
     if (carrier.isBusy) return t('shipments.carrier.block.busy');
     if ((carrier.outstandingDebt ?? 0) > 0) {
-        return t('shipments.carrier.block.debt', { amount: carrier.outstandingDebt });
+        return t('shipments.carrier.block.debt', { amount: displayAmount(carrier.outstandingDebt) });
     }
     return null;
 };

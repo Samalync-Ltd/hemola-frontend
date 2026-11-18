@@ -6,7 +6,7 @@ import { DataTable } from '../../components/common/DataTable';
 import { TopUpUnavailable } from '../../components/wallet/TopUpUnavailable';
 import { TransactionType } from '../../constants/enums';
 import { Loader } from '../../components/common/Loader';
-import { formatDateTime, formatMoney } from '../../utils/format';
+import { formatDateTime, formatMoney, displayAmount } from '../../utils/format';
 import { useT } from '../../i18n';
 
 // Withdrawals are carrier-only (INTEGRATION.md §12 requestWithdrawal), so a
@@ -52,9 +52,9 @@ export const WalletPage = () => {
         { key: 'id', header: t('wallet.columns.id'), render: (tx) => <strong>{tx.id}</strong> },
         { key: 'type', header: t('wallet.columns.type'), render: (tx) => (TRANSACTION_TYPES.includes(tx.type) ? t(`wallet.tx.shipper.${tx.type}`) : tx.type) },
         { key: 'amount', header: t('wallet.columns.amount'), render: (tx) => (tx.amount === 0 && tx.withheld
-            ? <span className="text-helper">{t('wallet.withheldFromDue', { amount: tx.withheld })}</span>
+            ? <span className="text-helper">{t('wallet.withheldFromDue', { amount: displayAmount(tx.withheld) })}</span>
             : <span style={{ color: tx.amount >= 0 ? 'var(--color-success)' : 'var(--color-error)' }} dir="ltr">
-        {tx.amount > 0 ? '+' : ''}{t('common.money', { amount: tx.amount })}
+        {tx.amount > 0 ? '+' : ''}{t('common.money', { amount: displayAmount(tx.amount) })}
       </span>) },
         { key: 'date', header: t('common.date'), render: (tx) => <span dir="ltr">{formatDateTime(tx.timestamp)}</span> },
         { key: 'ref', header: t('wallet.columns.reference'), render: (tx) => tx.referenceId || '-' }

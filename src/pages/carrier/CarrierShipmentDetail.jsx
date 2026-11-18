@@ -13,7 +13,7 @@ import { MapThumbnail } from '../../components/map/MapThumbnail';
 import { toUserMessage } from '../../utils/errors';
 import { useT } from '../../i18n';
 import { useNames } from '../../i18n/catalog';
-import { formatDateTime, formatWeight } from '../../utils/format';
+import { formatDateTime, formatWeight, displayAmount } from '../../utils/format';
 import { Loader } from '../../components/common/Loader';
 
 export const CarrierShipmentDetail = ({ user }) => {
@@ -106,7 +106,7 @@ export const CarrierShipmentDetail = ({ user }) => {
     // NOT make an offer accept it (INTEGRATION.md §12) — so this sends an
     // offer at that price and the shipper confirms it with one click.
     const handleAcceptPostedPrice = async () => {
-        if (!window.confirm(t('shipments.carrier.confirmPostedPrice', { amount: shipment.proposedPrice }))) return;
+        if (!window.confirm(t('shipments.carrier.confirmPostedPrice', { amount: displayAmount(shipment.proposedPrice) }))) return;
         setSubmitError('');
         setIsAccepting(true);
         try {
@@ -289,7 +289,7 @@ export const CarrierShipmentDetail = ({ user }) => {
                                     disabled={blocked || isSubmitting}
                                     style={{ width: '100%', marginBottom: 16 }}
                                 >
-                                    {t('shipments.carrier.offerPostedPrice', { amount: shipment.proposedPrice })}
+                                    {t('shipments.carrier.offerPostedPrice', { amount: displayAmount(shipment.proposedPrice) })}
                                 </Button>
 
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0', color: 'var(--color-text-muted)', fontSize: 13 }}>
