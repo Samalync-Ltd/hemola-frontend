@@ -49,7 +49,8 @@ export const CreateShipment = () => {
     // Re-read on opening, so a change the admin just made is already here.
     const catalog = useCatalog();
     useEffect(() => { loadCatalog({ refresh: true }); }, []);
-    const cargoOptions = catalog.cargoTypes || [];
+    // A cargo type the admin switched off (active: false) isn't offered.
+    const cargoOptions = (catalog.cargoTypes || []).filter(item => item.active !== false);
     const truckOptions = TRUCK_TYPE_OPTIONS.filter(isTruckTypeActive);
     const selectedCargo = cargoOptions.find(item => item.id === formData.cargoType);
     const steps = STEP_KEYS.map(key => t(`shipments.create.steps.${key}`));
