@@ -56,7 +56,8 @@ export const CreateShipment = () => {
 
     useEffect(() => {
         catalogService.getCargoTypes()
-            .then(items => setCargoOptions(items || []))
+            // A type the admin switched off (active: false) isn't offered.
+            .then(items => setCargoOptions((items || []).filter(item => item.active !== false)))
             .catch(() => setCargoOptions([]));
         catalogService.getTruckTypeOverrides()
             .then(overrides => {
